@@ -23,7 +23,10 @@ class BrandAssetContractTests(unittest.TestCase):
         self.assertEqual(root.tag, "{http://www.w3.org/2000/svg}svg")
         self.assertNotIn("<script", source.lower())
         self.assertNotIn("foreignobject", source.lower())
-        self.assertNotRegex(source, r'https?://')
+        for element in root.iter():
+            for attribute, value in element.attrib.items():
+                if attribute.endswith("href"):
+                    self.assertFalse(value.startswith(("http://", "https://")))
         return root, source
 
     def test_primary_logo_has_approved_oversized_arabic_wordmark(self) -> None:
