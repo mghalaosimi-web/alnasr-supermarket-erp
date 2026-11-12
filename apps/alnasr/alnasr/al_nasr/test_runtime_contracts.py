@@ -53,10 +53,11 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
             self.assertTrue(callable(endpoint))
 
     def test_alnasr_brand_metadata_is_registered(self):
-        hooks = frappe.get_hooks(app_name="alnasr")
-        self.assertEqual(hooks.get("app_title"), "النصر | AL-NASR")
-        self.assertEqual(hooks.get("app_color"), "#0F2537")
+        from alnasr import hooks
+
+        self.assertEqual(hooks.app_title, "النصر | AL-NASR")
+        self.assertEqual(hooks.app_color, "#0F2537")
         self.assertEqual(
-            hooks.get("app_logo_url"),
+            hooks.app_logo_url,
             "/assets/alnasr/images/alnasr-logo.svg",
         )
