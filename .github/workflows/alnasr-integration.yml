@@ -93,8 +93,14 @@ jobs:
           cd "$BENCH_DIR"
           bench get-app "file://$GITHUB_WORKSPACE/apps/erpnext"
           bench get-app "file://$GITHUB_WORKSPACE/apps/xpos"
-          bench get-app "file://$GITHUB_WORKSPACE/apps/alnasr"
 
+          # AL-NASR is a package inside this monorepo, not a standalone Git repository.
+          # Link the package into Bench and install it editable without creating a fake Git repo.
+          ln -s "$GITHUB_WORKSPACE/apps/alnasr" "$BENCH_DIR/apps/alnasr"
+          "$BENCH_DIR/env/bin/pip" install --no-deps -e "$GITHUB_WORKSPACE/apps/alnasr"
+
+          test -L apps/alnasr
+          test -f apps/alnasr/pyproject.toml
           test "$(git -C apps/frappe rev-parse HEAD)" = "49789a1711d4dde2be9c6888efe35651465f4b64"
           test "$(git -C apps/erpnext rev-parse HEAD)" = "8e10a348daaa93853de8c36dc55ec789a440c219"
           test "$(git -C apps/xpos rev-parse HEAD)" = "3668fca6ffcab737347d4d223ac93f5d74aa90b3"
