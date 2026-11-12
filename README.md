@@ -37,6 +37,18 @@ AL-NASR is an independently branded supermarket and retail-management product fo
 
 The upstream source revisions are pinned in [UPSTREAM-LOCK.md](docs/architecture/UPSTREAM-LOCK.md). This is an engineering baseline under verification, not a declaration that every feature is already implemented or production-ready.
 
+### Get the pinned source tree
+
+Clone with submodules enabled so Frappe, ERPNext, and X POS are checked out at the exact commits recorded by this repository:
+
+```bash
+git clone --recurse-submodules https://github.com/mghalaosimi-web/alnasr-supermarket-erp.git
+cd alnasr-supermarket-erp
+bash scripts/bootstrap-upstream.sh
+```
+
+If the repository was cloned without submodules, the bootstrap script initializes them and verifies all three immutable revisions. The upstream projects remain separate Git repositories; AL-NASR-specific code stays in `apps/alnasr`.
+
 ## Architecture principles
 
 1. Keep ERPNext core unmodified; implement AL-NASR-specific behavior in custom Frappe apps and supported extension points.
