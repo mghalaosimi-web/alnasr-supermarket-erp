@@ -18,6 +18,7 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
         super().setUp()
         self.load_test_records("Stock Entry")
         self.load_test_records("Item")
+        self.load_test_records("Item Price")
         self.load_test_records("Customer")
 
         frappe.set_user("Administrator")
@@ -41,17 +42,25 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
         if not frappe.db.exists("Customer", self.customer):
             frappe.throw("ERPNext test fixture _Test Customer is missing.")
 
-        self.price = frappe.db.get_value(
+        price_name = frappe.db.get_value(
             "Item Price",
             {
                 "item_code": "_Test Item",
                 "price_list": self.profile.selling_price_list,
                 "selling": 1,
             },
-            "price_list_rate",
+            "name",
         )
-        if not self.price:
+        if not price_name:
             frappe.throw("ERPNext test fixture price for _Test Item is missing.")
+
+        # ERPNext's stock fixture price is dated in 2017; make it valid for this test run.
+        price_doc = frappe.get_doc("Item Price", price_name)
+        price_doc.valid_from = None
+        price_doc.valid_upto = None
+        price_doc.price_list_rate = 100
+        price_doc.save(ignore_permissions=True)
+        self.price = price_doc.price_list_rate
 
         self.uom = frappe.db.get_value("Item", "_Test Item", "stock_uom")
         frappe.set_user(self.cashier.name)
