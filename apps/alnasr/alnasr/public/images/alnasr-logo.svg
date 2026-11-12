@@ -6,7 +6,7 @@
       .navy { fill: #0F2537; }
       .burgundy { fill: #4A0E17; }
       .gold { fill: #C5A059; }
-      .word { font-family: Cairo, "Reem Kufi", sans-serif; font-size: 135px; font-weight: 900; letter-spacing: -2px; text-anchor: middle; }
+      .word { font-family: Cairo, "Reem Kufi", sans-serif; font-size: 165px; font-weight: 900; letter-spacing: -2px; text-anchor: middle; }
       .sub { font-family: Cairo, sans-serif; font-size: 42px; font-weight: 800; text-anchor: middle; }
       .owner { font-family: Cairo, sans-serif; font-size: 26px; font-weight: 700; text-anchor: middle; }
     </style>
@@ -65,10 +65,10 @@
 
   <!-- Arabic wordmark with layered burgundy and antique-gold outlines -->
   <g id="main-wordmark" transform="translate(0 15)">
-    <text x="400" y="455" class="word" fill="none" stroke="#4A0E17" stroke-width="15" stroke-linejoin="round" paint-order="stroke fill">النصر</text>
-    <text x="400" y="455" class="word" fill="none" stroke="#C5A059" stroke-width="10" stroke-linejoin="round" paint-order="stroke fill">النصر</text>
-    <text x="400" y="455" class="word navy">النصر</text>
+    <text x="400" y="485" class="word" fill="none" stroke="#4A0E17" stroke-width="18" stroke-linejoin="round" paint-order="stroke fill">النصر</text>
+    <text x="400" y="485" class="word" fill="none" stroke="#C5A059" stroke-width="12" stroke-linejoin="round" paint-order="stroke fill">النصر</text>
+    <text x="400" y="485" class="word navy">النصر</text>
   </g>
-  <text x="400" y="555" class="sub gold">سوبر ماركت</text>
-  <text x="400" y="625" class="owner navy">نصر عثمان العصيمي</text>
+  <text x="400" y="585" class="sub gold">سوبر ماركت</text>
+  <text x="400" y="655" class="owner navy">نصر عثمان العصيمي</text>
 </svg>
