@@ -4,8 +4,8 @@
 |---|---|---|
 | Brand source assets | SVG XML validity, approved palette, required Arabic labels, wordmark hierarchy, accessible title | Source contract tests passed in clean CI; browser/font/print rendering still not run |
 | Clean install | Reproducible Frappe/ERPNext v16 install | Passed on pinned commits in disposable MariaDB CI; Bench, all apps, migrations and HTTP ping verified |
-| Custom app runtime contracts | Installed app list, standard ERPNext DocTypes, X POS operational DocTypes, API imports and app metadata | Tests added; new Frappe test gate pending CI result |
-| Catalog | UOM conversions, variants, multiple barcodes, price lists | Not run |
+| Custom app runtime contracts | Installed app list, standard ERPNext DocTypes, X POS operational DocTypes, API imports and app metadata | Passed: 5 Frappe-native tests in [run #43329925389](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43329925389) |
+| X POS upstream frontend/backend contracts | Offline queue, invoice retry/idempotency and shift unit tests | Added to latest CI; result pending |\n| Catalog | UOM conversions, variants, multiple barcodes, price lists | Not run |
 | POS | Checkout, split tender, discounts, receipt | Not run |
 | Shifts | Open, cash movements, close, variance | Not run |
 | Returns | Partial/full returns, refund and stock/accounting effects | Not run |
