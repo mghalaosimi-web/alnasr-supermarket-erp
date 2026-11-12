@@ -16,7 +16,8 @@
 ## Workstream A — source and runtime foundation
 
 - [x] Resolve immutable Frappe v16.56.0 and ERPNext v16.55.0 commits; ERPNext's declared Frappe minimum is satisfied by the selected Frappe revision.
-- [x] Resolve and verify the immutable X POS v16.2.13.4 commit object.\n- [ ] Verify its install hooks and runtime dependencies in a clean Bench.
+- [x] Resolve and verify the immutable X POS v16.2.13.4 commit object.
+- [ ] Verify its install hooks and runtime dependencies in a clean Bench.
 - [x] Link Frappe, ERPNext, and X POS as pinned Git submodules; recursively check out and verify all three exact SHAs in GitHub Actions.
 - [ ] Build a clean Bench using Python 3.14 and Node.js 24 or the exact upstream-supported versions.
 - [ ] Install Frappe, ERPNext, X POS, and the AL-NASR app on a disposable test site.
