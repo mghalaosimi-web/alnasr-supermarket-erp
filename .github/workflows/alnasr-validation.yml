@@ -45,6 +45,9 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q apps/alnasr/alnasr
 
+      - name: Run standard-library brand asset contract tests
+        run: python -m unittest discover -s apps/alnasr/tests -v
+
       - name: Build source and wheel distributions
         working-directory: apps/alnasr
         run: |
