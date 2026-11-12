@@ -16,12 +16,12 @@
 ## Workstream A — source and runtime foundation
 
 - [x] Resolve immutable Frappe v16.56.0 and ERPNext v16.55.0 commits; ERPNext's declared Frappe minimum is satisfied by the selected Frappe revision.
-- [ ] Verify the selected X POS v16 commit and its install hooks/dependencies.
-- [ ] Import source using a provenance-preserving Git method; do not publish a partial source snapshot as a complete import.
+- [x] Resolve and verify the immutable X POS v16.2.13.4 commit object.\n- [ ] Verify its install hooks and runtime dependencies in a clean Bench.
+- [x] Link Frappe, ERPNext, and X POS as pinned Git submodules; recursively check out and verify all three exact SHAs in GitHub Actions.
 - [ ] Build a clean Bench using Python 3.14 and Node.js 24 or the exact upstream-supported versions.
 - [ ] Install Frappe, ERPNext, X POS, and the AL-NASR app on a disposable test site.
 - [ ] Run migrations and record exact commands, versions, and logs.
-- [x] Verify GitHub Actions on the current branch head; run #19 passed metadata validation, Python compilation, package builds, and diff checks. A duplicate run #20 was still finalizing when this roadmap update was prepared.
+- [x] Verify GitHub Actions on the current branch head; run [#87](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43294988607) passed recursive submodule checkout, exact-SHA checks, metadata validation, Python compilation, SVG contract tests, package builds, and diff checks.
 
 **Exit gate:** A clean, reproducible installation from documented immutable revisions with successful migrations.
 
