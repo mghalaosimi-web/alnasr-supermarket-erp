@@ -24,7 +24,7 @@
 - [x] Verify installed app names, import the Frappe framework, and receive a successful HTTP ping.
 - [x] Source validation and clean runtime integration passed on commit `891786162d696d9a54c892e66b3270b226300c1d`.
 - [x] Run the Frappe-native AL-NASR runtime contract suite: all 5 tests passed in [PR runtime run #43329925389](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43329925389).
-- [ ] Run the expanded X POS frontend unit suite and targeted backend invoice-retry/shift tests added to CI; latest run is pending.
+- [x] Run expanded X POS suites: 449 frontend tests across 24 files, 1 backend invoice-retry/idempotency test, and 25 backend shift tests passed in [runtime run #43330277075](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43330277075).
 - [ ] Add business-level transaction tests for POS sale, return, stock and GL reconciliation.
 
 **Exit gate:** Clean install/migrate/HTTP gate passed. The remaining source/runtime gate is the newly added app contract suite plus business-level integration tests.
@@ -95,7 +95,9 @@ Test these failure modes separately:
 - Exact source locks: Frappe `49789a1711d4dde2be9c6888efe35651465f4b64` (16.56.0), ERPNext `8e10a348daaa93853de8c36dc55ec789a440c219` (16.55.0), X POS `3668fca6ffcab737347d4d223ac93f5d74aa90b3` (2.13.4).
 - Clean source validation passed on commit `891786162d696d9a54c892e66b3270b226300c1d` in [run #43327483463](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43327483463).
 - Clean runtime integration passed on the same commit in [run #43327483473](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43327483473): X POS assets built; disposable site created; ERPNext, X POS and AL-NASR installed; migrations completed; installed apps and Frappe HTTP ping verified.
-- The Frappe-native AL-NASR runtime contract suite passed all 5 tests in [PR run #43329925389](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43329925389): installed apps, standard ERPNext DocTypes, X POS operational DocTypes, API imports and AL-NASR brand metadata. The newer workflow also adds X POS frontend unit tests and targeted backend invoice-retry/shift tests; those expanded checks are pending.
+- The Frappe-native AL-NASR runtime contract suite passed all 5 tests in [PR run #43329925389](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43329925389): installed apps, standard ERPNext DocTypes, X POS operational DocTypes, API imports and AL-NASR brand metadata.
+- Expanded X POS tests passed in [runtime run #43330277075](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43330277075): 449 frontend unit tests across 24 files; one backend idempotent invoice-retry test; and 25 backend shift tests. The frontend suite includes offline queue (12), offline receipt storage (6), offline sale (7), durable invoice submission (5), payment processing (24), and shift management (21) test cases.
+- These are unit/contract tests, not a complete browser-to-database sale, device restart, LAN outage, hardware, or financial reconciliation acceptance test.
 - X POS source inspection confirms an IndexedDB-backed offline queue, stable local sale identity and server-side duplicate detection/fingerprint checks. This is source-level evidence only; no AL-NASR offline recovery or device failure test has passed.
 - No end-to-end sale/return/purchase, stock valuation, GL reconciliation, real hardware, Arabic receipt, multi-terminal LAN, backup/restore or production test has passed.
 - The primary SVG wordmark source is contract-tested at 165 px with 18 px burgundy outer and 12 px antique-gold inner outlines. Browser rendering, Arabic font shaping, vector-path conversion and print checks remain open.
