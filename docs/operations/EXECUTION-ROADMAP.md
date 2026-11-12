@@ -1,7 +1,7 @@
 # AL-NASR execution roadmap and release gates
 
-**Owner:** AL-NASR / Nasr Othman Abdullah Al-Aosimi
-**Current phase:** Foundation and source integration
+**Owner:** AL-NASR / Nasr Othman Abdullah Al-Aosimi  
+**Current phase:** Foundation and source integration  
 **Status:** Active planning baseline; tasks are not complete merely because they are listed here.
 
 ## Delivery principles
@@ -17,12 +17,13 @@
 
 - [x] Resolve immutable Frappe v16.56.0 and ERPNext v16.55.0 commits; ERPNext's declared Frappe minimum is satisfied by the selected Frappe revision.
 - [x] Resolve and verify the immutable X POS v2.13.4 commit object.
-- [ ] Verify its install hooks and runtime dependencies in a clean Bench.
+- [ ] Verify X POS install hooks and runtime dependencies in a clean Bench.
 - [x] Link Frappe, ERPNext, and X POS as pinned Git submodules; recursively check out and verify all three exact SHAs in GitHub Actions.
-- [ ] Build a clean Bench using Python 3.14 and Node.js 24 or the exact upstream-supported versions.
-- [ ] Install Frappe, ERPNext, X POS, and the AL-NASR app on a disposable test site.
-- [ ] Run migrations and record exact commands, versions, and logs.
-- [x] Verify GitHub Actions on commit `a475ea63dd3cb73d0a27a372e6c1a0b5c0669d99`; run [#94](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43295257507) passed recursive submodule checkout, exact-SHA checks, metadata validation, Python compilation, SVG contract tests, package builds, and diff checks.
+- [x] Initialize a clean Bench from the pinned local Frappe source in disposable CI.
+- [ ] Add the monorepo AL-NASR package to Bench and complete app installation; the first attempt exposed a Git-repository assumption and the corrected workflow is running.
+- [ ] Create a disposable site, install apps, run migrations, and verify HTTP health.
+- [x] Source/package validation passed on previous head in run [#100](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43296072126).
+- [ ] Re-run source validation after the current workflow correction in [#102](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43297298964).
 
 **Exit gate:** A clean, reproducible installation from documented immutable revisions with successful migrations.
 
@@ -92,10 +93,10 @@ Test these failure modes separately:
 - The custom app scaffold, brand assets, and architecture documentation are on branch `foundation/alnasr-custom-app`.
 - Immutable source revisions are recorded: Frappe `49789a1711d4dde2be9c6888efe35651465f4b64` (16.56.0), ERPNext `8e10a348daaa93853de8c36dc55ec789a440c219` (16.55.0), and X POS `3668fca6ffcab737347d4d223ac93f5d74aa90b3` (2.13.4). These revisions are selected but not yet installed together.
 - Draft PR #1 is open against `main`; it remains unmerged.
-- Frappe, ERPNext, and X POS are linked at their immutable upstream commits as Git submodules under `apps/frappe`, `apps/erpnext`, and `apps/xpos`. GitHub Actions run [#94](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43295257507) passed recursive checkout and exact-SHA verification on commit `a475ea63dd3cb73d0a27a372e6c1a0b5c0669d99`. This verifies source retrieval and provenance pins, not Bench installation or runtime integration.
-- No Bench installation, migration, business workflow, hardware, offline, or backup/restore test has been executed.
+- The first disposable runtime attempt initialized Bench successfully but failed when Bench treated the monorepo app directory as a standalone Git repository. The workflow has been corrected to symlink the package and install it editable; runtime attempt [#2](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43297299228) is pending.
+- Source validation run [#100](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43296072126) passed on the previous head. Run [#102](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43297298964) is running against the current correction commit.
+- No site installation, migration, business workflow, hardware, offline, or backup/restore test has yet passed.
 - The primary SVG wordmark is source-verified at 165 px with an 18 px burgundy outer outline and 12 px antique-gold inner outline. Browser rendering, Arabic font shaping, vector-path conversion, and print checks remain pending.
-- Source-level tests now parse all three SVG assets, enforce the approved palette and required Arabic labels, and check accessible titles. GitHub Actions run [#51](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43294049722) passed on commit `6d739da550113f3698b5d7e4b45e062401c1e05e`, including metadata validation, Python compilation, brand asset tests, package builds, and diff whitespace checks. This validates source/package contracts only; it is not a Frappe/ERPNext runtime or business-workflow test.
 
 ## Release policy
 
