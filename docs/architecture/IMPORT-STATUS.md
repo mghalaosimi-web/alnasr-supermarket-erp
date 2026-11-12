@@ -52,7 +52,7 @@ The parent repository records each exact upstream commit as a gitlink. A recursi
 4. Do not patch upstream submodule files; maintain AL-NASR behavior in `apps/alnasr` and supported extension points.
 5. Verify submodule status after clone and before any Bench installation.
 
-**Submodule checkout verified:** GitHub Actions run [#74](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43294639712) completed successfully on commit `c693c9c4858f2d9257939dbd9c3d4c3cb12b38cd`. The workflow performed a recursive checkout, ran the bootstrap verifier, and confirmed all three exact upstream SHAs. This proves source checkout and pin integrity, not runtime installation or business integration.
+**Submodule checkout verified:** GitHub Actions run [#82](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43294838936) completed successfully on the current commit `4abbad312484dc2795933ef5028a5410d406e51e`. The workflow performed a recursive checkout, ran the bootstrap verifier, and confirmed all three exact upstream SHAs. This proves source checkout and pin integrity, not runtime installation or business integration.
 
 ## Next required operation
 
