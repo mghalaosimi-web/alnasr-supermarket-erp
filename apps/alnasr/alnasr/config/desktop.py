@@ -6,9 +6,11 @@ def get_data():
         {
             "module_name": "AL-NASR",
             "type": "module",
-            "label": _("AL-NASR"),
-            "color": "blue",
+            "label": _("النصر | AL-NASR"),
+            "color": "green",
             "icon": "octicon octicon-shop",
-            "description": _("Supermarket and retail operations"),
+            "description": _(
+                "نظام متكامل لإدارة السوبرماركت وتجارة التجزئة والجملة"
+            ),
         }
     ]

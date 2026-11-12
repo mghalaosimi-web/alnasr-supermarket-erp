@@ -1,14 +1,30 @@
 # AL-NASR product requirements baseline
 
-**Status:** Initial scope baseline; requirements need owner validation before production.
-**Product:** النصر | AL-NASR
+**Status:** Initial scope baseline; requirements need owner validation before production.  
+**Product:** النصر | AL-NASR  
 **Business owner:** نصر عثمان عبدالله العصيمي
 
 ## 1. Product objective
 
-Deliver a reliable supermarket and retail management system that supports small-item retail through wholesale operations, with Arabic-first usability, barcode-based checkout, auditable stock and accounting, and resilient local-network operation.
+Deliver a reliable, Arabic-first supermarket and retail management system under the **النصر | AL-NASR** identity. The system must support small-item retail through wholesale operations, barcode-based checkout, auditable stock and accounting, and resilient local-network operation.
 
-## 2. Functional domains
+## 2. Product description
+
+**Arabic:** النصر نظام متكامل لإدارة السوبرماركت وتجارة التجزئة والجملة، يجمع المبيعات ونقاط البيع والمشتريات والمخزون والموردين والعملاء والحسابات والتقارير في منظومة واحدة مترابطة، مع واجهة عربية تدعم اتجاه الكتابة من اليمين إلى اليسار، وإمكانية استخدام اللغة الإنجليزية.
+
+**English:** AL-NASR is an integrated supermarket, retail, and wholesale management system that connects point of sale, sales, purchasing, inventory, suppliers, customers, accounting, and operational reporting in one auditable platform, with Arabic RTL and English LTR interfaces.
+
+## 3. Brand and interface requirements
+
+- Use the product name consistently as **النصر | AL-NASR** in AL-NASR-owned UI surfaces.
+- Use the approved AL-NASR logo assets and palette; do not substitute ERPNext or X POS logos on AL-NASR-owned screens.
+- Arabic is the default experience and must use correct RTL layout, alignment, navigation, numbers, and form behavior.
+- English must remain available with correct LTR behavior.
+- Apply the same identity to app launcher, navigation, login/landing surfaces, dashboards, POS, receipts, invoices, quotations, purchase documents, reports, exports, email templates, and desktop packaging where those surfaces are owned or safely extensible.
+- Preserve third-party product identity and legal notices where required; do not remove upstream copyright or license attribution.
+- Do not globally replace ERPNext branding through a broad hook until the impact on all installed apps and supported screens has been reviewed.
+
+## 4. Functional domains
 
 ### Catalog and pricing
 - Hierarchical item groups and categories.
@@ -55,7 +71,7 @@ Deliver a reliable supermarket and retail management system that supports small-
 - Responsive tablet/phone access.
 - Import/export templates with validation and error reports.
 
-## 3. Non-functional requirements
+## 5. Non-functional requirements
 
 - No silent loss or duplication of sales during retry or synchronization.
 - Idempotency keys for transaction synchronization.
@@ -66,7 +82,7 @@ Deliver a reliable supermarket and retail management system that supports small-
 - Timezone, currency, tax and rounding rules must be configured for the actual business jurisdiction before go-live.
 - Backups must be encrypted, access-controlled and restore-tested.
 
-## 4. Release gates
+## 6. Release gates
 
 1. Confirm business workflows, units, taxes, currency, branches, warehouses and payment methods with the owner.
 2. Complete upstream source import and license inventory.
@@ -76,7 +92,8 @@ Deliver a reliable supermarket and retail management system that supports small-
 6. Validate actual barcode scanners, receipt printers, cash drawers and any weighing scales.
 7. Run user acceptance testing with representative products and synthetic data.
 8. Complete backup/restore, security and operational readiness review before live data.
+9. Complete the brand implementation matrix for every supported AL-NASR-owned surface.
 
-## 5. Explicitly not claimed as complete
+## 7. Explicitly not claimed as complete
 
 This baseline is not a delivered ERP, POS, mobile application, or production deployment. It records the intended scope and acceptance gates only.

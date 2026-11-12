@@ -2,7 +2,19 @@
 
 **نظام متكامل لإدارة السوبرماركت وتجارة التجزئة والجملة**
 
-AL-NASR is an independently branded supermarket and retail management product. The repository will contain the AL-NASR custom application, integration code, deployment configuration, documentation, and verified upstream components.
+**AL-NASR — Integrated Supermarket, Retail & Wholesale Management System**
+
+AL-NASR is an independently branded supermarket and retail-management product for **نصر عثمان عبدالله العصيمي**. Its Arabic-first experience is designed for supermarket operations from small-item retail to wholesale workflows.
+
+## Product identity
+
+- **Arabic name:** النصر
+- **English name:** AL-NASR
+- **Owner:** نصر عثمان عبدالله العصيمي
+- **Product description:** نظام متكامل لإدارة السوبرماركت وتجارة التجزئة والجملة.
+- **Languages:** Arabic RTL first, with English LTR support.
+- **Brand assets and usage:** [Brand guidelines](docs/brand/BRAND-GUIDELINES.md).
+- **Branding coverage and remaining work:** [Brand implementation matrix](docs/brand/BRAND-IMPLEMENTATION-MATRIX.md).
 
 ## Product scope
 
@@ -19,13 +31,11 @@ AL-NASR is an independently branded supermarket and retail management product. T
 
 ## Intended technical foundation
 
-The current candidate foundation is:
-
 - **ERPNext / Frappe v16** for ERP, inventory, purchasing, accounting, users, permissions, and APIs.
-- **X POS v16** as the current POS candidate because its version-16 branch documents Electron desktop operation, local data storage, offline selling, and a hub-and-spoke multi-terminal mode.
-- **AL-NASR custom Frappe app** for supermarket-specific workflows, Arabic product experience, configuration, integrations, and branding.
+- **X POS v16** as the selected POS candidate for evaluation.
+- **AL-NASR custom Frappe app** for supermarket-specific workflows, configuration, integrations, Arabic product experience, and original branding.
 
-This is an engineering baseline under verification, not a declaration that every feature is already implemented or production-ready. The exact upstream revisions and compatibility matrix will be pinned before deployment.
+The upstream source revisions are pinned in [UPSTREAM-LOCK.md](docs/architecture/UPSTREAM-LOCK.md). This is an engineering baseline under verification, not a declaration that every feature is already implemented or production-ready.
 
 ## Architecture principles
 
@@ -35,24 +45,24 @@ This is an engineering baseline under verification, not a declaration that every
 4. Do not treat browser offline caching as equivalent to multi-terminal LAN synchronization.
 5. Never silently discard queued offline sales; use idempotent synchronization, conflict review, and audit trails.
 6. No production secrets, customer data, credentials, or database dumps belong in this repository.
+7. Do not claim complete rebranding until every owned surface in the brand implementation matrix has passed visual and functional review.
 
 ## Repository status
 
-**Status: Foundation evaluation / not production-ready.**
+**Status: Foundation and initial brand assets / not production-ready.**
 
-- Repository initialized.
-- ERPNext v16 and POS candidates are being checked for compatibility and operational fit.
-- No live store data or production credentials are stored here.
+- Repository initialized and custom Frappe app scaffold created.
+- Initial AL-NASR brand wordmark, mark, favicon, and brand documentation added.
+- Custom app metadata is branded; full ERPNext/X POS screen, receipt, email, login, and desktop-client branding remains to be integrated and tested.
 - Installation, offline recovery, LAN multi-terminal synchronization, mobile behavior, barcode hardware, thermal printing, and accounting flows require integration tests before release.
 
 ## Upstream references
 
 - [ERPNext](https://github.com/frappe/erpnext) — GNU GPL v3.0
-- [X POS](https://github.com/kodlyft/xpos) — MIT License; candidate branch: version-16
-- [Original POS Awesome](https://github.com/ucraft-com/POS-Awesome) — GNU GPL v3.0; its README advertises ERPNext v14, so it is not the default v16 choice.
-
-See [docs/architecture/BASELINE.md](docs/architecture/BASELINE.md) for the initial platform decision and known limitations.
+- [Frappe Framework](https://github.com/frappe/frappe) — MIT License
+- [X POS](https://github.com/kodlyft/xpos) — MIT License; selected candidate branch: version-16
+- [Original POS Awesome](https://github.com/ucraft-com/POS-Awesome) — GNU GPL v3.0; not the default v16 choice.
 
 ## License and attribution
 
-This repository may contain components under different licenses. Their upstream LICENSE files, copyright notices, and attribution requirements must be preserved. Do not assume that the entire repository is covered by one license until the component and distribution model has been reviewed.
+This repository may contain components under different licenses. Preserve all upstream LICENSE files, copyright notices, and attribution requirements. Do not assume that the entire repository is covered by one license until the component and distribution model has been reviewed.

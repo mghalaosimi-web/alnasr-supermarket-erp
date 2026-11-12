@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">AL-NASR mark</title>
+  <rect x="4" y="4" width="120" height="120" rx="27" fill="#174A3A"/>
+  <path d="M29 48h70l-8 48H37l-8-48Z" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M41 47 54 27M87 47 74 27" fill="none" stroke="#C49A45" stroke-width="7" stroke-linecap="round"/>
+  <path d="M49 61v23M64 61v23M79 61v23" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+  <path d="M55 104h18" stroke="#C49A45" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="99" cy="27" r="7" fill="#C49A45"/>
+</svg>
