@@ -18,6 +18,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Initialize and verify pinned upstream submodules
+        run: bash scripts/bootstrap-upstream.sh
 
       - name: Set up Python
         uses: actions/setup-python@v5
