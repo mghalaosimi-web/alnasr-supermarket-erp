@@ -2,11 +2,11 @@
 
 **Status:** Candidate pins recorded; not yet imported or installed in this repository.
 
-| Component | Candidate source | Candidate revision | Status |
-|---|---|---|---|
-| Frappe Framework | https://github.com/frappe/frappe | `version-16` branch | Branch is moving; resolve to an immutable commit before deployment |
-| ERPNext | https://github.com/frappe/erpnext | `version-16` branch | Branch is moving; resolve to an immutable commit before deployment |
-| X POS | https://github.com/kodlyft/xpos | `version-16`, commit `3668fca6ffcab737347d4d223ac93f5d74aa90b3` | Candidate pinned revision; source import and integration tests not completed |
+| Component | Source | Immutable revision | Upstream version/date | Status |
+|---|---|---|---|---|
+| Frappe Framework | https://github.com/frappe/frappe | `49789a1711d4dde2be9c6888efe35651465f4b64` | 16.56.0 · 2026-11-10 | Resolved from `version-16` branch tip; not installed in AL-NASR |
+| ERPNext | https://github.com/frappe/erpnext | `8e10a348daaa93853de8c36dc55ec789a440c219` | 16.55.0 · 2026-11-12 | Resolved from `version-16` branch tip; requires Frappe >=16.55.0 |
+| X POS | https://github.com/kodlyft/xpos | `3668fca6ffcab737347d4d223ac93f5d74aa90b3` | 2.13.4 · 2026-11-10 | Resolved from `version-16` branch tip; source import and integration tests not completed |
 
 ## Runtime and Bench dependency metadata
 
