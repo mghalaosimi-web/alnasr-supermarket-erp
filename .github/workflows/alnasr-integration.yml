@@ -1,0 +1,183 @@
+name: AL-NASR runtime integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".gitmodules"
+      - "apps/alnasr/**"
+      - "apps/frappe"
+      - "apps/erpnext"
+      - "apps/xpos"
+      - "scripts/bootstrap-upstream.sh"
+      - ".github/workflows/alnasr-integration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frappe-v16-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    env:
+      MARIADB_ROOT_PASSWORD: root
+      FRAPPE_ADMIN_PASSWORD: alnasr-ci-only
+
+    steps:
+      - name: Check out repository with pinned upstream source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify immutable upstream revisions
+        run: bash scripts/bootstrap-upstream.sh
+
+      - name: Install system libraries and local Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libmariadb-dev libmariadb-dev-compat pkg-config \
+            libffi-dev libssl-dev libxml2-dev libxslt1-dev \
+            libjpeg-dev zlib1g-dev libcairo2-dev libpango1.0-dev \
+            libgdk-pixbuf-2.0-dev shared-mime-info redis-server
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Yarn and Frappe Bench CLI
+        run: |
+          npm install --global yarn@1.22.22
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          uv tool install frappe-bench --python "$(command -v python)"
+          bench --version
+          python --version
+          node --version
+          yarn --version
+
+      - name: Initialize a clean Bench from the pinned local Frappe checkout
+        run: |
+          BENCH_DIR="$RUNNER_TEMP/alnasr-bench"
+          bench init \
+            --frappe-path "$GITHUB_WORKSPACE/apps/frappe" \
+            --clone-without-update \
+            --python "$(command -v python)" \
+            "$BENCH_DIR"
+          echo "BENCH_DIR=$BENCH_DIR" >> "$GITHUB_ENV"
+
+      - name: Add ERPNext, X POS, and AL-NASR from local pinned checkouts
+        run: |
+          cd "$BENCH_DIR"
+          bench get-app "file://$GITHUB_WORKSPACE/apps/erpnext"
+          bench get-app "file://$GITHUB_WORKSPACE/apps/xpos"
+          bench get-app "file://$GITHUB_WORKSPACE/apps/alnasr"
+
+          test "$(git -C apps/frappe rev-parse HEAD)" = "49789a1711d4dde2be9c6888efe35651465f4b64"
+          test "$(git -C apps/erpnext rev-parse HEAD)" = "8e10a348daaa93853de8c36dc55ec789a440c219"
+          test "$(git -C apps/xpos rev-parse HEAD)" = "3668fca6ffcab737347d4d223ac93f5d74aa90b3"
+
+      - name: Build X POS frontend and Frappe assets
+        run: |
+          cd "$BENCH_DIR/apps/xpos"
+          yarn build
+          cd "$BENCH_DIR"
+          bench build
+
+      - name: Start Bench services and wait for Redis
+        run: |
+          cd "$BENCH_DIR"
+          nohup bench start > "$RUNNER_TEMP/alnasr-bench.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/alnasr-bench.pid"
+
+          for port in 11000 12000 13000; do
+            ready=0
+            for attempt in $(seq 1 30); do
+              if nc -z 127.0.0.1 "$port"; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$ready" -ne 1 ]; then
+              cat "$RUNNER_TEMP/alnasr-bench.log"
+              echo "Redis service on port $port did not become ready." >&2
+              exit 1
+            fi
+          done
+
+      - name: Create disposable MariaDB site
+        run: |
+          cd "$BENCH_DIR"
+          bench new-site alnasr.localhost \
+            --db-host 127.0.0.1 \
+            --db-port 3306 \
+            --db-root-username root \
+            --db-root-password "$MARIADB_ROOT_PASSWORD" \
+            --admin-password "$FRAPPE_ADMIN_PASSWORD"
+
+      - name: Install ERPNext, X POS, and AL-NASR
+        run: |
+          cd "$BENCH_DIR"
+          bench --site alnasr.localhost install-app erpnext
+          bench --site alnasr.localhost install-app xpos
+          bench --site alnasr.localhost install-app alnasr
+          bench --site alnasr.localhost migrate
+          bench --site alnasr.localhost list-apps
+
+      - name: Verify installed apps and HTTP health
+        run: |
+          cd "$BENCH_DIR"
+          APP_LIST="$(bench --site alnasr.localhost list-apps)"
+          printf '%s\n' "$APP_LIST"
+          for app in frappe erpnext xpos alnasr; do
+            printf '%s\n' "$APP_LIST" | grep -Eq "^\\s*\\*?\\s*${app}\\s*$" || {
+              echo "Expected app is missing from site: $app" >&2
+              exit 1
+            }
+          done
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent \
+              -H "Host: alnasr.localhost" \
+              http://127.0.0.1:8000/api/method/ping; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat "$RUNNER_TEMP/alnasr-bench.log"
+          echo "Frappe HTTP health endpoint did not respond." >&2
+          exit 1
+
+      - name: Upload Bench logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alnasr-bench-failure-logs
+          path: |
+            ${{ runner.temp }}/alnasr-bench.log
+            ${{ runner.temp }}/alnasr-bench/logs/
+          if-no-files-found: ignore
