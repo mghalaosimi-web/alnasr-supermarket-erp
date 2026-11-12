@@ -3,15 +3,16 @@
 **Review date:** 2026-11-12  
 **Target repository:** `mghalaosimi-web/alnasr-supermarket-erp`  
 **Development branch:** `foundation/alnasr-custom-app`  
-**Verified branch commit:** `a475ea63dd3cb73d0a27a372e6c1a0b5c0669d99`
+**Latest reviewed commit:** `ed8c9e737e451f41171c47e3fcfaf8ca3f78428d`
 
 ## Confirmed repository state
 
 - The AL-NASR repository is public; do not commit secrets, real store data, customer records, invoices, or database dumps.
 - Frappe, ERPNext, and X POS are configured as recursive Git submodules under the conventional `apps/` paths.
 - The parent repository records immutable upstream gitlinks; this preserves each upstream repository's provenance and history. It is not a copied source snapshot or a fork.
-- The custom AL-NASR Frappe app is maintained separately at `apps/alnasr`.
-- No Bench installation, site creation, migrations, or end-to-end retail workflow has yet been verified.
+- The custom AL-NASR Frappe app is a Python package inside this monorepo at `apps/alnasr`; it is not an independent Git repository.
+- Bench initialization from the pinned local Frappe source has succeeded in CI. The first integration attempt then failed because `bench get-app` expected the monorepo package path to be a Git repository. The workflow was corrected to symlink the package into the disposable Bench and install it editable.
+- The corrected integration run is pending. Site creation, migrations, and app runtime have not yet been verified.
 
 ## Pinned upstream revisions
 
@@ -24,11 +25,19 @@
 
 The exact SHA values are pinned by the parent repository's submodule entries and checked by `scripts/bootstrap-upstream.sh`.
 
-## Source checkout verification
+## Source checkout and validation
 
-- GitHub Actions run [#94](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43295257507) completed successfully on commit `a475ea63dd3cb73d0a27a372e6c1a0b5c0669d99`.
+- Source validation run [#100](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43296072126) passed on commit `773de827cba56f4ef8111dbe3511bcb48d476403`.
 - The run passed recursive checkout, exact upstream SHA verification, custom-app metadata validation, Python compilation, SVG contract tests, source/wheel package builds, and `git diff --check`.
-- This proves that CI can retrieve the pinned source trees and that the custom app passes the listed source/package checks. It does **not** prove that Bench can install the apps or that the applications run together.
+- The latest source validation run [#102](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43297298964) is running against the workflow correction commit `ed8c9e737e451f41171c47e3fcfaf8ca3f78428d`.
+- These checks prove source retrieval and package-level contracts only; they do not prove successful site installation or business workflows.
+
+## Runtime integration attempts
+
+- Runtime attempt [#1](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43296072340) successfully checked out the pinned sources, installed system prerequisites, set up Python 3.14 and Node.js 24, installed Bench, and initialized a clean Bench from local Frappe.
+- That attempt failed when `bench get-app file://.../apps/alnasr` raised `InvalidGitRepositoryError`: the custom app is inside the parent monorepo, not a standalone Git repository. It did not create a site or run migrations.
+- The integration workflow now links `apps/alnasr` into the disposable Bench and installs it editable with the Bench virtual environment's pip, without inventing a nested Git repository.
+- Corrected runtime attempt [#2](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43297299228) is running. The app-add step, build, site creation, migrations, and HTTP health check are not yet confirmed.
 
 ## Import and modification policy
 
@@ -37,21 +46,20 @@ The exact SHA values are pinned by the parent repository's submodule entries and
 3. Implement AL-NASR behavior in `apps/alnasr` and supported extension points.
 4. Do not duplicate standard ERPNext DocTypes for items, warehouses, stock ledger, sales/purchase invoices, suppliers, customers, payments, or general ledger.
 5. Keep local databases, caches, build outputs, secrets, credentials, and live business data out of Git.
-6. Do not describe submodule linking or CI source checkout as a completed runtime installation.
+6. Do not describe submodule linking, Bench initialization, or source validation as a completed runtime installation.
 
 ## Next required operation
 
-Build a disposable integration environment using the Frappe v16 system prerequisites, then:
+Complete the corrected disposable integration workflow:
 
-1. Initialize a clean Bench using the pinned local Frappe source.
-2. Add ERPNext, X POS, and AL-NASR from their local repository paths without changing their pinned commits.
-3. Create a disposable MariaDB-backed test site.
-4. Install the apps in dependency order and record any failures, missing dependencies, hooks, or build issues.
-5. Run migrations only on that disposable site.
-6. Verify the site boots, the Desk loads, and the installed app list and versions match the pinned baseline.
-7. Continue to POS, inventory, accounting, permissions, RTL, and device-level acceptance tests only after the install gate passes.
-
-Frappe's current v16 installation guide specifies Python 3.14, Node.js 24, MariaDB 11.8, Redis 6+, Yarn 1.22+, and pip 25.3+; confirm the exact runner packages and service health before implementing the integration workflow.
+1. Add ERPNext and X POS from their pinned local Git checkouts.
+2. Link and install the monorepo AL-NASR package into Bench's virtual environment.
+3. Build X POS and Frappe assets.
+4. Create a disposable MariaDB-backed test site.
+5. Install the apps in dependency order and record any failures, missing dependencies, hooks, or build issues.
+6. Run migrations only on that disposable site.
+7. Verify the site boots, the Desk loads, and the installed app list and versions match the pinned baseline.
+8. Continue to POS, inventory, accounting, permissions, RTL, and device-level acceptance tests only after the install gate passes.
 
 ## Current release boundary
 
