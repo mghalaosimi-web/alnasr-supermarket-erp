@@ -183,7 +183,7 @@ jobs:
           # Frappe is the framework, not an installed site application.
           # Validate installed apps separately and import the framework directly.
           for app in erpnext xpos alnasr; do
-            if ! printf '%s\n' "$APP_LIST" | grep -Fxq "$app"; then
+            if ! printf '%s\\n' "$APP_LIST" | awk -v expected="$app" '$1 == expected { found=1 } END { exit !found }'; then
               echo "Expected site app is missing: $app" >&2
               exit 1
             fi
