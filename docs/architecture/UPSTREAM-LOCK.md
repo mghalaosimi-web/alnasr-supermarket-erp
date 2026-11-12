@@ -1,12 +1,12 @@
 # AL-NASR upstream source lock
 
-**Status:** Candidate pins recorded; not yet imported or installed in this repository.
+**Status:** Immutable upstream revisions verified; submodule integration is being added. Runtime installation remains unverified.
 
 | Component | Source | Immutable revision | Upstream version/date | Status |
 |---|---|---|---|---|
-| Frappe Framework | https://github.com/frappe/frappe | `49789a1711d4dde2be9c6888efe35651465f4b64` | 16.56.0 · 2026-11-10 | Resolved from `version-16` branch tip; not installed in AL-NASR |
-| ERPNext | https://github.com/frappe/erpnext | `8e10a348daaa93853de8c36dc55ec789a440c219` | 16.55.0 · 2026-11-12 | Resolved from `version-16` branch tip; requires Frappe >=16.55.0 |
-| X POS | https://github.com/kodlyft/xpos | `3668fca6ffcab737347d4d223ac93f5d74aa90b3` | 2.13.4 · 2026-11-10 | Resolved from `version-16` branch tip; source import and integration tests not completed |
+| Frappe Framework | https://github.com/frappe/frappe | `49789a1711d4dde2be9c6888efe35651465f4b64` | 16.56.0 · 2026-11-10 | Verified commit; pinned as `apps/frappe` submodule; runtime install pending |
+| ERPNext | https://github.com/frappe/erpnext | `8e10a348daaa93853de8c36dc55ec789a440c219` | 16.55.0 · 2026-11-12 | Verified commit; pinned as `apps/erpnext` submodule; requires Frappe >=16.55.0 |
+| X POS | https://github.com/kodlyft/xpos | `3668fca6ffcab737347d4d223ac93f5d74aa90b3` | 2.13.4 · 2026-11-10 | Verified commit; pinned as `apps/xpos` submodule; runtime integration pending |
 
 ## Runtime and Bench dependency metadata
 
@@ -37,4 +37,4 @@ Do not copy a partial tree and describe it as a complete upstream import. Prefer
 
 ## Current status
 
-No ERPNext, Frappe, or X POS source tree has been imported into this repository. No runtime install, migration, POS, or hardware test has been completed.
+The three upstream commit objects have been verified and are being linked through pinned Git submodules to preserve provenance and upstream history. A clean recursive clone, Bench install, migration, POS, and hardware tests remain required.
