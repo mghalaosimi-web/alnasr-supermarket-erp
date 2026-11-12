@@ -1,7 +1,7 @@
 # X POS v16 fit-gap assessment for AL-NASR
 
-**Evidence source:** X POS `version-16` README at the candidate upstream revision recorded in `UPSTREAM-LOCK.md`.
-**Assessment status:** Documentation-based assessment only. No source import, installation, code review, or runtime acceptance test has been completed.
+**Evidence source:** X POS v2.13.4, commit `3668fca6ffcab737347d4d223ac93f5d74aa90b3`, checked out as a pinned submodule.
+**Assessment status:** Source inspected and installed successfully with Frappe/ERPNext in disposable CI. AL-NASR-specific runtime contract tests are being added; end-to-end retail workflows and device/offline acceptance remain open.
 
 ## Capabilities advertised by upstream
 
@@ -11,7 +11,7 @@
 | Multiple payments | Split payment across payment modes | Reuse; verify Yemen-relevant payment modes and cash rounding |
 | Draft carts | Draft invoices and multiple open orders per session | Reuse; test recovery and cashier isolation |
 | Returns | Return mode linked to original invoices and credit notes | Reuse; test partial returns, refund permissions, stock and GL |
-| Offline selling | Local pending invoice queue, cached master data, background retry | Candidate only; prove durability, idempotency, replay and reconciliation |
+| Offline selling | IndexedDB cache/queues, pending invoice and purchase sync, periodic retry, review/dead-letter states | Source inspected; candidate for controlled testing only. Browser/device durability and recovery remain unverified |
 | Pricing | Price lists, pricing rules, promotions, coupons, discounts | Reuse ERPNext/X POS; configure only owner-approved policies |
 | Customer credit | Credit limits and outstanding settlement | Reuse; validate receivables and approval controls |
 | Purchasing | Purchase orders, purchase invoices, stock receiving | Reuse only after workflow and permissions are tested |
@@ -42,3 +42,19 @@
 ## Scope boundary
 
 This assessment does not certify any upstream feature as working in AL-NASR. All upstream claims remain unverified until tested against the exact pinned revision and target deployment.
+
+## Source-level findings at the pinned revision
+
+- The browser POS has an IndexedDB-backed offline store, a pending invoice queue, cached catalog/customer/stock data, and a periodic sync cycle documented at five-minute intervals.
+- Offline sales are persisted locally before the cart is cleared. The browser submission path also persists a recovery record before sending, so a lost response can be retried with the same sale identity.
+- The server invoice API uses xpos_local_id and a request fingerprint to find an existing sale before creating another. Reuse of an ID for a different sale is rejected; an existing invoice is returned as a duplicate response.
+- Price changes during offline time can hold a sale for review rather than silently posting a different amount. Fiscalization uncertainty is held for explicit review instead of automatic blind retries.
+- X POS documents separate constraints for gift-card activity, customer-specific prices, external payment verification, and shift closing. These must be included in AL-NASR's acceptance cases.
+- Shift management uses the standard POS Opening Shift and POS Closing Shift DocTypes; the closing process summarizes invoices, taxes and payment modes. Cash variance and payment totals still need accounting-level reconciliation tests.
+- The installed source is the Web/PWA POS code path. Electron packaging and Android are separate deployment/device tracks and are not certified by the successful Bench installation.
+
+## Verified installation evidence
+
+The pinned Frappe, ERPNext, X POS and AL-NASR apps were installed together on a disposable MariaDB-backed Bench site. The workflow completed asset builds, site creation, all three app installs, migrations, installed-app verification, and the Frappe HTTP ping. See [runtime integration run #43327483473](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43327483473).
+
+This proves reproducible installation and basic HTTP readiness only. It does not prove that a completed sale, refund, stock ledger, GL posting, shift reconciliation, offline queue recovery, or physical receipt printer works correctly.
