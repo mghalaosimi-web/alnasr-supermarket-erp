@@ -1,7 +1,7 @@
 """Source-level contract tests for AL-NASR-owned SVG brand assets.
 
-These tests intentionally require only the Python standard library so they can
-run before a Frappe/ERPNext Bench is available.
+These tests use only the Python standard library and run before a Frappe Bench
+is available.
 """
 from pathlib import Path
 import re
@@ -21,8 +21,9 @@ class BrandAssetContractTests(unittest.TestCase):
         source = path.read_text(encoding="utf-8")
         root = ET.fromstring(source)
         self.assertEqual(root.tag, "{http://www.w3.org/2000/svg}svg")
-        self.assertNotRegex(source, r"<\\s*(script|foreignObject)\\b")
-        self.assertNotRegex(source, r"(?:href|src)\\s*=\\s*['\"]https?://")
+        self.assertNotIn("<script", source.lower())
+        self.assertNotIn("foreignobject", source.lower())
+        self.assertNotRegex(source, r'https?://')
         return root, source
 
     def test_primary_logo_has_approved_oversized_arabic_wordmark(self) -> None:
@@ -30,9 +31,9 @@ class BrandAssetContractTests(unittest.TestCase):
         self.assertIn("النصر", source)
         self.assertIn("سوبر ماركت", source)
         self.assertIn("نصر عثمان العصيمي", source)
-        self.assertRegex(source, r"font-size:\\s*165px")
-        self.assertRegex(source, r"stroke=\\"#4A0E17\\"\\s+stroke-width=\\"18\\"")
-        self.assertRegex(source, r"stroke=\\"#C5A059\\"\\s+stroke-width=\\"12\\"")
+        self.assertIn("font-size: 165px", source)
+        self.assertIn('stroke="#4A0E17" stroke-width="18"', source)
+        self.assertIn('stroke="#C5A059" stroke-width="12"', source)
         self.assertIn('id="main-wordmark"', source)
 
     def test_all_svg_assets_use_only_approved_brand_colors(self) -> None:
