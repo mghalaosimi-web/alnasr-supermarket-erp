@@ -1,6 +1,6 @@
 # AL-NASR upstream source lock
 
-**Status:** Immutable upstream revisions verified; submodule integration is being added. Runtime installation remains unverified.
+**Status:** Immutable upstream revisions verified and linked as Git submodules on the development branch. Runtime installation remains unverified.
 
 | Component | Source | Immutable revision | Upstream version/date | Status |
 |---|---|---|---|---|
