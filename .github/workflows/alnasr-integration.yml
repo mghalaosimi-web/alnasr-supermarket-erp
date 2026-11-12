@@ -131,6 +131,10 @@ jobs:
           cd "$BENCH_DIR"
           bench build
 
+          # Exercise the pinned POS frontend unit suite, including offline queue and invoice recovery tests.
+          cd "$BENCH_DIR/apps/xpos/frontend"
+          yarn test:run
+
       - name: Start Bench services and wait for Redis
         run: |
           cd "$BENCH_DIR"
@@ -175,6 +179,9 @@ jobs:
           bench --site alnasr.localhost migrate
           # Run AL-NASR's Frappe-native runtime contract tests against this disposable site.
           bench --site alnasr.localhost run-tests --app alnasr
+          # Verify server-side idempotent sale retry and POS shift contracts from pinned X POS.
+          bench --site alnasr.localhost run-tests --module xpos.api.tests.test_invoice_retry
+          bench --site alnasr.localhost run-tests --module xpos.api.tests.test_shifts
           bench --site alnasr.localhost list-apps
 
       - name: Verify installed apps and HTTP health
