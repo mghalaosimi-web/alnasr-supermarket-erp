@@ -180,12 +180,15 @@ jobs:
           cd "$BENCH_DIR"
           APP_LIST="$(bench --site alnasr.localhost list-apps)"
           printf '%s\n' "$APP_LIST"
-          for app in frappe erpnext xpos alnasr; do
-            printf '%s\n' "$APP_LIST" | grep -Eq "^\\s*\\*?\\s*${app}\\s*$" || {
-              echo "Expected app is missing from site: $app" >&2
+          # Frappe is the framework, not an installed site application.
+          # Validate installed apps separately and import the framework directly.
+          for app in erpnext xpos alnasr; do
+            if ! printf '%s\n' "$APP_LIST" | grep -Fxq "$app"; then
+              echo "Expected site app is missing: $app" >&2
               exit 1
-            }
+            fi
           done
+          "$BENCH_DIR/env/bin/python" -c 'import frappe; print("Frappe framework:", frappe.__version__)'
 
           for attempt in $(seq 1 30); do
             if curl --fail --silent \
