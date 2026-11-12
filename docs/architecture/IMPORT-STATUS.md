@@ -27,15 +27,36 @@ The import must:
 4. Record the upstream URL, branch, commit SHA, import date, and all AL-NASR patches.
 5. Keep upstream X POS changes separable from AL-NASR customizations.
 
-## Current execution constraint
+## Import method selected: pinned Git submodules
 
-The available GitHub integration supports individual file/blob/tree/commit operations, but does not expose a repository fork/import operation or a bulk archive push. The previous temporary Git transport environment did not have working GitHub push credentials and its compute allowance was exhausted. Therefore, attempting to reconstruct and push 894 files one by one would be error-prone and would not preserve upstream commit history.
+The three immutable upstream commits were rechecked directly against their official Git repositories on 2026-11-12 and all three commit objects resolve:
 
-**Decision:** Do not create a partial or misleading source import. Do not replace the upstream history with a fabricated snapshot. Complete the import through an authenticated Git transport or GitHub fork/import workflow, then verify the resulting tree against the pinned upstream commit.
+- Frappe: `49789a1711d4dde2be9c6888efe35651465f4b64`
+- ERPNext: `8e10a348daaa93853de8c36dc55ec789a440c219`
+- X POS: `3668fca6ffcab737347d4d223ac93f5d74aa90b3`
+
+Use Git submodules at the conventional Bench paths so each component retains its own upstream Git history and license metadata:
+
+- `apps/frappe` → `https://github.com/frappe/frappe.git`
+- `apps/erpnext` → `https://github.com/frappe/erpnext.git`
+- `apps/xpos` → `https://github.com/kodlyft/xpos.git`
+- `apps/alnasr` remains the AL-NASR-owned custom app.
+
+The parent repository records each exact upstream commit as a gitlink. A recursive clone or `git submodule update --init --recursive` materializes the source trees. The submodule pointer is not a fork and does not transfer ownership of upstream code.
+
+## Import integrity and verification
+
+1. Keep the exact immutable commit IDs in the parent repository's gitlinks.
+2. Preserve each upstream LICENSE file and commit history through the submodule relationship.
+3. Add a bootstrap verification script that checks the checked-out commit for each submodule.
+4. Do not patch upstream submodule files; maintain AL-NASR behavior in `apps/alnasr` and supported extension points.
+5. Verify submodule status after clone and before any Bench installation.
+
+**Current execution boundary:** The selected upstream commits are verified, but the gitlinks and submodule initialization have not yet been confirmed in a clean clone. A submodule pointer alone is not proof that the runtime or integration works.
 
 ## Next required operation
 
-Use an authenticated Git client with permission to push to this repository, or a GitHub fork/import workflow that can preserve upstream history. Once the source is present, continue with a clean Frappe/ERPNext v16 installation, X POS integration tests, and the AL-NASR custom app.
+Commit the three pinned submodule references and bootstrap verifier, then perform a recursive clean clone and verify each submodule SHA before building a disposable Frappe Bench.
 
 ## Public repository safety
 
