@@ -30,11 +30,11 @@ AL-NASR is a separately branded retail-management product built on Frappe and ER
 
 ## Brand assets
 
-- `alnasr-logo.svg`: horizontal bilingual wordmark.
-- `alnasr-mark.svg`: standalone symbol for compact surfaces.
-- `favicon.svg`: browser/application icon.
+- `alnasr-logo.svg`: vertical primary lockup with the falcon/shield emblem, oversized Arabic wordmark, descriptor, and owner signature.
+- `alnasr-mark.svg`: standalone falcon/shield symbol for compact surfaces.
+- `favicon.svg`: simplified browser/application icon.
 - Public asset source directory: `alnasr/public/images/`.
 
 ## Current branding coverage
 
-The custom app metadata and its module entry use the AL-NASR name and logo. This does not automatically rebrand every ERPNext, X POS, print format, login, email, report, or Electron screen. See [Brand implementation matrix](../../docs/brand/BRAND-IMPLEMENTATION-MATRIX.md) for the remaining integration work and acceptance checks.
+The custom app metadata and its module entry use the AL-NASR name, primary logo asset, and Royal Navy brand color. Runtime rendering and module-tile appearance remain unverified until installed in a Frappe site. This does not automatically rebrand every ERPNext, X POS, print format, login, email, report, or Electron screen. See [Brand implementation matrix](../../docs/brand/BRAND-IMPLEMENTATION-MATRIX.md) for the remaining integration work and acceptance checks.
