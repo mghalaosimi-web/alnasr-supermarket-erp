@@ -15,13 +15,13 @@
 
 ## Workstream A — source and runtime foundation
 
-- [ ] Resolve immutable Frappe v16 and ERPNext v16 commits that are mutually compatible.
+- [x] Resolve immutable Frappe v16.56.0 and ERPNext v16.55.0 commits; ERPNext's declared Frappe minimum is satisfied by the selected Frappe revision.
 - [ ] Verify the selected X POS v16 commit and its install hooks/dependencies.
 - [ ] Import source using a provenance-preserving Git method; do not publish a partial source snapshot as a complete import.
 - [ ] Build a clean Bench using Python 3.14 and Node.js 24 or the exact upstream-supported versions.
 - [ ] Install Frappe, ERPNext, X POS, and the AL-NASR app on a disposable test site.
 - [ ] Run migrations and record exact commands, versions, and logs.
-- [ ] Verify the GitHub Actions workflow on the branch and resolve failures.
+- [x] Verify GitHub Actions on the current branch head; run #19 passed metadata validation, Python compilation, package builds, and diff checks. A duplicate run #20 was still finalizing when this roadmap update was prepared.
 
 **Exit gate:** A clean, reproducible installation from documented immutable revisions with successful migrations.
 
@@ -89,6 +89,7 @@ Test these failure modes separately:
 ## Current verified state
 
 - A custom app scaffold and architecture documentation exist on branch `foundation/alnasr-custom-app`.
+- Immutable source revisions are recorded: Frappe `49789a1711d4dde2be9c6888efe35651465f4b64` (16.56.0), ERPNext `8e10a348daaa93853de8c36dc55ec789a440c219` (16.55.0), and X POS `3668fca6ffcab737347d4d223ac93f5d74aa90b3` (2.13.4). These revisions are selected but not yet installed together.
 - Draft PR #1 is open against `main`.
 - No ERPNext/Frappe/X POS upstream source has been imported into this repository.
 - No Bench installation, migration, business workflow, hardware, offline, or backup/restore test has been executed.
