@@ -41,7 +41,7 @@ These four colors are the approved logo palette. Do not silently reintroduce the
 
 ## 4. Typography hierarchy
 
-1. **النصر** — dominant Arabic wordmark; heavy geometric Arabic sans/Kufi style, navy fill, antique-gold inner outline and burgundy outer outline.
+1. **النصر** — oversized, dominant Arabic wordmark; 165 px in the current 800-unit master SVG, heavy geometric Arabic sans/Kufi style, navy fill, antique-gold inner outline (12 px) and burgundy outer outline (18 px). The wordmark must visually dominate the descriptor and owner signature.
 2. **سوبر ماركت** — directly below the main wordmark, smaller and medium/heavy weight in antique gold.
 3. **نصر عثمان العصيمي** — at the lower baseline in a clear, calm navy Arabic sans.
 
