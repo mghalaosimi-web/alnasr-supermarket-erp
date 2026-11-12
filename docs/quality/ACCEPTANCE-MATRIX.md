@@ -2,7 +2,8 @@
 
 | Area | Required evidence | Status |
 |---|---|---|
-| Brand source assets | SVG XML validity, approved palette, required Arabic labels, wordmark hierarchy, accessible title | Source contract tests added; GitHub Actions run #51 passed; browser/font/print rendering still not run |\n| Clean install | Reproducible Frappe/ERPNext v16 install | Not run |
+| Brand source assets | SVG XML validity, approved palette, required Arabic labels, wordmark hierarchy, accessible title | Source contract tests added; GitHub Actions run #51 passed; browser/font/print rendering still not run |
+| Clean install | Reproducible Frappe/ERPNext v16 install | Not run |
 | Custom app | Install, migrate, uninstall/rollback behavior | Scaffold only |
 | Catalog | UOM conversions, variants, multiple barcodes, price lists | Not run |
 | POS | Checkout, split tender, discounts, receipt | Not run |
