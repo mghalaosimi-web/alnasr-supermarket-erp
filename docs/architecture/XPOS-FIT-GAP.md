@@ -23,9 +23,9 @@
 
 ## Deployment recommendation
 
-1. Start with the supported web deployment on the store LAN.
-2. Evaluate installable PWA behavior on the actual cashier devices.
-3. Do not make Electron desktop or Hub & Spoke a launch dependency: the README itself warns that the desktop app is under development and not production-ready.
+1. Evaluate both Web/PWA and Electron deployment on the actual cashier devices; the upstream README advertises both, but neither is certified for AL-NASR until acceptance tests pass.
+2. Test Electron packaging, installation, updates, local persistence, hardware access, and recovery separately from browser/PWA behavior.
+3. Evaluate Hub & Spoke only after confirming the topology, sync protocol, conflict handling, and recovery behavior in the exact pinned revision.
 4. Treat Android XPOS Mobile as a separate integration and release track; verify its source, distribution, authentication, supported operations, and API compatibility before adopting it.
 5. Test offline behavior with at least three distinct failure cases: internet unavailable while LAN/server remain available; store LAN/server unavailable; device power loss while transactions are queued. These are not equivalent failure modes.
 
