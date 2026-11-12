@@ -7,7 +7,7 @@
 |---|---|---|---|
 | Repository and project documentation | النصر | AL-NASR name and full product description | Implemented in docs | Review README and product baseline |
 | Brand guidelines and color tokens | Falcon/shield symbol; navy, burgundy, antique gold, white | Approved direction documented | Owner approval recorded in brand guidelines |
-| Primary logo artwork | Vertical lockup: emblem, النصر, سوبر ماركت, نصر عثمان العصيمي | SVG source updated; font rendering and vector-path conversion pending | Render in browser; inspect Arabic shaping, spacing, and outlines |
+| Primary logo artwork | Vertical lockup: emblem, oversized dominant النصر wordmark, smaller سوبر ماركت descriptor, quiet نصر عثمان العصيمي signature | SVG source updated; font rendering and vector-path conversion pending | Render in browser; inspect Arabic shaping, spacing, and outlines |
 | Standalone emblem | Falcon in ن-inspired shield, wings, pillars, star and diamond | SVG source updated; optical-size review pending | Inspect at 16, 24, 32, 64, and 128 px |
 | Favicon | Simplified high-contrast emblem | SVG source updated; browser/runtime registration pending | Inspect browser tab and shortcut |
 | Frappe app metadata | Arabic/English title, description, publisher, logo URL, icon, color | Implemented in custom app hooks; runtime unverified | Inspect installed app metadata |
