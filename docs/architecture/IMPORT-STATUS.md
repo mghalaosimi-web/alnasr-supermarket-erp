@@ -2,62 +2,57 @@
 
 **Review date:** 2026-11-12  
 **Target repository:** `mghalaosimi-web/alnasr-supermarket-erp`  
-**Selected upstream:** `kodlyft/xpos`  
-**Upstream ref:** `version-16`  
-**Pinned commit:** `3668fca6ffcab737347d4d223ac93f5d74aa90b3`
+**Development branch:** `foundation/alnasr-custom-app`  
+**Verified branch commit:** `a475ea63dd3cb73d0a27a372e6c1a0b5c0669d99`
 
 ## Confirmed repository state
 
-- AL-NASR repository visibility is **public**.
-- Default branch is `main`.
-- GitHub reports write/admin permission for the connected account.
-- The repository currently contains the AL-NASR bootstrap documentation and ignore rules only; the X POS source has **not** been imported.
-- No customer, sales, employee, supplier, or other live store data has been committed.
+- The AL-NASR repository is public; do not commit secrets, real store data, customer records, invoices, or database dumps.
+- Frappe, ERPNext, and X POS are configured as recursive Git submodules under the conventional `apps/` paths.
+- The parent repository records immutable upstream gitlinks; this preserves each upstream repository's provenance and history. It is not a copied source snapshot or a fork.
+- The custom AL-NASR Frappe app is maintained separately at `apps/alnasr`.
+- No Bench installation, site creation, migrations, or end-to-end retail workflow has yet been verified.
 
-## Upstream tree inventory
+## Pinned upstream revisions
 
-The pinned X POS commit exposes a recursive Git tree containing 1,050 entries: 894 files and 156 directories. This is a substantial source import, not a small collection of files.
+| Component | Upstream | Branch / version | Pinned commit | Repository path |
+|---|---|---|---|---|
+| Frappe Framework | `frappe/frappe` | v16.56.0 | `49789a1711d4dde2be9c6888efe35651465f4b64` | `apps/frappe` |
+| ERPNext | `frappe/erpnext` | v16.55.0 | `8e10a348daaa93853de8c36dc55ec789a440c219` | `apps/erpnext` |
+| X POS | `kodlyft/xpos` | version-16 / 2.13.4 | `3668fca6ffcab737347d4d223ac93f5d74aa90b3` | `apps/xpos` |
+| AL-NASR | this repository | custom app 0.1.0 | branch-owned source | `apps/alnasr` |
 
-## Import integrity requirements
+The exact SHA values are pinned by the parent repository's submodule entries and checked by `scripts/bootstrap-upstream.sh`.
 
-The import must:
-1. Preserve the exact upstream commit identity and, preferably, the upstream Git history.
-2. Retain the complete MIT LICENSE and upstream copyright notices.
-3. Avoid copying build outputs, caches, local databases, credentials, or environment files.
-4. Record the upstream URL, branch, commit SHA, import date, and all AL-NASR patches.
-5. Keep upstream X POS changes separable from AL-NASR customizations.
+## Source checkout verification
 
-## Import method selected: pinned Git submodules
+- GitHub Actions run [#94](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43295257507) completed successfully on commit `a475ea63dd3cb73d0a27a372e6c1a0b5c0669d99`.
+- The run passed recursive checkout, exact upstream SHA verification, custom-app metadata validation, Python compilation, SVG contract tests, source/wheel package builds, and `git diff --check`.
+- This proves that CI can retrieve the pinned source trees and that the custom app passes the listed source/package checks. It does **not** prove that Bench can install the apps or that the applications run together.
 
-The three immutable upstream commits were rechecked directly against their official Git repositories on 2026-11-12 and all three commit objects resolve:
+## Import and modification policy
 
-- Frappe: `49789a1711d4dde2be9c6888efe35651465f4b64`
-- ERPNext: `8e10a348daaa93853de8c36dc55ec789a440c219`
-- X POS: `3668fca6ffcab737347d4d223ac93f5d74aa90b3`
-
-Use Git submodules at the conventional Bench paths so each component retains its own upstream Git history and license metadata:
-
-- `apps/frappe` → `https://github.com/frappe/frappe.git`
-- `apps/erpnext` → `https://github.com/frappe/erpnext.git`
-- `apps/xpos` → `https://github.com/kodlyft/xpos.git`
-- `apps/alnasr` remains the AL-NASR-owned custom app.
-
-The parent repository records each exact upstream commit as a gitlink. A recursive clone or `git submodule update --init --recursive` materializes the source trees. The submodule pointer is not a fork and does not transfer ownership of upstream code.
-
-## Import integrity and verification
-
-1. Keep the exact immutable commit IDs in the parent repository's gitlinks.
-2. Preserve each upstream LICENSE file and commit history through the submodule relationship.
-3. Add a bootstrap verification script that checks the checked-out commit for each submodule.
-4. Do not patch upstream submodule files; maintain AL-NASR behavior in `apps/alnasr` and supported extension points.
-5. Verify submodule status after clone and before any Bench installation.
-
-**Submodule checkout verified:** GitHub Actions run [#82](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43294838936) completed successfully on the current commit `4abbad312484dc2795933ef5028a5410d406e51e`. The workflow performed a recursive checkout, ran the bootstrap verifier, and confirmed all three exact upstream SHAs. This proves source checkout and pin integrity, not runtime installation or business integration.
+1. Preserve upstream Git history, immutable commit IDs, license files, and copyright notices.
+2. Do not patch files inside the Frappe, ERPNext, or X POS submodules.
+3. Implement AL-NASR behavior in `apps/alnasr` and supported extension points.
+4. Do not duplicate standard ERPNext DocTypes for items, warehouses, stock ledger, sales/purchase invoices, suppliers, customers, payments, or general ledger.
+5. Keep local databases, caches, build outputs, secrets, credentials, and live business data out of Git.
+6. Do not describe submodule linking or CI source checkout as a completed runtime installation.
 
 ## Next required operation
 
-Complete the recursive-submodule CI verification, then perform a local clean clone and verify each submodule SHA before building a disposable Frappe Bench.
+Build a disposable integration environment using the Frappe v16 system prerequisites, then:
 
-## Public repository safety
+1. Initialize a clean Bench using the pinned local Frappe source.
+2. Add ERPNext, X POS, and AL-NASR from their local repository paths without changing their pinned commits.
+3. Create a disposable MariaDB-backed test site.
+4. Install the apps in dependency order and record any failures, missing dependencies, hooks, or build issues.
+5. Run migrations only on that disposable site.
+6. Verify the site boots, the Desk loads, and the installed app list and versions match the pinned baseline.
+7. Continue to POS, inventory, accounting, permissions, RTL, and device-level acceptance tests only after the install gate passes.
 
-Because this repository is public, commit only source code, public documentation, sanitized examples, and non-sensitive configuration templates. Keep all secrets in deployment environment variables or a secrets manager. Never commit production database dumps, customer records, real invoices, or backup archives.
+Frappe's current v16 installation guide specifies Python 3.14, Node.js 24, MariaDB 11.8, Redis 6+, Yarn 1.22+, and pip 25.3+; confirm the exact runner packages and service health before implementing the integration workflow.
+
+## Current release boundary
+
+Draft PR #1 remains unmerged. Do not mark it ready for review, merge it, deploy it, or run production migrations without explicit authorization. The project is a source-integrated foundation, not a production-ready supermarket system.
