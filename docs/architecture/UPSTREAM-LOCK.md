@@ -8,15 +8,15 @@
 | ERPNext | https://github.com/frappe/erpnext | `version-16` branch | Branch is moving; resolve to an immutable commit before deployment |
 | X POS | https://github.com/kodlyft/xpos | `version-16`, commit `3668fca6ffcab737347d4d223ac93f5d74aa90b3` | Candidate pinned revision; source import and integration tests not completed |
 
-## Runtime compatibility observation
+## Runtime and Bench dependency metadata
 
-The Frappe `version-16` branch `pyproject.toml` inspected for this baseline declares:
+The Frappe `version-16` branch `pyproject.toml` inspected for this baseline declares Python `>=3.14,<3.15`. The X POS `version-16` README also lists Python >=3.14, Frappe v16, ERPNext v16, and Node.js >=24 for builds.
 
-- Python: `>=3.14,<3.15`
-- Build backend: Flit
-- Flit build requirement: `flit_core >=3.12,<4`
+The AL-NASR app therefore declares Python `>=3.14,<3.15`. Frappe and ERPNext compatibility ranges are declared under `[tool.bench.frappe-dependencies]`, not as ordinary PyPI project dependencies. The exact installed revisions must still be pinned in the deployment lock record.
 
-The AL-NASR custom app metadata must remain compatible with the exact Frappe revision selected for deployment. Re-check these values after pinning the upstream commit.
+## POS capability caveat
+
+The X POS `version-16` branch README describes a web/PWA application with offline sales queueing and synchronization. Do not assume Electron desktop or Hub & Spoke capabilities from the separate `develop` branch apply to the selected `version-16` branch. Verify capabilities against the exact pinned source and test on the target hardware/network.
 
 ## Licensing
 

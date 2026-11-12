@@ -1,5 +1,5 @@
 [build-system]
-requires = ["flit_core >=3.12,<4"]
+requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
@@ -9,6 +9,10 @@ description = "AL-NASR supermarket and retail operations extensions for Frappe"
 requires-python = ">=3.14,<3.15"
 readme = "README.md"
 dynamic = ["version"]
+
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0,<17.0.0"
+erpnext = ">=16.0.0,<17.0.0"
 
 [tool.flit.module]
 name = "alnasr"
