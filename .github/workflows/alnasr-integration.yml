@@ -101,6 +101,14 @@ jobs:
 
           test -L apps/alnasr
           test -f apps/alnasr/pyproject.toml
+
+          # Bench only installs apps registered in sites/apps.txt.
+          # A monorepo symlink does not register itself like "bench get-app" does.
+          if ! grep -qx "alnasr" sites/apps.txt; then
+            printf '\nalnasr\n' >> sites/apps.txt
+          fi
+          grep -qx "alnasr" sites/apps.txt
+
           test "$(git -C apps/frappe rev-parse HEAD)" = "49789a1711d4dde2be9c6888efe35651465f4b64"
           test "$(git -C apps/erpnext rev-parse HEAD)" = "8e10a348daaa93853de8c36dc55ec789a440c219"
           test "$(git -C apps/xpos rev-parse HEAD)" = "3668fca6ffcab737347d4d223ac93f5d74aa90b3"
