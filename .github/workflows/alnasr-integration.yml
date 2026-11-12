@@ -118,7 +118,10 @@ jobs:
           nohup bench start > "$RUNNER_TEMP/alnasr-bench.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/alnasr-bench.pid"
 
-          for port in 11000 12000 13000; do
+          # Bench v16 starts Redis queue/cache plus the Socket.IO process.
+          # The previous check incorrectly assumed a third Redis instance on 12000;
+          # this Bench configuration does not launch redis_socketio.
+          for port in 11000 13000 9000; do
             ready=0
             for attempt in $(seq 1 30); do
               if nc -z 127.0.0.1 "$port"; then
@@ -129,7 +132,7 @@ jobs:
             done
             if [ "$ready" -ne 1 ]; then
               cat "$RUNNER_TEMP/alnasr-bench.log"
-              echo "Redis service on port $port did not become ready." >&2
+              echo "Bench service on port $port did not become ready." >&2
               exit 1
             fi
           done
