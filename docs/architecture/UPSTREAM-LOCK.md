@@ -12,7 +12,7 @@
 
 The Frappe `version-16` branch `pyproject.toml` inspected for this baseline declares Python `>=3.14,<3.15`. The X POS `version-16` README also lists Python >=3.14, Frappe v16, ERPNext v16, and Node.js >=24 for builds.
 
-The AL-NASR app therefore declares Python `>=3.14,<3.15`. The inspected ERPNext v16.55.0 metadata requires Frappe `>=16.55.0`, so the AL-NASR app now sets both Bench compatibility lower bounds to `16.55.0` and upper bounds below `17.0.0`. Frappe and ERPNext compatibility ranges are declared under `[tool.bench.frappe-dependencies]`, not as ordinary PyPI project dependencies. The exact installed revisions must still be pinned in the deployment lock record.
+The AL-NASR app therefore declares Python `>=3.14,<3.15`. The inspected ERPNext v16.55.0 metadata requires Frappe `>=16.55.0`, so the AL-NASR app now sets both Bench compatibility lower bounds to `16.55.0` and upper bounds below `17.0.0`. Frappe and ERPNext compatibility ranges are declared under `[tool.bench.frappe-dependencies]`, not as ordinary PyPI project dependencies. The immutable upstream revisions are now recorded in the table above. They are source-selection pins only: none of the three repositories has yet been installed into a Bench or tested together.
 
 ## X POS branch and desktop status
 
