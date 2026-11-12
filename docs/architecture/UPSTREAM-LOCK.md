@@ -14,9 +14,11 @@ The Frappe `version-16` branch `pyproject.toml` inspected for this baseline decl
 
 The AL-NASR app therefore declares Python `>=3.14,<3.15`. Frappe and ERPNext compatibility ranges are declared under `[tool.bench.frappe-dependencies]`, not as ordinary PyPI project dependencies. The exact installed revisions must still be pinned in the deployment lock record.
 
-## POS capability caveat
+## X POS branch and desktop caveat
 
-The X POS `version-16` branch README describes a web/PWA application with offline sales queueing and synchronization. Do not assume Electron desktop or Hub & Spoke capabilities from the separate `develop` branch apply to the selected `version-16` branch. Verify capabilities against the exact pinned source and test on the target hardware/network.
+The selected `version-16` README advertises web/PWA operation and offline sales queueing. It also contains desktop/Electron feature descriptions but explicitly notes that the desktop app is under development and not ready for production. Therefore AL-NASR's initial deployment baseline is web/PWA; desktop is not a launch dependency.
+
+The separate `develop` branch is preparing XPOS v3 and is not the stable v16 maintenance branch. Do not transfer its feature claims or architecture assumptions to the selected `version-16` branch.
 
 ## Licensing
 
