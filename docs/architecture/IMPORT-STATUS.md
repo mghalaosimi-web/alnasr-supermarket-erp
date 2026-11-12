@@ -52,11 +52,11 @@ The parent repository records each exact upstream commit as a gitlink. A recursi
 4. Do not patch upstream submodule files; maintain AL-NASR behavior in `apps/alnasr` and supported extension points.
 5. Verify submodule status after clone and before any Bench installation.
 
-**Current execution boundary:** The selected upstream commits are verified, but the gitlinks and submodule initialization have not yet been confirmed in a clean clone. A submodule pointer alone is not proof that the runtime or integration works.
+**Current execution boundary:** The three gitlinks and `.gitmodules` entries are committed on `foundation/alnasr-custom-app`. The bootstrap script verifies exact checked-out SHAs, and GitHub Actions now initializes submodules recursively before running it. A successful CI run is still required to confirm the submodule checkout; this does not prove runtime installation or business integration.
 
 ## Next required operation
 
-Commit the three pinned submodule references and bootstrap verifier, then perform a recursive clean clone and verify each submodule SHA before building a disposable Frappe Bench.
+Complete the recursive-submodule CI verification, then perform a local clean clone and verify each submodule SHA before building a disposable Frappe Bench.
 
 ## Public repository safety
 
