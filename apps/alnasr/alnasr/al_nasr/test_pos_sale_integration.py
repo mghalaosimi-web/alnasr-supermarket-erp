@@ -25,6 +25,7 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
         frappe.db.set_single_value("POS Settings", "invoice_type", "Sales Invoice")
 
         self.cashier, self.profile = init_user_and_profile()
+        frappe.set_user("Administrator")
         self.profile.update_stock = 1
         self.profile.save(ignore_permissions=True)
 
@@ -53,6 +54,7 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
             frappe.throw("ERPNext test fixture price for _Test Item is missing.")
 
         self.uom = frappe.db.get_value("Item", "_Test Item", "stock_uom")
+        frappe.set_user(self.cashier.name)
         self.opening_shift = open_shift(
             pos_profile=self.profile.name,
             company=self.profile.company,
