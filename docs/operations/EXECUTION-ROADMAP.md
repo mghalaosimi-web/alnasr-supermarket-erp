@@ -92,7 +92,7 @@ Test these failure modes separately:
 - Draft PR #1 is open against `main`.
 - No ERPNext/Frappe/X POS upstream source has been imported into this repository.
 - No Bench installation, migration, business workflow, hardware, offline, or backup/restore test has been executed.
-- GitHub Actions validation workflow is committed; successful execution has not yet been observed.
+- GitHub Actions run [#6](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43272278320) passed on commit `dab47c577b0b91d03648f783a6c88eb6afde6b3a`, including metadata validation, Python compileall, package builds, and diff whitespace checks. This verifies the scaffold/package only; it is not a Frappe/ERPNext runtime or business-workflow test.
 
 ## Release policy
 
