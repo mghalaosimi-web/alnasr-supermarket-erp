@@ -57,4 +57,6 @@ This assessment does not certify any upstream feature as working in AL-NASR. All
 
 The pinned Frappe, ERPNext, X POS and AL-NASR apps were installed together on a disposable MariaDB-backed Bench site. The workflow completed asset builds, site creation, all three app installs, migrations, installed-app verification, and the Frappe HTTP ping. See [runtime integration run #43327483473](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43327483473).
 
-This proves reproducible installation and basic HTTP readiness only. It does not prove that a completed sale, refund, stock ledger, GL posting, shift reconciliation, offline queue recovery, or physical receipt printer works correctly.
+The expanded CI suite also passed 449 X POS frontend unit tests across 24 files, one backend invoice-retry/idempotency test, and 25 backend shift tests in [run #43330277075](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43330277075). Offline-focused frontend coverage includes 12 queue tests, 6 offline receipt-storage tests, 7 offline-sale tests, and 5 durable invoice-submission tests.
+
+These results validate source-level unit and contract behavior, not a completed browser-to-database sale, refund, stock ledger, GL posting, end-to-end shift reconciliation, real browser/device restart, LAN/server outage recovery, or physical receipt printer. Those acceptance gates remain open.
