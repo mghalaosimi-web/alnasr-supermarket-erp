@@ -173,6 +173,8 @@ jobs:
           bench --site alnasr.localhost install-app xpos
           bench --site alnasr.localhost install-app alnasr
           bench --site alnasr.localhost migrate
+          # Run AL-NASR's Frappe-native runtime contract tests against this disposable site.
+          bench --site alnasr.localhost run-tests --app alnasr
           bench --site alnasr.localhost list-apps
 
       - name: Verify installed apps and HTTP health
