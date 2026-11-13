@@ -25,9 +25,9 @@
 - [x] Source validation and clean runtime integration passed on commit `891786162d696d9a54c892e66b3270b226300c1d`.
 - [x] Run the Frappe-native AL-NASR runtime contract suite: all 5 tests passed in [PR runtime run #43329925389](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43329925389).
 - [x] Run expanded X POS suites: 449 frontend tests across 24 files, 1 backend invoice-retry/idempotency test, and 25 backend shift tests passed in [runtime run #43330277075](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43330277075).
-- [ ] Add business-level transaction tests for POS sale, return, stock and GL reconciliation.
+- [x] Add business-level POS sale and tax integration tests: submitted invoice, stock decrement, idempotent retry, tax-inclusive/exclusive totals and balanced GL verified in runtime run #43524108112.\n- [ ] Add dedicated partial/full X POS return and refund settlement scenarios, including stock and GL reconciliation.
 
-**Exit gate:** Clean install/migrate/HTTP gate passed. The remaining source/runtime gate is the newly added app contract suite plus business-level integration tests.
+**Exit gate:** Clean install/migrate/HTTP gate, Frappe-native app contracts, ERPNext upstream regression baseline (779 tests), POS sale/idempotency, and tax-inclusive/exclusive integration checks passed on commit `7308762c4677fd0c26d8d3c350c62dd3cb28fb94`. Dedicated return/refund workflows and broader operations acceptance remain open.
 ## Workstream B — business configuration
 
 - [ ] Company, fiscal year, currency, taxes, chart of accounts, and cost centers approved by the owner/accountant.
@@ -94,9 +94,9 @@ Test these failure modes separately:
 - Confirmed the pinned X POS v2.13.4 customization `Sales Invoice-update_outstanding_for_self-default` forces the ERPNext v16 field default to `0`, while ERPNext's upstream default is `1`.
 - The override caused the two remaining upstream Sales Invoice regressions: return GL `against_voucher` linkage and the credit note's own negative outstanding balance.
 - Added an AL-NASR `after_migrate` compatibility hook to remove only that conflicting Property Setter and assert the ERPNext default remains `1`; added a runtime contract test and documented the decision in `docs/architecture/COMPATIBILITY-OVERRIDES.md`.
-- This correction is committed on the Draft PR branch. App/source validation passed on commit `1331de4f821cf627ceba91943d45aae59d9ee2b9`; integrated runtime verification is still running. Do not mark the return-credit-note acceptance gate complete until the full integrated Sales Invoice suite passes unchanged.
+- This correction is committed on the Draft PR branch. The integrated runtime run #43524108112 passed the unchanged ERPNext Sales Invoice regression module (163 tests) and the full 779-test ERPNext baseline. This verifies the upstream credit-note regressions against the compatibility hook; dedicated X POS refund settlement scenarios remain open.
 
-## Current verified state
+## Latest verified integration — POS sale and tax\n\n- Runtime run [#43524108112](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43524108112) passed on commit `7308762c4677fd0c26d8d3c350c62dd3cb28fb94`.\n- ERPNext upstream regression baseline passed unchanged: Sales Invoice 163, Purchase Receipt 160, Purchase Invoice 111, Delivery Note 122, Stock Entry 148, Payment Entry 75 (779 total).\n- POS integration passed: a real X POS API sale submitted a Sales Invoice, reduced stock, and returned the same invoice on retry without a second stock issue.\n- Tax integration passed for both tax-inclusive and tax-exclusive POS profiles, checking invoice totals, tax flags and balanced GL.\n- The CI site was disposable MariaDB. This is not production deployment, real hardware validation, LAN/offline recovery, or full business UAT.\n\n## Current verified state
 
 - The development branch is `foundation/alnasr-custom-app`; PR #1 remains open and Draft against `main`.
 - Exact source locks: Frappe `49789a1711d4dde2be9c6888efe35651465f4b64` (16.56.0), ERPNext `8e10a348daaa93853de8c36dc55ec789a440c219` (16.55.0), X POS `3668fca6ffcab737347d4d223ac93f5d74aa90b3` (2.13.4).
