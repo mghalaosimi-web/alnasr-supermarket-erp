@@ -185,6 +185,22 @@ jobs:
           bench --site erpnext-core.localhost migrate
           bench --site erpnext-core.localhost run-tests --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
 
+      - name: Run ERPNext plus X POS Sales Invoice isolation
+        run: |
+          cd "$BENCH_DIR"
+          # A third disposable site adds X POS but deliberately excludes AL-NASR.
+          # Compare its upstream Sales Invoice behavior with ERPNext-only and full AL-NASR sites.
+          bench new-site erpnext-xpos.localhost \\
+            --db-host 127.0.0.1 \\
+            --db-port 3306 \\
+            --db-root-username root \\
+            --db-root-password "$MARIADB_ROOT_PASSWORD" \\
+            --admin-password "$FRAPPE_ADMIN_PASSWORD"
+          bench --site erpnext-xpos.localhost install-app erpnext
+          bench --site erpnext-xpos.localhost install-app xpos
+          bench --site erpnext-xpos.localhost migrate
+          bench --site erpnext-xpos.localhost run-tests --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
+
       - name: Install ERPNext, X POS, and AL-NASR
         run: |
           cd "$BENCH_DIR"
