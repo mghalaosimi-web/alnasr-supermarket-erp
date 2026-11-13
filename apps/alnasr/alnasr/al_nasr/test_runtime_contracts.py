@@ -52,6 +52,20 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
         for endpoint in (create_invoice, check_open_shift, close_shift, open_shift):
             self.assertTrue(callable(endpoint))
 
+
+    def test_erpnext_return_credit_note_default_is_preserved(self):
+        # X POS 2.13.4 ships a Property Setter forcing this field to 0,
+        # overriding ERPNext v16's default of 1 and breaking return GL links
+        # plus the credit note's own outstanding balance.
+        setter_name = "Sales Invoice-update_outstanding_for_self-default"
+        self.assertFalse(
+            frappe.db.exists("Property Setter", setter_name),
+            "X POS must not override ERPNext's return-credit-note default",
+        )
+        field = frappe.get_meta("Sales Invoice").get_field("update_outstanding_for_self")
+        self.assertIsNotNone(field)
+        self.assertEqual(str(field.default), "1")
+
     def test_alnasr_brand_metadata_is_registered(self):
         from alnasr import hooks
 
