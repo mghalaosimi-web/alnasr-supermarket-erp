@@ -207,10 +207,10 @@ jobs:
           from pathlib import Path
           path = Path("apps/xpos/xpos/x_pos/api/invoice.py")
           source = path.read_text()
-          target = "\\tapply_tax_inclusive(doc)\\n"
+          target = "\tapply_tax_inclusive(doc)\n"
           if source.count(target) != 1:
               raise SystemExit("Expected exactly one apply_tax_inclusive hook call")
-          path.write_text(source.replace(target, "# CI diagnostic: bypass apply_tax_inclusive(doc)\\n"))
+          path.write_text(source.replace(target, "# CI diagnostic: bypass apply_tax_inclusive(doc)\n"))
           PY
           bench --site erpnext-xpos.localhost run-tests --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
 
