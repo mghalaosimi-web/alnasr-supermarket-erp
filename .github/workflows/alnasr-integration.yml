@@ -170,6 +170,21 @@ jobs:
             --db-root-password "$MARIADB_ROOT_PASSWORD" \
             --admin-password "$FRAPPE_ADMIN_PASSWORD"
 
+      - name: Run isolated ERPNext-only Sales Invoice baseline
+        run: |
+          cd "$BENCH_DIR"
+          # A second disposable site excludes X POS and AL-NASR installation.
+          # This distinguishes upstream ERPNext baseline behavior from app integration effects.
+          bench new-site erpnext-core.localhost \\
+            --db-host 127.0.0.1 \\
+            --db-port 3306 \\
+            --db-root-username root \\
+            --db-root-password "$MARIADB_ROOT_PASSWORD" \\
+            --admin-password "$FRAPPE_ADMIN_PASSWORD"
+          bench --site erpnext-core.localhost install-app erpnext
+          bench --site erpnext-core.localhost migrate
+          bench --site erpnext-core.localhost run-tests --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
+
       - name: Install ERPNext, X POS, and AL-NASR
         run: |
           cd "$BENCH_DIR"
