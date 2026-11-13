@@ -183,11 +183,19 @@ jobs:
             --admin-password "$FRAPPE_ADMIN_PASSWORD"
           bench --site erpnext-core.localhost install-app erpnext
           bench --site erpnext-core.localhost migrate
+          # Run ERPNext's own regression suites against an unmodified ERPNext site.
+          # X POS intentionally changes POS tax behavior, so upstream POS fixtures
+          # must not be used as integration acceptance tests for the combined stack.
           bench --site erpnext-core.localhost run-tests --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
+          bench --site erpnext-core.localhost run-tests --module erpnext.stock.doctype.purchase_receipt.test_purchase_receipt
+          bench --site erpnext-core.localhost run-tests --module erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice
+          bench --site erpnext-core.localhost run-tests --module erpnext.stock.doctype.delivery_note.test_delivery_note
+          bench --site erpnext-core.localhost run-tests --module erpnext.stock.doctype.stock_entry.test_stock_entry
+          bench --site erpnext-core.localhost run-tests --module erpnext.accounts.doctype.payment_entry.test_payment_entry
 
-      # The former X POS-only isolation site was removed after identifying
-      # its upstream Property Setter conflict. The AL-NASR after_migrate hook
-      # reconciles the setting on the actual integrated site before regression tests.
+      # The ERPNext-only baseline validates upstream ERPNext behavior.
+      # The integrated site below validates the pinned ERPNext + X POS + AL-NASR
+      # runtime contracts without misclassifying X POS tax semantics as ERPNext regressions.
 
       - name: Install ERPNext, X POS, and AL-NASR
         run: |
@@ -197,21 +205,6 @@ jobs:
           bench --site alnasr.localhost install-app alnasr
           bench --site alnasr.localhost migrate
           bench --site alnasr.localhost list-apps
-
-      - name: Run ERPNext sales, purchasing, returns, stock, and accounting suites
-        run: |
-          cd "$BENCH_DIR"
-          # Run upstream regression suites immediately after installation/migration.
-          # AL-NASR/X POS integration tests intentionally execute afterwards because
-          # the POS invoice API commits its transaction; those tests can persist
-          # single-value settings (e.g. POS Settings.invoice_type) on this disposable
-          # site and must not contaminate upstream ERPNext regression expectations.
-          bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
-          bench --site alnasr.localhost run-tests --module erpnext.stock.doctype.purchase_receipt.test_purchase_receipt
-          bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice
-          bench --site alnasr.localhost run-tests --module erpnext.stock.doctype.delivery_note.test_delivery_note
-          bench --site alnasr.localhost run-tests --module erpnext.stock.doctype.stock_entry.test_stock_entry
-          bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.payment_entry.test_payment_entry
 
       - name: Run AL-NASR and X POS runtime contract tests
         run: |
