@@ -86,22 +86,27 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
     def test_pos_tax_inclusive_and_exclusive_sales_match_invoice_and_gl_totals(self):
         """Exercise X POS's POS Profile tax switch through real invoice submission."""
         frappe.set_user("Administrator")
-        template_name = frappe.db.get_value(
-            "Sales Taxes and Charges Template",
-            {"company": self.profile.company},
-            "name",
-        )
-        self.assertTrue(
-            template_name,
-            f"No Sales Taxes and Charges Template exists for {self.profile.company}",
-        )
-        template = frappe.get_doc("Sales Taxes and Charges Template", template_name)
-        self.assertTrue(
-            any(tax.charge_type != "Actual" for tax in template.taxes),
-            f"Tax template {template_name} has no percentage-based tax row",
-        )
+        template_name = f"ALNASR CI Tax {frappe.generate_hash(length=8)}"
+        template = frappe.get_doc(
+            {
+                "doctype": "Sales Taxes and Charges Template",
+                "title": template_name,
+                "company": self.profile.company,
+                "is_default": 0,
+                "taxes": [
+                    {
+                        "charge_type": "On Net Total",
+                        "account_head": "_Test Account VAT - _TC",
+                        "description": "AL-NASR CI VAT",
+                        "rate": 12,
+                        "cost_center": self.profile.cost_center,
+                        "included_in_print_rate": 0,
+                    }
+                ],
+            }
+        ).insert(ignore_permissions=True)
 
-        self.profile.taxes_and_charges = template_name
+        self.profile.taxes_and_charges = template.name
         self.profile.allow_partial_payment = 1
         self.profile.tax_inclusive = 0
         self.profile.save(ignore_permissions=True)
