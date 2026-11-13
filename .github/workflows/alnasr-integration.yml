@@ -223,27 +223,32 @@ jobs:
           bench --site alnasr.localhost install-app xpos
           bench --site alnasr.localhost install-app alnasr
           bench --site alnasr.localhost migrate
-          # Run AL-NASR's Frappe-native runtime contract tests against this disposable site.
-          bench --site alnasr.localhost run-tests --app alnasr
-          # Verify server-side idempotent sale retry and POS shift contracts from pinned X POS.
-          bench --site alnasr.localhost run-tests --module xpos.api.tests.test_invoice_retry
-          bench --site alnasr.localhost run-tests --module xpos.api.tests.test_shifts
           bench --site alnasr.localhost list-apps
 
       - name: Run ERPNext sales, purchasing, returns, stock, and accounting suites
         run: |
           cd "$BENCH_DIR"
-          # Run Sales Invoice first to test its POS/tax/return assertions before other ERPNext suites.
-          # Bench v16's run-tests CLI has no --verbose option; preserve the supported invocation.
+          # Run upstream regression suites immediately after installation/migration.
+          # AL-NASR/X POS integration tests intentionally execute afterwards because
+          # the POS invoice API commits its transaction; those tests can persist
+          # single-value settings (e.g. POS Settings.invoice_type) on this disposable
+          # site and must not contaminate upstream ERPNext regression expectations.
           bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
-
-          # Remaining upstream ERPNext v16 regression suites pinned by the submodule SHA.
-          # They exercise purchasing, delivery, stock ledger, and payment controllers.
           bench --site alnasr.localhost run-tests --module erpnext.stock.doctype.purchase_receipt.test_purchase_receipt
           bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice
           bench --site alnasr.localhost run-tests --module erpnext.stock.doctype.delivery_note.test_delivery_note
           bench --site alnasr.localhost run-tests --module erpnext.stock.doctype.stock_entry.test_stock_entry
           bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.payment_entry.test_payment_entry
+
+      - name: Run AL-NASR and X POS runtime contract tests
+        run: |
+          cd "$BENCH_DIR"
+          # These tests include an end-to-end POS API submission which commits its
+          # transaction. Keep them after upstream ERPNext suites to avoid global
+          # single-value setting leakage into the ERPNext regression baseline.
+          bench --site alnasr.localhost run-tests --app alnasr
+          bench --site alnasr.localhost run-tests --module xpos.api.tests.test_invoice_retry
+          bench --site alnasr.localhost run-tests --module xpos.api.tests.test_shifts
 
       - name: Verify installed apps and HTTP health
         run: |
