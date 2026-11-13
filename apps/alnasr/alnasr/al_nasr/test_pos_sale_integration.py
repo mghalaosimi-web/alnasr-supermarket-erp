@@ -1,7 +1,7 @@
 """Disposable-site integration coverage for X POS sale submission and retry safety.
 
-Uses ERPNext's own test fixtures and document controllers; no live store data is
-created and all writes are rolled back by the test runner.
+Creates isolated ERPNext master data through the standard DocType controllers;
+all writes are rolled back by the Frappe test runner.
 """
 
 import frappe
@@ -16,10 +16,6 @@ from xpos.api.shifts import open_shift
 class TestALNasrPosSaleIntegration(ERPNextTestSuite):
     def setUp(self):
         super().setUp()
-        self.load_test_records("Stock Entry")
-        self.load_test_records("Item")
-        self.load_test_records("Item Price")
-        self.load_test_records("Customer")
 
         frappe.set_user("Administrator")
         frappe.db.set_single_value("Selling Settings", "validate_selling_price", 0)
@@ -30,39 +26,52 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
         self.profile.update_stock = 1
         self.profile.save(ignore_permissions=True)
 
+        suffix = frappe.generate_hash(length=8).upper()
+        self.item_code = f"ALNASR-CI-{suffix}"
+        self.customer = f"ALNASR CI Customer {suffix}"
+
+        frappe.get_doc(
+            {
+                "doctype": "Item",
+                "item_code": self.item_code,
+                "item_name": self.item_code,
+                "item_group": "All Item Groups",
+                "stock_uom": "Nos",
+                "is_stock_item": 1,
+            }
+        ).insert(ignore_permissions=True)
+
+        frappe.get_doc(
+            {
+                "doctype": "Customer",
+                "customer_name": self.customer,
+                "customer_type": "Company",
+                "customer_group": "Commercial",
+                "territory": "All Territories",
+            }
+        ).insert(ignore_permissions=True)
+
+        self.price = 100
+        frappe.get_doc(
+            {
+                "doctype": "Item Price",
+                "item_code": self.item_code,
+                "price_list": self.profile.selling_price_list,
+                "selling": 1,
+                "currency": self.profile.currency,
+                "price_list_rate": self.price,
+            }
+        ).insert(ignore_permissions=True)
+
         make_stock_entry(
-            item_code="_Test Item",
+            item_code=self.item_code,
             qty=20,
             to_warehouse=self.profile.warehouse,
             company=self.profile.company,
-            rate=100,
+            rate=self.price,
         )
 
-        self.customer = "_Test Customer"
-        if not frappe.db.exists("Customer", self.customer):
-            frappe.throw("ERPNext test fixture _Test Customer is missing.")
-
-        price_name = frappe.db.get_value(
-            "Item Price",
-            {
-                "item_code": "_Test Item",
-                "price_list": self.profile.selling_price_list,
-                "selling": 1,
-            },
-            "name",
-        )
-        if not price_name:
-            frappe.throw("ERPNext test fixture price for _Test Item is missing.")
-
-        # ERPNext's stock fixture price is dated in 2017; make it valid for this test run.
-        price_doc = frappe.get_doc("Item Price", price_name)
-        price_doc.valid_from = None
-        price_doc.valid_upto = None
-        price_doc.price_list_rate = 100
-        price_doc.save(ignore_permissions=True)
-        self.price = price_doc.price_list_rate
-
-        self.uom = frappe.db.get_value("Item", "_Test Item", "stock_uom")
+        self.uom = "Nos"
         frappe.set_user(self.cashier.name)
         self.opening_shift = open_shift(
             pos_profile=self.profile.name,
@@ -79,7 +88,7 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
         quantity = 1
         warehouse = self.profile.warehouse
         before_qty = frappe.db.get_value(
-            "Bin", {"item_code": "_Test Item", "warehouse": warehouse}, "actual_qty"
+            "Bin", {"item_code": self.item_code, "warehouse": warehouse}, "actual_qty"
         )
 
         payload = {
@@ -91,7 +100,7 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
             "selling_price_list": self.profile.selling_price_list,
             "items": [
                 {
-                    "item_code": "_Test Item",
+                    "item_code": self.item_code,
                     "qty": quantity,
                     "rate": self.price,
                     "uom": self.uom,
@@ -111,7 +120,7 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
         self.assertEqual(invoice.update_stock, 1)
 
         after_first_qty = frappe.db.get_value(
-            "Bin", {"item_code": "_Test Item", "warehouse": warehouse}, "actual_qty"
+            "Bin", {"item_code": self.item_code, "warehouse": warehouse}, "actual_qty"
         )
         self.assertAlmostEqual(after_first_qty, before_qty - quantity)
 
@@ -120,7 +129,7 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
         self.assertTrue(retry.get("duplicate"), retry)
 
         after_retry_qty = frappe.db.get_value(
-            "Bin", {"item_code": "_Test Item", "warehouse": warehouse}, "actual_qty"
+            "Bin", {"item_code": self.item_code, "warehouse": warehouse}, "actual_qty"
         )
         self.assertAlmostEqual(after_retry_qty, after_first_qty)
         self.assertEqual(
