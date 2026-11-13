@@ -14,3 +14,9 @@ app_color = "#0F2537"  # Royal Navy; approved AL-NASR primary brand token.
 # Do not use a global brand_html override: it would replace ERPNext's shared
 # navbar branding rather than safely branding only AL-NASR-owned surfaces.
 # Add DocType overrides, fixtures, scheduler events, and hooks only with tests.
+
+# X POS v16 ships a Property Setter that changes ERPNext's standard
+# return-credit-note behavior. Reconcile it after every migration.
+after_migrate = [
+    "alnasr.patches.compatibility.remove_xpos_return_self_outstanding_override",
+]
