@@ -15,6 +15,7 @@ AL-NASR is an independently branded supermarket and retail-management product fo
 - **Languages:** Arabic RTL first, with English LTR support.
 - **Brand assets and usage:** [Brand guidelines](docs/brand/BRAND-GUIDELINES.md).
 - **Branding coverage and remaining work:** [Brand implementation matrix](docs/brand/BRAND-IMPLEMENTATION-MATRIX.md).
+- **Upstream integration compatibility decisions:** [Compatibility overrides](docs/architecture/COMPATIBILITY-OVERRIDES.md).
 
 ## Product scope
 
