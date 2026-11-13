@@ -187,10 +187,9 @@ jobs:
       - name: Run ERPNext sales, purchasing, returns, stock, and accounting suites
         run: |
           cd "$BENCH_DIR"
-          # Run Sales Invoice first to isolate its POS/tax/return assertions from
-          # mutations that may be committed by other upstream test modules.
-          # Keep verbose output so assertion diffs are available in failed CI logs.
-          bench --site alnasr.localhost run-tests --verbose --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
+          # Run Sales Invoice first to test its POS/tax/return assertions before other ERPNext suites.
+          # Bench v16's run-tests CLI has no --verbose option; preserve the supported invocation.
+          bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
 
           # Remaining upstream ERPNext v16 regression suites pinned by the submodule SHA.
           # They exercise purchasing, delivery, stock ledger, and payment controllers.
