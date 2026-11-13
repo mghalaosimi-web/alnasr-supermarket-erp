@@ -1,0 +1,9 @@
+[submodule "apps/frappe"]
+	path = apps/frappe
+	url = https://github.com/frappe/frappe.git
+[submodule "apps/erpnext"]
+	path = apps/erpnext
+	url = https://github.com/frappe/erpnext.git
+[submodule "apps/xpos"]
+	path = apps/xpos
+	url = https://github.com/kodlyft/xpos.git
