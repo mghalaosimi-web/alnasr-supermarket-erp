@@ -89,6 +89,13 @@ Test these failure modes separately:
 - [ ] Final data migration and reconciliation plan.
 - [ ] Signed go-live checklist and rollback plan.
 
+## Latest integration finding — return credit notes
+
+- Confirmed the pinned X POS v2.13.4 customization `Sales Invoice-update_outstanding_for_self-default` forces the ERPNext v16 field default to `0`, while ERPNext's upstream default is `1`.
+- The override caused the two remaining upstream Sales Invoice regressions: return GL `against_voucher` linkage and the credit note's own negative outstanding balance.
+- Added an AL-NASR `after_migrate` compatibility hook to remove only that conflicting Property Setter and assert the ERPNext default remains `1`; added a runtime contract test and documented the decision in `docs/architecture/COMPATIBILITY-OVERRIDES.md`.
+- This correction is committed on the Draft PR branch. App/source validation passed on commit `1331de4f821cf627ceba91943d45aae59d9ee2b9`; integrated runtime verification is still running. Do not mark the return-credit-note acceptance gate complete until the full integrated Sales Invoice suite passes unchanged.
+
 ## Current verified state
 
 - The development branch is `foundation/alnasr-custom-app`; PR #1 remains open and Draft against `main`.
