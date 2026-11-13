@@ -83,6 +83,84 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
         frappe.set_user("Administrator")
         super().tearDown()
 
+    def test_pos_tax_inclusive_and_exclusive_sales_match_invoice_and_gl_totals(self):
+        """Exercise X POS's POS Profile tax switch through real invoice submission."""
+        frappe.set_user("Administrator")
+        template_name = frappe.db.get_value(
+            "Sales Taxes and Charges Template",
+            {"company": self.profile.company},
+            "name",
+        )
+        self.assertTrue(
+            template_name,
+            f"No Sales Taxes and Charges Template exists for {self.profile.company}",
+        )
+        template = frappe.get_doc("Sales Taxes and Charges Template", template_name)
+        self.assertTrue(
+            any(tax.charge_type != "Actual" for tax in template.taxes),
+            f"Tax template {template_name} has no percentage-based tax row",
+        )
+
+        self.profile.taxes_and_charges = template_name
+        self.profile.allow_partial_payment = 1
+        self.profile.tax_inclusive = 0
+        self.profile.save(ignore_permissions=True)
+
+        def submit_sale(tax_inclusive):
+            self.profile.reload()
+            self.profile.tax_inclusive = int(tax_inclusive)
+            self.profile.save(ignore_permissions=True)
+            local_id = "alnasr-tax-ci-" + frappe.generate_hash(length=16)
+            payload = {
+                "pos_profile": self.profile.name,
+                "pos_opening_shift": self.opening_shift,
+                "customer": self.customer,
+                "warehouse": self.profile.warehouse,
+                "currency": self.profile.currency,
+                "selling_price_list": self.profile.selling_price_list,
+                "items": [
+                    {
+                        "item_code": self.item_code,
+                        "qty": 1,
+                        "rate": self.price,
+                        "uom": self.uom,
+                        "warehouse": self.profile.warehouse,
+                    }
+                ],
+                # Partial payment is enabled on this disposable profile so the
+                # exclusive-tax case can still be submitted with the same tender.
+                "payments": [{"mode_of_payment": "Cash", "amount": self.price}],
+            }
+            frappe.set_user(self.cashier.name)
+            result = create_invoice(payload, local_id=local_id)
+            self.assertTrue(result.get("name"), result)
+            invoice = frappe.get_doc("Sales Invoice", result["name"])
+            self.assertEqual(invoice.docstatus, 1)
+            self.assertGreater(invoice.total_taxes_and_charges, 0)
+            percentage_taxes = [tax for tax in invoice.taxes if tax.charge_type != "Actual"]
+            self.assertTrue(percentage_taxes)
+            self.assertTrue(
+                all(bool(tax.included_in_print_rate) is bool(tax_inclusive) for tax in percentage_taxes),
+                f"Unexpected included_in_print_rate values for {invoice.name}",
+            )
+            gl = frappe.get_all(
+                "GL Entry",
+                filters={"voucher_type": "Sales Invoice", "voucher_no": invoice.name},
+                fields=["debit", "credit"],
+            )
+            self.assertTrue(gl, f"No GL entries were created for {invoice.name}")
+            total_debit = sum(row.debit for row in gl)
+            total_credit = sum(row.credit for row in gl)
+            self.assertAlmostEqual(total_debit, total_credit, places=2)
+            return invoice
+
+        exclusive_invoice = submit_sale(False)
+        inclusive_invoice = submit_sale(True)
+
+        self.assertGreater(exclusive_invoice.grand_total, self.price)
+        self.assertAlmostEqual(inclusive_invoice.grand_total, self.price, places=2)
+        self.assertLess(inclusive_invoice.total_taxes_and_charges, exclusive_invoice.total_taxes_and_charges)
+
     def test_sale_retry_returns_original_invoice_without_second_stock_issue(self):
         local_id = "alnasr-ci-" + frappe.generate_hash(length=16)
         quantity = 1
