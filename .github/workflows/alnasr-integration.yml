@@ -188,6 +188,8 @@ jobs:
       - name: Run ERPNext plus X POS Sales Invoice isolation
         run: |
           cd "$BENCH_DIR"
+          # Always restore the pinned X POS checkout, even if this diagnostic suite fails.
+          trap 'git -C apps/xpos checkout -- xpos/x_pos/api/invoice.py' EXIT
           # A third disposable site adds X POS but deliberately excludes AL-NASR.
           # Compare its upstream Sales Invoice behavior with ERPNext-only and full AL-NASR sites.
           bench new-site erpnext-xpos.localhost \
