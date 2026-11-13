@@ -30,7 +30,7 @@ permissions:
 jobs:
   frappe-v16-install:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     services:
       mariadb:
         image: mariadb:11.8
@@ -183,6 +183,18 @@ jobs:
           bench --site alnasr.localhost run-tests --module xpos.api.tests.test_invoice_retry
           bench --site alnasr.localhost run-tests --module xpos.api.tests.test_shifts
           bench --site alnasr.localhost list-apps
+
+      - name: Run ERPNext sales, purchasing, returns, stock, and accounting suites
+        run: |
+          cd "$BENCH_DIR"
+          # These are upstream ERPNext v16 regression suites pinned by the submodule SHA.
+          # They exercise standard controllers, stock ledger, GL posting, returns, and payments.
+          bench --site alnasr.localhost run-tests --module erpnext.stock.doctype.purchase_receipt.test_purchase_receipt
+          bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice
+          bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.sales_invoice.test_sales_invoice
+          bench --site alnasr.localhost run-tests --module erpnext.stock.doctype.delivery_note.test_delivery_note
+          bench --site alnasr.localhost run-tests --module erpnext.stock.doctype.stock_entry.test_stock_entry
+          bench --site alnasr.localhost run-tests --module erpnext.accounts.doctype.payment_entry.test_payment_entry
 
       - name: Verify installed apps and HTTP health
         run: |
