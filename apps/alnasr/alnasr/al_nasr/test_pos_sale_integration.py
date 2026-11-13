@@ -219,3 +219,151 @@ class TestALNasrPosSaleIntegration(ERPNextTestSuite):
             frappe.db.count("Sales Invoice", {"xpos_local_id": local_id, "docstatus": 1}),
             1,
         )
+
+
+    def _submit_return(self, original_invoice, quantity, local_id):
+        """Submit a return through the same X POS API used by the checkout client."""
+        frappe.set_user(self.cashier.name)
+        result = create_invoice(
+            {
+                "pos_profile": self.profile.name,
+                "pos_opening_shift": self.opening_shift,
+                "customer": self.customer,
+                "warehouse": self.profile.warehouse,
+                "currency": self.profile.currency,
+                "selling_price_list": self.profile.selling_price_list,
+                "is_return": 1,
+                "return_against": original_invoice.name,
+                "items": [
+                    {
+                        "item_code": self.item_code,
+                        "qty": quantity,
+                        "rate": self.price,
+                        "uom": self.uom,
+                        "warehouse": self.profile.warehouse,
+                    }
+                ],
+                "payments": [],
+            },
+            local_id=local_id,
+        )
+        self.assertTrue(result.get("name"), result)
+        returned = frappe.get_doc("Sales Invoice", result["name"])
+        self.assertEqual(returned.docstatus, 1)
+        self.assertEqual(returned.is_return, 1)
+        self.assertEqual(returned.return_against, original_invoice.name)
+        self.assertEqual(returned.items[0].qty, -abs(quantity))
+        self.assertTrue(returned.items[0].sales_invoice_item)
+        return returned
+
+    def _assert_invoice_gl_balanced(self, invoice):
+        gl = frappe.get_all(
+            "GL Entry",
+            filters={
+                "voucher_type": "Sales Invoice",
+                "voucher_no": invoice.name,
+                "is_cancelled": 0,
+            },
+            fields=["debit", "credit"],
+        )
+        self.assertTrue(gl, f"No GL entries were created for {invoice.name}")
+        self.assertAlmostEqual(
+            sum(row.debit for row in gl),
+            sum(row.credit for row in gl),
+            places=2,
+        )
+
+    def test_pos_partial_then_full_return_restores_stock_and_balances_gl(self):
+        """Partial and final returns must link to the source sale and restore stock once."""
+        frappe.set_user(self.cashier.name)
+        sale_local_id = "alnasr-return-sale-" + frappe.generate_hash(length=12)
+        sale = create_invoice(
+            {
+                "pos_profile": self.profile.name,
+                "pos_opening_shift": self.opening_shift,
+                "customer": self.customer,
+                "warehouse": self.profile.warehouse,
+                "currency": self.profile.currency,
+                "selling_price_list": self.profile.selling_price_list,
+                "items": [
+                    {
+                        "item_code": self.item_code,
+                        "qty": 3,
+                        "rate": self.price,
+                        "uom": self.uom,
+                        "warehouse": self.profile.warehouse,
+                    }
+                ],
+                "payments": [
+                    {"mode_of_payment": "Cash", "amount": self.price * 3}
+                ],
+            },
+            local_id=sale_local_id,
+        )
+        original = frappe.get_doc("Sales Invoice", sale["name"])
+        self.assertEqual(original.docstatus, 1)
+        self.assertEqual(original.update_stock, 1)
+        self._assert_invoice_gl_balanced(original)
+
+        bin_filters = {"item_code": self.item_code, "warehouse": self.profile.warehouse}
+        after_sale = frappe.db.get_value("Bin", bin_filters, "actual_qty")
+        partial = self._submit_return(
+            original, 1, "alnasr-partial-return-" + frappe.generate_hash(length=12)
+        )
+        after_partial = frappe.db.get_value("Bin", bin_filters, "actual_qty")
+        self.assertAlmostEqual(after_partial, after_sale + 1)
+        self._assert_invoice_gl_balanced(partial)
+
+        final_return = self._submit_return(
+            original, 2, "alnasr-final-return-" + frappe.generate_hash(length=12)
+        )
+        after_final = frappe.db.get_value("Bin", bin_filters, "actual_qty")
+        self.assertAlmostEqual(after_final, after_partial + 2)
+        self._assert_invoice_gl_balanced(final_return)
+
+        returned_qty = frappe.db.sql(
+            """
+            select coalesce(sum(abs(qty)), 0)
+            from `tabSales Invoice Item`
+            where parent in (
+                select name from `tabSales Invoice`
+                where return_against = %s and docstatus = 1
+            ) and sales_invoice_item = %s
+            """,
+            (original.name, original.items[0].name),
+        )[0][0]
+        self.assertAlmostEqual(returned_qty, 3)
+
+    def test_pos_return_rejects_quantity_above_remaining_original_sale(self):
+        """The POS API must reject returns exceeding the source line's remaining quantity."""
+        frappe.set_user(self.cashier.name)
+        sale = create_invoice(
+            {
+                "pos_profile": self.profile.name,
+                "pos_opening_shift": self.opening_shift,
+                "customer": self.customer,
+                "warehouse": self.profile.warehouse,
+                "currency": self.profile.currency,
+                "selling_price_list": self.profile.selling_price_list,
+                "items": [
+                    {
+                        "item_code": self.item_code,
+                        "qty": 1,
+                        "rate": self.price,
+                        "uom": self.uom,
+                        "warehouse": self.profile.warehouse,
+                    }
+                ],
+                "payments": [{"mode_of_payment": "Cash", "amount": self.price}],
+            },
+            local_id="alnasr-overreturn-sale-" + frappe.generate_hash(length=12),
+        )
+        original = frappe.get_doc("Sales Invoice", sale["name"])
+        self._submit_return(
+            original, 1, "alnasr-first-return-" + frappe.generate_hash(length=12)
+        )
+
+        with self.assertRaises(frappe.ValidationError):
+            self._submit_return(
+                original, 1, "alnasr-excess-return-" + frappe.generate_hash(length=12)
+            )
