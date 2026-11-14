@@ -104,6 +104,13 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
             frappe.db.get_single_value("XPOS Branding Settings", "dark_primary"),
             "#C5A059",
         )
+        from xpos.api.settings import get_branding_payload
+
+        payload = get_branding_payload()
+        self.assertEqual(payload["logo_light"], "/assets/alnasr/images/alnasr-mark.svg")
+        self.assertEqual(payload["logo_dark"], "/assets/alnasr/images/alnasr-mark-light.svg")
+        self.assertEqual(payload["light"]["primary"], "#0F2537")
+        self.assertEqual(payload["dark"]["primary"], "#C5A059")
 
     def test_alnasr_brand_metadata_is_registered(self):
         from alnasr import hooks
