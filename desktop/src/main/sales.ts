@@ -75,7 +75,7 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
   if (!["cash", "card", "transfer"].includes(input.paymentMethod)) {
     throw new Error("طريقة الدفع غير مدعومة");
   }
-  if (!input.idempotencyKey || input.idempotencyKey.length > 120) {
+  if (typeof input.idempotencyKey !== "string" || input.idempotencyKey.length < 8 || input.idempotencyKey.length > 120) {
     throw new Error("مفتاح العملية غير صحيح");
   }
   const normalized = new Map<string, number>();
@@ -87,8 +87,8 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
   }
 
   const post = db.transaction((): SaleResult => {
-    const existing = db.prepare("SELECT id, sale_number AS saleNumber, total_minor AS totalMinor, status FROM sales WHERE idempotency_key = ?")
-      .get(input.idempotencyKey) as { id: string; saleNumber: string; totalMinor: number; status: "posted" } | undefined;
+    const existing = db.prepare("SELECT id, sale_number AS saleNumber, total_minor AS totalMinor, status FROM sales WHERE idempotency_key = ? AND created_by = ?")
+      .get(input.idempotencyKey, input.actorUserId) as { id: string; saleNumber: string; totalMinor: number; status: "posted" } | undefined;
     if (existing) {
       const lines = db.prepare("SELECT product_id AS productId, p.sku, p.name_ar AS nameAr, quantity, unit_price_minor AS unitPriceMinor, line_total_minor AS lineTotalMinor FROM sale_lines sl JOIN products p ON p.id = sl.product_id WHERE sale_id = ?")
         .all(existing.id) as SaleResult["lines"];
