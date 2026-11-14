@@ -20,3 +20,9 @@ app_color = "#0F2537"  # Royal Navy; approved AL-NASR primary brand token.
 after_migrate = [
     "alnasr.patches.compatibility.remove_xpos_return_self_outstanding_override",
 ]
+
+# AL-NASR unified Desk landing page and shared brand styles.
+app_include_css = "/assets/alnasr/css/alnasr.css"
+page_js = {
+    "alnasr": "public/js/alnasr-page.js",
+}
