@@ -1,21 +1,24 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("build", "start", "stop", "restart", "status", "open", "init", "backup")]
+    [ValidateSet("prepare", "setup", "build", "start", "stop", "restart", "status", "open", "init", "backup")]
     [string]$Action
 )
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $Deploy = Join-Path $Root "deploy"
 $Compose = Join-Path $Deploy "compose.yaml"
-$EnvFile = Join-Path $Deploy ".env"
+$DataRoot = Join-Path $env:LOCALAPPDATA "AL-NASR ERP"
+$EnvFile = Join-Path $DataRoot ".env"
+$BackupDir = Join-Path $DataRoot "Backups"
 $SiteName = "alnasr.local"
+$ProjectName = "alnasr"
 
 function Invoke-Compose {
     if (-not (Test-Path $EnvFile)) {
         throw "Missing deploy/.env. Copy deploy/.env.example to deploy/.env and set a strong DB_PASSWORD."
     }
-    docker compose --env-file $EnvFile -f $Compose @args
+    docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose @args
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose failed with exit code $LASTEXITCODE." }
 }
 function Assert-Docker {
@@ -25,8 +28,37 @@ function Assert-Docker {
     docker compose version *> $null
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose v2 is required." }
 }
+function Ensure-LocalEnv {
+    New-Item -ItemType Directory -Force -Path $DataRoot | Out-Null
+    if (-not (Test-Path $EnvFile)) {
+        $bytes = New-Object byte[] 48
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+        $secret = [Convert]::ToBase64String($bytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
+        $newline = [Environment]::NewLine
+        $contents = "DB_PASSWORD=$secret" + $newline + "SITE_NAME=alnasr.local" + $newline + "BIND_ADDRESS=127.0.0.1" + $newline + "HTTP_PUBLISH_PORT=8080" + $newline
+        [System.IO.File]::WriteAllText($EnvFile, $contents, (New-Object System.Text.UTF8Encoding($false)))
+        $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $acl = New-Object System.Security.AccessControl.FileSecurity
+        $acl.SetAccessRuleProtection($true, $false)
+        $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($identity, "Read,Write", "Allow")
+        $acl.SetAccessRule($rule)
+        Set-Acl -Path $EnvFile -AclObject $acl
+        Write-Host "Created a private local database secret at $EnvFile"
+    }
+}
 Assert-Docker
 switch ($Action) {
+    "prepare" {
+        Ensure-LocalEnv
+        Write-Host "Local configuration prepared. No cloud service or paid resource is required."
+    }
+    "setup" {
+        Ensure-LocalEnv
+        & $PSCommandPath -Action init
+        if (-not $?) { throw "First-run setup failed." }
+        Start-Process "http://127.0.0.1:8080"
+    }
     "build" {
         docker build --file (Join-Path $Deploy "Dockerfile") --tag alnasr-local:16 $Root
         if ($LASTEXITCODE -ne 0) { throw "AL-NASR image build failed." }
@@ -47,6 +79,7 @@ switch ($Action) {
     }
     "open" { Start-Process "http://127.0.0.1:8080" }
     "init" {
+        Ensure-LocalEnv
         docker build --file (Join-Path $Deploy "Dockerfile") --tag alnasr-local:16 $Root
         if ($LASTEXITCODE -ne 0) { throw "AL-NASR image build failed." }
         Invoke-Compose run --rm configurator
@@ -64,11 +97,10 @@ switch ($Action) {
         Write-Host "Initial site created. Open http://127.0.0.1:8080; login user is Administrator."
     }
     "backup" {
-        $backupDir = Join-Path $Deploy "backups"
-        New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
-        Invoke-Compose exec -T backend bench --site $SiteName backup --with-files --backup-path /home/frappe/frappe-bench/sites/$SiteName/private/backups
+        New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+        Invoke-Compose exec -T backend bench --site $SiteName backup --with-files
         if ($LASTEXITCODE -ne 0) { throw "Bench backup failed." }
-        Invoke-Compose cp "backend:/home/frappe/frappe-bench/sites/$SiteName/private/backups/." $backupDir
-        Write-Host "Backup files copied to $backupDir. Restore remains gated on a verified restore test."
+        Invoke-Compose cp "backend:/home/frappe/frappe-bench/sites/$SiteName/private/backups/." $BackupDir
+        Write-Host "Backup files copied to $BackupDir. Verify a restore on a separate test site before relying on this backup."
     }
 }
