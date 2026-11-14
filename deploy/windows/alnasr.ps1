@@ -114,25 +114,14 @@ switch ($Action) {
             Write-Host "[$index] $($backups[$index].Name) — $($backups[$index].LastWriteTime)"
         }
         $selection = Read-Host "Enter the backup number to restore"
-        $number = -1
-        if (-not [int]::TryParse($selection, [ref]$number) -or $number -lt 0 -or $number -ge $backups.Count) {
-            throw "Invalid backup selection."
-        }
+        $number = 0
+        if (-not [int]::TryParse($selection, [ref]$number) -or $number -lt 0 -or $number -ge $backups.Count) { throw "Invalid backup selection." }
         $sql = $backups[$number]
-        $prefix = $sql.Name -replace '-database\.sql\.gz
-        New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
-        Invoke-Compose exec -T backend bench --site $SiteName backup --with-files
-        if ($LASTEXITCODE -ne 0) { throw "Bench backup failed." }
-        Invoke-Compose cp "backend:/home/frappe/frappe-bench/sites/$SiteName/private/backups/." $BackupDir
-        Write-Host "Backup files copied to $BackupDir. Verify a restore on a separate test site before relying on this backup."
-    }
-}
-, ''
+        $suffix = "-database.sql.gz"
+        $prefix = $sql.Name.Substring(0, $sql.Name.Length - $suffix.Length)
         $publicFile = Join-Path $BackupDir ($prefix + "-files.tar")
         $privateFile = Join-Path $BackupDir ($prefix + "-private-files.tar")
-        if (-not (Test-Path $publicFile) -or -not (Test-Path $privateFile)) {
-            throw "The selected backup is incomplete. Database, public files, and private files are all required."
-        }
+        if (-not (Test-Path $publicFile) -or -not (Test-Path $privateFile)) { throw "The selected backup is incomplete. Database, public files, and private files are all required." }
         $confirm = Read-Host "This replaces the current AL-NASR database and files. Type RESTORE to continue"
         if ($confirm -cne "RESTORE") { throw "Restore cancelled." }
         & $PSCommandPath -Action backup
