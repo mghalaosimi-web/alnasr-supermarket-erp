@@ -55,6 +55,7 @@ export function App() {
   const [shiftBusy, setShiftBusy] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [saleQuantity, setSaleQuantity] = useState("1");
+  const [barcodeScan, setBarcodeScan] = useState("");
   const [cart, setCart] = useState<Array<{ productId: string; sku: string; nameAr: string; priceMinor: number; quantity: number }>>([]);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
   const [saleBusy, setSaleBusy] = useState(false);
@@ -176,9 +177,9 @@ export function App() {
     }
   }
 
-  function addToCart() {
-    const product = products.find((item) => item.id === selectedProductId);
-    const quantity = Number(saleQuantity);
+  function addToCart(productIdOverride?: string, quantityOverride?: number) {
+    const product = products.find((item) => item.id === (productIdOverride ?? selectedProductId));
+    const quantity = quantityOverride ?? Number(saleQuantity);
     if (!product || !Number.isSafeInteger(quantity) || quantity <= 0) {
       setError("اختر منتجاً وأدخل كمية صحيحة");
       return;
@@ -197,6 +198,19 @@ export function App() {
     setCart(existing
       ? cart.map((item) => item.productId === product.id ? { ...item, quantity: nextQuantity } : item)
       : [...cart, { productId: product.id, sku: product.sku, nameAr: product.nameAr, priceMinor: product.priceMinor, quantity }]);
+  }
+
+
+  function scanBarcode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const code = barcodeScan.trim();
+    const product = products.find((item) => item.barcode === code || item.sku.toLowerCase() === code.toLowerCase());
+    if (!product) {
+      setError("لم يتم العثور على منتج بهذا الباركود أو الرمز");
+      return;
+    }
+    addToCart(product.id, 1);
+    setBarcodeScan("");
   }
 
   async function completeSale() {
@@ -350,6 +364,13 @@ export function App() {
               </form>
             ) : (
               <>
+
+                <form className="barcode-scan" onSubmit={scanBarcode}>
+                  <label>مسح الباركود أو إدخال رمز المنتج
+                    <input value={barcodeScan} onChange={(event) => setBarcodeScan(event.target.value)} autoComplete="off" placeholder="امسح الباركود ثم اضغط Enter" />
+                  </label>
+                  <button type="submit">إضافة المنتج</button>
+                </form>
                 <div className="pos-entry">
                   <label>المنتج
                     <select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>
