@@ -310,3 +310,73 @@ describe("AL-NASR customer registry", () => {
     expect(listCustomers(db)).toHaveLength(1);
   });
 });
+
+
+describe("AL-NASR supplier purchase documents", () => {
+  it("posts a supplier-linked purchase atomically, updates weighted cost and records partial payment", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct, listProducts } = await import("../src/main/products");
+    const { createSupplier } = await import("../src/main/suppliers");
+    const { createPurchase, listPurchases } = await import("../src/main/purchases");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const supplier = createSupplier(db, { code: "SUP-PUR-01", name: "مورد الاختبار", actorUserId: owner.id });
+    const product = createProduct(db, {
+      sku: "PUR-001", nameAr: "زيت", costMinor: 300, priceMinor: 600,
+      openingQuantity: 5, actorUserId: owner.id
+    });
+
+    const purchase = createPurchase(db, {
+      supplierId: supplier.id,
+      documentNumber: "INV-SUP-0001",
+      lines: [{ productId: product.id, quantity: 5, unitCostMinor: 500 }],
+      paidMinor: 1000,
+      paymentMethod: "cash",
+      actorUserId: owner.id
+    });
+
+    expect(purchase).toMatchObject({
+      documentNumber: "INV-SUP-0001", supplierId: supplier.id,
+      subtotalMinor: 2500, paidMinor: 1000, outstandingMinor: 1500, lineCount: 1
+    });
+    expect(listPurchases(db)).toHaveLength(1);
+    expect(listProducts(db)[0]).toMatchObject({ stockOnHand: 10, costMinor: 400 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM stock_movements WHERE reference_type='purchase' AND reference_id=?").get(purchase.id)).toEqual({ count: 1 });
+    expect(db.prepare("SELECT method, amount_minor FROM purchase_payments WHERE purchase_id=?").get(purchase.id)).toEqual({ method: "cash", amount_minor: 1000 });
+    expect(db.prepare("SELECT action, entity_type FROM audit_events WHERE entity_id=?").get(purchase.id)).toEqual({ action: "purchase.post", entity_type: "purchase" });
+  });
+
+  it("rolls back the whole purchase when any line is invalid and rejects overpayment", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct, listProducts } = await import("../src/main/products");
+    const { createSupplier } = await import("../src/main/suppliers");
+    const { createPurchase } = await import("../src/main/purchases");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const supplier = createSupplier(db, { code: "SUP-PUR-02", name: "مورد آخر", actorUserId: owner.id });
+    const product = createProduct(db, { sku: "PUR-002", nameAr: "دقيق", costMinor: 200, priceMinor: 350, openingQuantity: 2, actorUserId: owner.id });
+
+    expect(() => createPurchase(db!, {
+      supplierId: supplier.id,
+      documentNumber: "INV-SUP-ROLLBACK",
+      lines: [
+        { productId: product.id, quantity: 3, unitCostMinor: 250 },
+        { productId: "missing-product", quantity: 1, unitCostMinor: 100 }
+      ],
+      actorUserId: owner.id
+    })).toThrow("أحد المنتجات غير موجود أو غير نشط");
+    expect(() => createPurchase(db!, {
+      supplierId: supplier.id,
+      lines: [{ productId: product.id, quantity: 1, unitCostMinor: 250 }],
+      paidMinor: 999999,
+      paymentMethod: "cash",
+      actorUserId: owner.id
+    })).toThrow("إجمالي مستند الشراء أو المبلغ المدفوع غير صحيح");
+    expect(db.prepare("SELECT COUNT(*) AS count FROM purchase_documents").get()).toEqual({ count: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM purchase_lines").get()).toEqual({ count: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM purchase_payments").get()).toEqual({ count: 0 });
+    expect(listProducts(db)[0].stockOnHand).toBe(2);
+  });
+});
