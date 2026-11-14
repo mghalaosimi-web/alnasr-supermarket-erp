@@ -40,7 +40,7 @@ class BrandAssetContractTests(unittest.TestCase):
         self.assertIn('id="main-wordmark"', source)
 
     def test_all_svg_assets_use_only_approved_brand_colors(self) -> None:
-        for filename in ("alnasr-logo.svg", "alnasr-mark.svg", "favicon.svg"):
+        for filename in ("alnasr-logo.svg", "alnasr-mark.svg", "alnasr-mark-light.svg", "favicon.svg"):
             with self.subTest(filename=filename):
                 _, source = self.parse_svg(filename)
                 used_colors = set(re.findall(r"#[0-9A-Fa-f]{6}", source))
@@ -48,7 +48,7 @@ class BrandAssetContractTests(unittest.TestCase):
                 self.assertLessEqual(used_colors, EXPECTED_COLORS)
 
     def test_each_asset_has_accessible_title(self) -> None:
-        for filename in ("alnasr-logo.svg", "alnasr-mark.svg", "favicon.svg"):
+        for filename in ("alnasr-logo.svg", "alnasr-mark.svg", "alnasr-mark-light.svg", "favicon.svg"):
             with self.subTest(filename=filename):
                 root, _ = self.parse_svg(filename)
                 title = root.find("{http://www.w3.org/2000/svg}title")
