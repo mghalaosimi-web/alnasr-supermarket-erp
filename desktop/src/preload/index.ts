@@ -11,7 +11,8 @@ export type StockMovementRow = { id: string; sku: string; productName: string; w
 export type SupplierRow = { id: string; code: string; name: string; phone: string | null; isActive: number };
 export type CustomerRow = { id: string; code: string; name: string; phone: string | null; creditLimitMinor: number; isActive: number };
 export type PurchaseInput = { supplierId: string; documentNumber?: string; lines: Array<{ productId: string; quantity: number; unitCostMinor: number }>; paidMinor?: number; paymentMethod?: "cash" | "card" | "transfer" };
-export type PurchaseRow = { id: string; documentNumber: string; supplierId: string; supplierName: string; subtotalMinor: number; paidMinor: number; outstandingMinor: number; occurredAt: string; lineCount: number };\nexport type PurchasePaymentInput = { purchaseId: string; amountMinor: number; method: "cash" | "card" | "transfer" };
+export type PurchaseRow = { id: string; documentNumber: string; supplierId: string; supplierName: string; subtotalMinor: number; paidMinor: number; outstandingMinor: number; occurredAt: string; lineCount: number };
+export type PurchasePaymentInput = { purchaseId: string; amountMinor: number; method: "cash" | "card" | "transfer" };
 
 contextBridge.exposeInMainWorld("alnasr", {
   health: () => ipcRenderer.invoke("alnasr:health"),
@@ -30,7 +31,8 @@ contextBridge.exposeInMainWorld("alnasr", {
   listSuppliers: () => ipcRenderer.invoke("alnasr:suppliers:list") as Promise<SupplierRow[]>,
   createSupplier: (input: { code: string; name: string; phone?: string }) => ipcRenderer.invoke("alnasr:suppliers:create", input) as Promise<SupplierRow>,
   listPurchases: () => ipcRenderer.invoke("alnasr:purchases:list") as Promise<PurchaseRow[]>,
-  createPurchase: (input: PurchaseInput) => ipcRenderer.invoke("alnasr:purchases:create", input) as Promise<PurchaseRow>,\n  addPurchasePayment: (input: PurchasePaymentInput) => ipcRenderer.invoke("alnasr:purchases:add-payment", input) as Promise<PurchaseRow>,
+  createPurchase: (input: PurchaseInput) => ipcRenderer.invoke("alnasr:purchases:create", input) as Promise<PurchaseRow>,
+  addPurchasePayment: (input: PurchasePaymentInput) => ipcRenderer.invoke("alnasr:purchases:add-payment", input) as Promise<PurchaseRow>,
   createBackup: () => ipcRenderer.invoke("alnasr:backup:create") as Promise<{ canceled: boolean; filePath?: string }>,
   listStockMovements: () => ipcRenderer.invoke("alnasr:inventory:movements") as Promise<StockMovementRow[]>,
   receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => ipcRenderer.invoke("alnasr:inventory:receive", input) as Promise<{ movementId: string; quantityOnHand: number }>,
@@ -54,7 +56,8 @@ export type AlnasrBridge = {
   listSuppliers: () => Promise<SupplierRow[]>,
   createSupplier: (input: { code: string; name: string; phone?: string }) => Promise<SupplierRow>,
   listPurchases: () => Promise<PurchaseRow[]>,
-  createPurchase: (input: PurchaseInput) => Promise<PurchaseRow>,\n  addPurchasePayment: (input: PurchasePaymentInput) => Promise<PurchaseRow>,
+  createPurchase: (input: PurchaseInput) => Promise<PurchaseRow>,
+  addPurchasePayment: (input: PurchasePaymentInput) => Promise<PurchaseRow>,
   createBackup: () => Promise<{ canceled: boolean; filePath?: string }>,
   listStockMovements: () => Promise<StockMovementRow[]>,
   receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => Promise<{ movementId: string; quantityOnHand: number }>,
