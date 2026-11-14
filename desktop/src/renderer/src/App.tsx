@@ -30,6 +30,7 @@ export function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [ownerSetupRequired, setOwnerSetupRequired] = useState<boolean | null>(null);
   const [user, setUser] = useState<PublicUser | null>(null);
+  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products">("dashboard");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -73,6 +74,7 @@ export function App() {
         ? await window.alnasr.bootstrapOwner({ username, displayName, password })
         : await window.alnasr.login({ username, password });
       setUser(result);
+      setActivePage("dashboard");
       setOwnerSetupRequired(false);
       setProducts(await window.alnasr.listProducts());
       setShift(await window.alnasr.currentShift());
@@ -115,6 +117,7 @@ export function App() {
   async function logout() {
     await window.alnasr.logout();
     setUser(null);
+    setActivePage("dashboard");
     setProducts([]);
     setShift(null);
     setCart([]);
@@ -204,6 +207,11 @@ export function App() {
           <strong>النصر</strong>
           <span>AL-NASR MANAGEMENT SYSTEM</span>
         </div>
+        {user && <nav className="top-nav" aria-label="التنقل الرئيسي">
+          <button type="button" className={activePage === "dashboard" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("dashboard")}>الرئيسية</button>
+          <button type="button" className={activePage === "pos" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("pos")}>نقطة البيع</button>
+          <button type="button" className={activePage === "products" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("products")}>المنتجات</button>
+        </nav>}
         <div className="topbar-spacer" />
         <span className="version">نسخة التطوير 0.1.0</span>
       </header>
@@ -251,7 +259,7 @@ export function App() {
           </div>
 
 
-          <section className="pos-workspace">
+          {activePage === "pos" && <section className="pos-workspace">
             <div className="product-heading">
               <div><span className="eyebrow">نقطة البيع</span><h2>الوردية والفواتير</h2></div>
               <span className="product-count">{shift ? "الوردية مفتوحة" : "لا توجد وردية مفتوحة"}</span>
@@ -299,8 +307,8 @@ export function App() {
                 </form>
               </>
             )}
-          </section>
-          <section className="product-workspace">
+          </section>}
+          {activePage === "products" && <section className="product-workspace">
             <div className="product-heading">
               <div><span className="eyebrow">الكتالوج الأساسي</span><h2>إدارة المنتجات</h2></div>
               <span className="product-count">{products.length} منتج</span>
@@ -323,7 +331,8 @@ export function App() {
                 </article>
               ))}
             </div>
-          </section>
+          </section>}
+          {activePage === "dashboard" && <>
           <h2>وحدات النظام</h2>
           <div className="module-grid">
             {["نقطة البيع", "المنتجات والباركود", "المخزون والمستودعات", "المشتريات والموردون", "العملاء", "الحسابات والتقارير"].map((name) => (
@@ -334,6 +343,7 @@ export function App() {
               </article>
             ))}
           </div>
+          </>}
         </section>
       )}
       <footer>AL-NASR · يعمل محلياً على هذا الجهاز</footer>
