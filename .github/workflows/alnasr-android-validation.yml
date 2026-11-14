@@ -45,6 +45,18 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - name: Assemble debug APK
         run: gradle --no-daemon --stacktrace -p android assembleDebug
+      - name: Install and launch APK on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          script: |
+            adb install android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell monkey -p com.alnasr.mobile.preview 1
+            sleep 5
+            adb shell pidof com.alnasr.mobile.preview
       - name: Upload debug APK for controlled device testing
         uses: actions/upload-artifact@v4
         with:
