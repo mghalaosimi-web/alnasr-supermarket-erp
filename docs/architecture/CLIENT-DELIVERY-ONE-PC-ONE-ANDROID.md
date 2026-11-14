@@ -75,7 +75,7 @@ ERPNext remains the source of truth for standard business documents. X POS remai
 
 ### Windows
 - First prove the server can be installed, started, stopped, upgraded, backed up and restored reliably on a clean supported Windows machine.
-- Select a supported server runtime strategy (for example, a managed Linux/container environment) only after testing the target computer and installation constraints.
+- Use the official Frappe Docker/WSL2 host strategy on Windows after testing the target computer. Separately evaluate reuse of the pinned X POS Electron client for the branded Windows cashier app; do not confuse the client installer with the local ERP server installer.
 - Package the branded Windows installer/launcher only after the local server lifecycle is deterministic.
 - The launcher must show clear server state, open the local AL-NASR UI, and provide safe start/stop/recovery actions.
 - Never bundle production credentials or a pre-populated live database.
@@ -101,7 +101,7 @@ ERPNext remains the source of truth for standard business documents. X POS remai
 
 - Frappe 16.56.0, ERPNext 16.55.0, X POS 2.13.4 and AL-NASR install and pass the disposable CI runtime.
 - ERPNext's six regression suites (779 tests) and the current POS integration cases for sale retry, tax-inclusive/exclusive sale, partial/full returns, stock restoration, GL balance and over-return rejection have passed in runtime run #43528341526.
-- The repository currently contains the AL-NASR app scaffold, metadata and logo assets; it does not yet contain a complete AL-NASR shell, Electron packaging project, Android project/APK pipeline, or Windows local-server installer.
+- The repository now contains an AL-NASR Desk landing page/workspace source and responsive brand styles; runtime rendering is pending CI. The pinned X POS submodule already contains an upstream Electron client (`frontend/electron`, `electron-builder.yml`, and Windows NSIS build configuration), but it is still branded X POS and has not passed AL-NASR Windows installer acceptance. No Android APK project/pipeline or Windows local-server installer has been implemented yet.
 - The brand implementation matrix still marks POS/workspaces/mobile/print surfaces incomplete.
 - A successful disposable Linux CI Bench is not evidence that the full stack is installable on Windows or that an Android APK can connect to it.
 
