@@ -47,6 +47,14 @@ jobs:
           print("AL-NASR package metadata is valid.")
           PY
 
+      - name: Set up Node.js for dashboard syntax validation
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate AL-NASR Desk dashboard JavaScript syntax
+        run: node --check apps/alnasr/alnasr/public/js/alnasr-page.js
+
       - name: Compile Python sources
         run: python -m compileall -q apps/alnasr/alnasr
 
