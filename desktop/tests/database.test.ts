@@ -260,9 +260,12 @@ describe("AL-NASR database backup", () => {
     try {
       await db.backup(backupPath);
       const restored = new Database(backupPath);
-      expect(restored.prepare("SELECT code, name_ar FROM units WHERE id='backup-unit'").get()).toEqual({ code: "PCS", name_ar: "قطعة" });
-      expect(restored.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
-      restored.close();
+      try {
+        expect(restored.prepare("SELECT code, name_ar FROM units WHERE id='backup-unit'").get()).toEqual({ code: "PCS", name_ar: "قطعة" });
+        expect(restored.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+      } finally {
+        restored.close();
+      }
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
