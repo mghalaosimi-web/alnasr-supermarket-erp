@@ -11,6 +11,17 @@ on:
       - "apps/xpos"
       - "scripts/bootstrap-upstream.sh"
       - ".github/workflows/alnasr-integration.yml"
+  push:
+    branches:
+      - "foundation/**"
+    paths:
+      - ".gitmodules"
+      - "apps/alnasr/**"
+      - "apps/frappe"
+      - "apps/erpnext"
+      - "apps/xpos"
+      - "scripts/bootstrap-upstream.sh"
+      - ".github/workflows/alnasr-integration.yml"
   workflow_dispatch:
 
 concurrency:
