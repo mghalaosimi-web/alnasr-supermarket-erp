@@ -9,6 +9,7 @@ type CashierShift = { id: string; openingCashMinor: number; openedAt?: string; s
 type SaleResult = { id: string; saleNumber: string; totalMinor: number; status: "posted"; lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> };
 type StockMovementRow = { id: string; sku: string; productName: string; warehouseName: string; movementType: string; quantityDelta: number; unitCostMinor: number; occurredAt: string };
 type SupplierRow = { id: string; code: string; name: string; phone: string | null; isActive: number };
+type CustomerRow = { id: string; code: string; name: string; phone: string | null; creditLimitMinor: number; isActive: number };
 
 declare global {
   interface Window {
@@ -24,6 +25,8 @@ declare global {
       openShift: (openingCashMinor: number) => Promise<CashierShift>;
       closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>;
       createSale: (input: { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string }) => Promise<SaleResult>;
+      listCustomers: () => Promise<CustomerRow[]>;
+      createCustomer: (input: { code: string; name: string; phone?: string; creditLimitMinor?: number }) => Promise<CustomerRow>;
       listSuppliers: () => Promise<SupplierRow[]>;
       createSupplier: (input: { code: string; name: string; phone?: string }) => Promise<SupplierRow>;
       createBackup: () => Promise<{ canceled: boolean; filePath?: string }>;
@@ -38,7 +41,7 @@ export function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [ownerSetupRequired, setOwnerSetupRequired] = useState<boolean | null>(null);
   const [user, setUser] = useState<PublicUser | null>(null);
-  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products" | "inventory" | "backup" | "suppliers">("dashboard");
+  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products" | "inventory" | "backup" | "suppliers" | "customers">("dashboard");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -77,6 +80,13 @@ export function App() {
   const [supplierName, setSupplierName] = useState("");
   const [supplierPhone, setSupplierPhone] = useState("");
   const [supplierBusy, setSupplierBusy] = useState(false);
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [customerCode, setCustomerCode] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerCreditLimit, setCustomerCreditLimit] = useState("0");
+  const [customerBusy, setCustomerBusy] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
 
   useEffect(() => {
     Promise.all([window.alnasr.health(), window.alnasr.setupStatus()])
@@ -103,6 +113,8 @@ export function App() {
       setStockProductId(loadedProducts[0]?.id ?? "");
       setStockMovements(await window.alnasr.listStockMovements());
       setSuppliers(await window.alnasr.listSuppliers());
+      const loadedCustomers = await window.alnasr.listCustomers();
+      setCustomers(loadedCustomers);
       setShift(await window.alnasr.currentShift());
       setPassword("");
     } catch (reason) {
@@ -150,6 +162,8 @@ export function App() {
     setProducts([]);
     setStockMovements([]);
     setSuppliers([]);
+    setCustomers([]);
+    setSelectedCustomerId("");
     setStockProductId("");
     setShift(null);
     setCart([]);
@@ -231,7 +245,8 @@ export function App() {
       const result = await window.alnasr.createSale({
         lines: cart.map(({ productId, quantity }) => ({ productId, quantity })),
         paymentMethod,
-        idempotencyKey: saleKey
+        idempotencyKey: saleKey,
+        customerId: selectedCustomerId || undefined
       });
       setLastSale(result);
       setCart([]);
@@ -286,6 +301,31 @@ export function App() {
 
 
 
+
+  async function submitCustomer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCustomerBusy(true);
+    setError(null);
+    try {
+      const customer = await window.alnasr.createCustomer({
+        code: customerCode,
+        name: customerName,
+        phone: customerPhone || undefined,
+        creditLimitMinor: Math.round(Number(customerCreditLimit) * 100)
+      });
+      setCustomers(await window.alnasr.listCustomers());
+      setSelectedCustomerId(customer.id);
+      setCustomerCode("");
+      setCustomerName("");
+      setCustomerPhone("");
+      setCustomerCreditLimit("0");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر حفظ العميل");
+    } finally {
+      setCustomerBusy(false);
+    }
+  }
+
   async function submitSupplier(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSupplierBusy(true);
@@ -332,6 +372,7 @@ export function App() {
           <button type="button" className={activePage === "inventory" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("inventory")}>المخزون</button>
           <button type="button" className={activePage === "backup" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("backup")}>النسخ الاحتياطي</button>
           <button type="button" className={activePage === "suppliers" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("suppliers")}>الموردون</button>
+          <button type="button" className={activePage === "customers" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("customers")}>العملاء</button>
         </nav>}
         <div className="topbar-spacer" />
         <span className="version">نسخة التطوير 0.1.0</span>
@@ -420,6 +461,13 @@ export function App() {
                     </article>
                   ))}
                 </div>
+
+                <label className="pos-customer-select">العميل (اختياري)
+                  <select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)}>
+                    <option value="">بيع نقدي بدون تسجيل عميل</option>
+                    {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name} · {customer.code}</option>)}
+                  </select>
+                </label>
                 <div className="checkout-row">
                   <label>طريقة الدفع
                     <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as "cash" | "card" | "transfer")}>
@@ -526,6 +574,29 @@ export function App() {
                 <article className="product-row" key={supplier.id}>
                   <div><strong>{supplier.name}</strong><small>{supplier.code}{supplier.phone ? " · " + supplier.phone : ""}</small></div>
                   <span className="supplier-status">{supplier.isActive ? "نشط" : "موقوف"}</span>
+                </article>
+              ))}
+            </div>
+          </section>}
+
+          {activePage === "customers" && <section className="customer-workspace">
+            <div className="product-heading">
+              <div><span className="eyebrow">دليل العملاء</span><h2>إدارة العملاء</h2></div>
+              <span className="product-count">{customers.length} عميل</span>
+            </div>
+            <form className="supplier-form" onSubmit={submitCustomer}>
+              <label>رمز العميل<input value={customerCode} onChange={(event) => setCustomerCode(event.target.value)} required minLength={2} maxLength={40} placeholder="CUS-001" /></label>
+              <label>اسم العميل<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} required minLength={2} maxLength={160} placeholder="اسم العميل" /></label>
+              <label>رقم الهاتف<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} maxLength={40} placeholder="اختياري" /></label>
+              <label>حد الائتمان<input type="number" min="0" step="0.01" value={customerCreditLimit} onChange={(event) => setCustomerCreditLimit(event.target.value)} required /></label>
+              <button type="submit" disabled={customerBusy}>{customerBusy ? "جارٍ الحفظ..." : "إضافة العميل"}</button>
+            </form>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <div className="product-list">
+              {customers.length === 0 ? <p className="empty-products">لا يوجد عملاء مسجلون بعد.</p> : customers.map((customer) => (
+                <article className="product-row" key={customer.id}>
+                  <div><strong>{customer.name}</strong><small>{customer.code}{customer.phone ? " · " + customer.phone : ""}</small></div>
+                  <span className="supplier-status">{customer.isActive ? "نشط" : "موقوف"}</span>
                 </article>
               ))}
             </div>
