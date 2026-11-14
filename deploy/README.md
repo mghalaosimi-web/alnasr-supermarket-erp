@@ -4,7 +4,7 @@ This folder contains the first implementation of the single-Windows-PC runtime p
 
 ## Current contents
 
-- `Dockerfile`: builds an AL-NASR image from the pinned ERPNext v16.55.0 image and adds the custom app from this repository.
+- `Dockerfile`: builds an AL-NASR image from the immutable multi-architecture ERPNext v16.55.0 image digest and adds the custom app from this repository.
 - `compose.yaml`: local Frappe services, MariaDB 11.8, Redis cache/queue, workers, scheduler, and frontend.
 - `.env.example`: non-secret configuration template.
 - `windows/alnasr.ps1`: Windows lifecycle commands for image build, start, stop, restart, status, open, first-site initialization, and backup.
