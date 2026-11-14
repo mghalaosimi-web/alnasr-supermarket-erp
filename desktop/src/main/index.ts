@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { openDatabase, type AlnasrDatabase } from "./database";
 import { authenticate, createInitialOwner, isOwnerSetupRequired } from "./auth";
 import { createProduct, listProducts } from "./products";
-import { closeCashierShift, createSale, getOpenCashierShift, openCashierShift } from "./sales";
+import { addSalePayment, closeCashierShift, createSale, getOpenCashierShift, listReceivables, openCashierShift } from "./sales";
 import { adjustStockCount, listStockMovements, receiveStock } from "./inventory";
 import { createSupplier, listSuppliers } from "./suppliers";
 import { createCustomer, listCustomers } from "./customers";
@@ -114,6 +114,28 @@ app.whenReady().then(() => {
 
 
 
+
+  ipcMain.handle("alnasr:receivables:list", () => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    return listReceivables(database);
+  });
+
+  ipcMain.handle("alnasr:receivables:add-payment", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object") throw new Error("بيانات التحصيل غير صحيحة");
+    const value = input as Record<string, unknown>;
+    if (
+      typeof value.saleId !== "string" ||
+      typeof value.amountMinor !== "number" ||
+      (value.method !== "cash" && value.method !== "card" && value.method !== "transfer")
+    ) throw new Error("أكمل بيانات التحصيل بصورة صحيحة");
+    return addSalePayment(database, {
+      saleId: value.saleId,
+      amountMinor: value.amountMinor,
+      method: value.method,
+      actorUserId: activeUserId
+    });
+  });
 
   ipcMain.handle("alnasr:customers:list", () => {
     if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
