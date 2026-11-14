@@ -28,6 +28,8 @@ class DashboardShellTests(unittest.TestCase):
         workspace_path = MODULE / "workspace" / "al_nasr" / "al_nasr.json"
         workspace = json.loads(workspace_path.read_text(encoding="utf-8"))
         self.assertEqual(workspace["name"], "AL-NASR")
+        self.assertEqual(workspace["label"], workspace["name"])
+        self.assertEqual(workspace["title"], "النصر | AL-NASR")
         self.assertEqual(workspace["doctype"], "Workspace")
         self.assertEqual(workspace["module"], "AL-NASR")
         self.assertEqual(workspace.get("standard"), 1)
