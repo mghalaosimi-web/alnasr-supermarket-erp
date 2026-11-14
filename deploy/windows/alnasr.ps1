@@ -113,11 +113,11 @@ switch ($Action) {
         if (-not $dbPassword -or $dbPassword -eq "REPLACE_WITH_A_LONG_RANDOM_SECRET") { throw "Set a strong DB_PASSWORD in deploy/.env first." }
         # Detect an interrupted or previously completed first run. This makes
         # setup safe to retry without attempting to recreate an existing site.
-        docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose run --rm --no-deps --entrypoint bash backend -lc 'test -f sites/alnasr.local/site_config.json'
-        $siteCheckExit = $LASTEXITCODE
-        if ($siteCheckExit -gt 1) { throw "Could not inspect the local site state (exit code $siteCheckExit)." }
+        $siteState = docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose run --rm --no-deps --entrypoint bash backend -lc 'if test -f sites/alnasr.local/site_config.json; then echo ALNASR_SITE_EXISTS; else echo ALNASR_SITE_MISSING; fi'
+        if ($LASTEXITCODE -ne 0) { throw "Could not inspect the local site state (exit code $LASTEXITCODE)." }
+        $siteStateText = $siteState -join [Environment]::NewLine
 
-        if ($siteCheckExit -eq 0) {
+        if ($siteStateText -match "ALNASR_SITE_EXISTS") {
             Write-Host "Existing AL-NASR site found. Verifying required apps and applying pending migrations..."
             $existingSiteScript = @'
 set -e
@@ -132,13 +132,16 @@ bench --site alnasr.local migrate
             docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose run --rm -T --no-deps --entrypoint bash backend -lc $existingSiteScript
             if ($LASTEXITCODE -ne 0) { throw "Existing-site recovery failed. Inspect logs before retrying." }
         }
-        else {
+        elseif ($siteStateText -match "ALNASR_SITE_MISSING") {
             $secure = Read-Host "Create the AL-NASR Administrator password" -AsSecureString
             $adminPassword = [System.Net.NetworkCredential]::new("", $secure).Password
             if ($adminPassword.Length -lt 12) { throw "Administrator password must be at least 12 characters." }
             $payload = $dbPassword + [Environment]::NewLine + $adminPassword + [Environment]::NewLine
             $payload | docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose run --rm -T --no-deps --entrypoint bash backend -lc 'read -r DBROOT; read -r ADMIN; bench new-site alnasr.local --db-host db --mariadb-user-host-login-scope % --db-root-username root --db-root-password "$DBROOT" --admin-password "$ADMIN" --install-app erpnext --install-app xpos --install-app alnasr --set-default'
             if ($LASTEXITCODE -ne 0) { throw "Site creation failed. Inspect logs before retrying." }
+        }
+        else {
+            throw "The local site state could not be determined safely. No site data was changed."
         }
         Invoke-Compose up -d
         Write-Host "AL-NASR site is ready. Open http://127.0.0.1:8080; login user is Administrator."
