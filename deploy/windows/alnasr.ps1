@@ -110,9 +110,7 @@ switch ($Action) {
         if (-not (Test-Path $BackupDir)) { throw "No local backup directory exists at $BackupDir." }
         $backups = @(Get-ChildItem -Path $BackupDir -Filter "*-database.sql.gz" -File | Sort-Object LastWriteTime -Descending)
         if ($backups.Count -eq 0) { throw "No database backups were found in $BackupDir." }
-        for ($index = 0; $index -lt $backups.Count; $index++) {
-            Write-Host "[$index] $($backups[$index].Name) — $($backups[$index].LastWriteTime)"
-        }
+        for ($index = 0; $index -lt $backups.Count; $index++) { Write-Host "[$index] $($backups[$index].Name)" }
         $selection = Read-Host "Enter the backup number to restore"
         $number = 0
         if (-not [int]::TryParse($selection, [ref]$number) -or $number -lt 0 -or $number -ge $backups.Count) { throw "Invalid backup selection." }
@@ -121,36 +119,24 @@ switch ($Action) {
         $prefix = $sql.Name.Substring(0, $sql.Name.Length - $suffix.Length)
         $publicFile = Join-Path $BackupDir ($prefix + "-files.tar")
         $privateFile = Join-Path $BackupDir ($prefix + "-private-files.tar")
-        if (-not (Test-Path $publicFile) -or -not (Test-Path $privateFile)) { throw "The selected backup is incomplete. Database, public files, and private files are all required." }
-        $confirm = Read-Host "This replaces the current AL-NASR database and files. Type RESTORE to continue"
+        if (-not (Test-Path $publicFile) -or -not (Test-Path $privateFile)) { throw "Selected backup is incomplete." }
+        $confirm = Read-Host "This replaces current data. Type RESTORE to continue"
         if ($confirm -cne "RESTORE") { throw "Restore cancelled." }
         & $PSCommandPath -Action backup
-        if (-not $?) { throw "Pre-restore safety backup failed; restore was not started." }
+        if (-not $?) { throw "Pre-restore safety backup failed." }
         Invoke-Compose cp $sql.FullName "backend:/tmp/alnasr-restore-database.sql.gz"
         Invoke-Compose cp $publicFile "backend:/tmp/alnasr-restore-public-files.tar"
         Invoke-Compose cp $privateFile "backend:/tmp/alnasr-restore-private-files.tar"
-        $match = Select-String -Path $EnvFile -Pattern '^DB_PASSWORD=(.+)
-        New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
-        Invoke-Compose exec -T backend bench --site $SiteName backup --with-files
-        if ($LASTEXITCODE -ne 0) { throw "Bench backup failed." }
-        Invoke-Compose cp "backend:/home/frappe/frappe-bench/sites/$SiteName/private/backups/." $BackupDir
-        Write-Host "Backup files copied to $BackupDir. Verify a restore on a separate test site before relying on this backup."
-    }
-}
-
-        $dbPassword = if ($match) { $match.Matches[0].Groups[1].Value } else { "" }
-        if (-not $dbPassword) { throw "Database password is missing from the private local configuration." }
+        $dbLine = Get-Content $EnvFile | Where-Object { $_.StartsWith("DB_PASSWORD=") } | Select-Object -First 1
+        if (-not $dbLine) { throw "Database password is missing." }
+        $dbPassword = $dbLine.Substring("DB_PASSWORD=".Length)
         $payload = $dbPassword + [Environment]::NewLine
         $payload | docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose exec -T backend bash -lc 'read -r DBROOT; bench --site alnasr.local restore /tmp/alnasr-restore-database.sql.gz --db-root-username root --db-root-password "$DBROOT" --with-public-files /tmp/alnasr-restore-public-files.tar --with-private-files /tmp/alnasr-restore-private-files.tar --force && bench --site alnasr.local migrate'
-        if ($LASTEXITCODE -ne 0) { throw "Restore or post-restore migration failed. Keep the pre-restore backup and inspect logs." }
+        if ($LASTEXITCODE -ne 0) { throw "Restore or migration failed. Keep the pre-restore backup." }
         Invoke-Compose restart backend websocket queue-short queue-long scheduler frontend caddy
-        if ($LASTEXITCODE -ne 0) { throw "Services could not be restarted after restore." }
-        try {
-            $health = Invoke-WebRequest -Uri "http://127.0.0.1:8080/api/method/ping" -TimeoutSec 30
-            if ($health.StatusCode -ne 200 -or $health.Content -notmatch "pong") { throw "Unexpected health response." }
-        } catch {
-            throw "Restore completed but HTTP health verification failed. The pre-restore backup remains in $BackupDir."
-        }
+        if ($LASTEXITCODE -ne 0) { throw "Services could not restart after restore." }
+        $health = Invoke-WebRequest -Uri "http://127.0.0.1:8080/api/method/ping" -TimeoutSec 30
+        if ($health.StatusCode -ne 200 -or $health.Content -notmatch "pong") { throw "Post-restore health check failed." }
         Write-Host "Restore and HTTP health check completed. Verify stock, invoices, payments, and GL before resuming sales."
     }
     "backup" {
