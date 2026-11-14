@@ -7,7 +7,7 @@ import { closeCashierShift, createSale, getOpenCashierShift, openCashierShift } 
 import { adjustStockCount, listStockMovements, receiveStock } from "./inventory";
 import { createSupplier, listSuppliers } from "./suppliers";
 import { createCustomer, listCustomers } from "./customers";
-import { createPurchase, listPurchases } from "./purchases";
+import { addPurchasePayment, createPurchase, listPurchases } from "./purchases";
 
 let mainWindow: BrowserWindow | null = null;
 let database: AlnasrDatabase | null = null;
@@ -189,6 +189,23 @@ app.whenReady().then(() => {
       lines,
       paidMinor: value.paidMinor as number | undefined,
       paymentMethod: value.paymentMethod as "cash" | "card" | "transfer" | undefined,
+      actorUserId: activeUserId
+    });
+  });
+
+  ipcMain.handle("alnasr:purchases:add-payment", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object") throw new Error("بيانات الدفعة غير صحيحة");
+    const value = input as Record<string, unknown>;
+    if (
+      typeof value.purchaseId !== "string" ||
+      typeof value.amountMinor !== "number" ||
+      (value.method !== "cash" && value.method !== "card" && value.method !== "transfer")
+    ) throw new Error("أكمل بيانات دفعة المورد بصورة صحيحة");
+    return addPurchasePayment(database, {
+      purchaseId: value.purchaseId,
+      amountMinor: value.amountMinor,
+      method: value.method,
       actorUserId: activeUserId
     });
   });
