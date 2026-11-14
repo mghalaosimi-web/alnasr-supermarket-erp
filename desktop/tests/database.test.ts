@@ -512,3 +512,64 @@ describe("AL-NASR customer receivables", () => {
     expect(db.prepare("SELECT COUNT(*) AS count FROM payments").get()).toEqual({ count: 0 });
   });
 });
+
+describe("AL-NASR safe database restore", () => {
+  it("validates a backup, preserves a safety copy and restores the selected database", async () => {
+    const { mkdtempSync, rmSync, existsSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { restoreDatabaseFile } = await import("../src/main/database-restore");
+    const directory = mkdtempSync(join(tmpdir(), "alnasr-restore-test-"));
+    const targetPath = join(directory, "live.sqlite");
+    const backupPath = join(directory, "backup.sqlite");
+    db = new Database(targetPath);
+    initializeDatabase(db);
+    db.prepare("INSERT INTO app_settings (key, value) VALUES ('state', 'before-restore')").run();
+
+    const source = new Database(":memory:");
+    initializeDatabase(source);
+    source.prepare("INSERT INTO app_settings (key, value) VALUES ('state', 'restored-value')").run();
+    try {
+      await source.backup(backupPath);
+      source.close();
+      const result = await restoreDatabaseFile(db, backupPath, targetPath);
+      db = result.database;
+      expect(existsSync(result.safetyBackupPath)).toBe(true);
+      expect(db.prepare("SELECT value FROM app_settings WHERE key='state'").get()).toEqual({ value: "restored-value" });
+
+      const safety = new Database(result.safetyBackupPath, { readonly: true });
+      try {
+        expect(safety.prepare("SELECT value FROM app_settings WHERE key='state'").get()).toEqual({ value: "before-restore" });
+        expect(safety.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+      } finally {
+        safety.close();
+      }
+    } finally {
+      source.close();
+      db?.close();
+      db = undefined;
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an invalid file without closing or changing the live database", async () => {
+    const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { restoreDatabaseFile } = await import("../src/main/database-restore");
+    const directory = mkdtempSync(join(tmpdir(), "alnasr-restore-invalid-"));
+    const targetPath = join(directory, "live.sqlite");
+    const invalidPath = join(directory, "not-a-database.sqlite");
+    db = new Database(targetPath);
+    initializeDatabase(db);
+    db.prepare("INSERT INTO app_settings (key, value) VALUES ('state', 'keep-live')").run();
+    writeFileSync(invalidPath, "not a SQLite database");
+
+    await expect(restoreDatabaseFile(db, invalidPath, targetPath)).rejects.toThrow();
+    expect(db.open).toBe(true);
+    expect(db.prepare("SELECT value FROM app_settings WHERE key='state'").get()).toEqual({ value: "keep-live" });
+    db.close();
+    db = undefined;
+    rmSync(directory, { recursive: true, force: true });
+  });
+});
