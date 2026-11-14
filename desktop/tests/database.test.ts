@@ -271,3 +271,20 @@ describe("AL-NASR database backup", () => {
     }
   });
 });
+
+
+describe("AL-NASR supplier registry", () => {
+  it("creates and lists suppliers with audit history", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createSupplier, listSuppliers } = await import("../src/main/suppliers");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const supplier = createSupplier(db, { code: "SUP-001", name: "مؤسسة المواد الغذائية", phone: "777000111", actorUserId: owner.id });
+    expect(supplier).toMatchObject({ code: "SUP-001", name: "مؤسسة المواد الغذائية", phone: "777000111" });
+    expect(listSuppliers(db)).toHaveLength(1);
+    expect(db.prepare("SELECT action, entity_id FROM audit_events WHERE entity_id=?").get(supplier.id)).toMatchObject({ action: "supplier.create", entity_id: supplier.id });
+    expect(() => createSupplier(db!, { code: "SUP-001", name: "مورد مكرر", actorUserId: owner.id })).toThrow();
+    expect(listSuppliers(db)).toHaveLength(1);
+  });
+});
