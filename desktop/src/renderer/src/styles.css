@@ -112,3 +112,11 @@ footer { padding: 20px 7%; color: #8994a3; font-size: 11px; direction: ltr; text
 .barcode-scan label { display: grid; flex: 1; gap: 6px; color: #40536d; font-size: 12px; font-weight: 700; }
 .barcode-scan input { height: 42px; padding: 0 12px; border: 1px solid #d8e0e9; border-radius: 7px; background: #fff; color: #172b4d; font: inherit; direction: ltr; text-align: left; }
 .barcode-scan button { height: 42px; padding: 0 16px; border: 0; border-radius: 7px; color: #fff; background: #315a85; font: inherit; font-weight: 700; cursor: pointer; }
+
+.supplier-workspace { padding: 22px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+.supplier-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; padding: 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }
+.supplier-form label { display: grid; gap: 6px; color: #40536d; font-size: 12px; font-weight: 600; }
+.supplier-form input { height: 40px; padding: 0 10px; border: 1px solid #d8e0e9; border-radius: 7px; background: #fff; color: #172b4d; font: inherit; }
+.supplier-form button { height: 40px; border: 0; border-radius: 7px; color: #fff; background: #172b4d; font: inherit; font-weight: 700; cursor: pointer; }
+.supplier-status { color: #276749; font-size: 12px; font-weight: 700; }
+@media (max-width: 850px) { .supplier-form { grid-template-columns: 1fr; } }
