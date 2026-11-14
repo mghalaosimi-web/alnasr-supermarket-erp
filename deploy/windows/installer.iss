@@ -5,7 +5,7 @@
 #define AppPublisher "AL-NASR"
 
 [Setup]
-AppId={{8E8F2B37-6C20-4B42-A90D-ALNASR000001}
+AppId={{8E8F2B37-6C20-4B42-A90D-A1A5A0000001}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
