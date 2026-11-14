@@ -71,6 +71,9 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
         self.assertEqual(page.module, "AL-NASR")
         self.assertEqual(page.title, "النصر | AL-NASR")
         self.assertEqual(page.standard, "Yes")
+        page.load_assets()
+        self.assertIn('frappe.pages["alnasr"].on_page_load', page.script)
+        self.assertIn('/xpos/pos', page.script)
 
     def test_alnasr_workspace_fixture_is_installed(self):
         self.assertTrue(
