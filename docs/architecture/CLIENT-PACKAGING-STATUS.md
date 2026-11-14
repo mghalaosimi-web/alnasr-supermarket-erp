@@ -13,8 +13,9 @@ The pinned X POS v2.13.4 source includes an Electron application and an electron
 
 - `frontend/electron/main.ts` starts an Electron renderer and uses a configurable ERPNext server URL (default `http://localhost:8000`).
 - `frontend/package.json` exposes `build:electron`, `dist`, and `dist:win`.
+- `frontend/scripts/build-win.mjs` runs `electron-builder --win --dir` and verifies `release/win-unpacked/X POS.exe`; this is an unpacked client directory, not the NSIS installer artifact.
 - `frontend/electron-builder.yml` identifies the product as **X POS**, uses upstream application identity/icon assets, and configures publishing to the upstream `kodlyft/xpos` GitHub repository.
-- The Electron client includes a local SQLite/cache and a hub/till synchronization service. It is not the Frappe/ERPNext server installer.
+- The Electron client uses a local MariaDB-backed cache and a hub/till synchronization service. Its `electron/database/dbService.ts` connects to `127.0.0.1:3306` (default database `xpos_local`) and creates the client schema; the Electron package includes `schema.sql`, not a MariaDB server. It is not the Frappe/ERPNext server installer.
 
 A Windows x64 Electron client can therefore be built from upstream, but it is not an AL-NASR-branded installer and does not install or operate the authoritative Frappe + ERPNext + X POS + AL-NASR server stack. The current repository has no supported Windows server lifecycle package, Docker Compose deployment, persistent MariaDB/Redis service definition, firewall configuration, backup/restore workflow, or upgrade/rollback orchestration.
 
