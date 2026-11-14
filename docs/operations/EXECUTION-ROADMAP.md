@@ -89,6 +89,23 @@ Test these failure modes separately:
 - [ ] Final data migration and reconciliation plan.
 - [ ] Signed go-live checklist and rollback plan.
 
+
+## Workstream G — one Windows computer + one Android phone
+
+**Scope decision:** one Windows computer hosts the local Frappe/ERPNext/X POS server and is also the desktop client; one Android phone connects over the same local Wi-Fi/LAN. No cloud dependency or extra terminals are in scope.
+
+- [x] Record the target topology, shared-data rules, unified UI requirements, packaging boundaries and acceptance gates in [CLIENT-DELIVERY-ONE-PC-ONE-ANDROID.md](../architecture/CLIENT-DELIVERY-ONE-PC-ONE-ANDROID.md).
+- [ ] Implement the AL-NASR unified navigation and responsive application shell.
+- [ ] Integrate ERPNext management surfaces and X POS into one branded navigation without iframe-based coupling or upstream source patches.
+- [ ] Validate the local Frappe server lifecycle on a clean supported Windows installation.
+- [ ] Produce and test the Windows installer/desktop launcher.
+- [ ] Produce and test the Android APK client connecting to the PC server over LAN.
+- [ ] Verify login/session behavior, same catalog/invoice/stock state on both devices, restart/reconnect and duplicate prevention.
+- [ ] Validate target barcode scanner and receipt printer.
+- [ ] Complete backup/restore and owner acceptance before any live use.
+
+**Exit gate:** A clean Windows installation starts the local server reliably; the Android phone connects over LAN; both clients show the same authoritative data; sale, return and cash-close flows reconcile; and packaged EXE/APK installation, update and recovery are tested. Offline sales remain disabled until their own failure/reconciliation gate passes.
+
 ## Latest integration finding — return credit notes
 
 - Confirmed the pinned X POS v2.13.4 customization `Sales Invoice-update_outstanding_for_self-default` forces the ERPNext v16 field default to `0`, while ERPNext's upstream default is `1`.
