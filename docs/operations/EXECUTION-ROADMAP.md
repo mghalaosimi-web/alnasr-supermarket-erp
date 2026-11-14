@@ -95,7 +95,7 @@ Test these failure modes separately:
 **Scope decision:** one Windows computer hosts the local Frappe/ERPNext/X POS server and is also the desktop client; one Android phone connects over the same local Wi-Fi/LAN. No cloud dependency or extra terminals are in scope.
 
 - [x] Record the target topology, shared-data rules, unified UI requirements, packaging boundaries and acceptance gates in [CLIENT-DELIVERY-ONE-PC-ONE-ANDROID.md](../architecture/CLIENT-DELIVERY-ONE-PC-ONE-ANDROID.md).
-- [ ] Implement the AL-NASR unified navigation and responsive application shell.
+- [x] Add an AL-NASR Desk landing page at `/app/alnasr` with shared brand styling, responsive layout, quick actions and navigation into X POS and ERPNext standard workflows; source contracts added to app validation. Runtime rendering and role-based access verification remain open.
 - [ ] Integrate ERPNext management surfaces and X POS into one branded navigation without iframe-based coupling or upstream source patches.
 - [ ] Validate the local Frappe server lifecycle on a clean supported Windows installation.
 - [ ] Produce and test the Windows installer/desktop launcher.
