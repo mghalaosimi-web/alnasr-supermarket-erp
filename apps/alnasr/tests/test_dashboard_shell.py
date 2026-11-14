@@ -10,10 +10,10 @@ APP = ROOT / "apps" / "alnasr" / "alnasr"
 class DashboardShellTests(unittest.TestCase):
     def test_dashboard_page_controller_and_script_exist(self):
         self.assertTrue((APP / "page" / "alnasr" / "alnasr.py").is_file())
-        self.assertTrue((APP / "public" / "js" / "alnasr-page.js").is_file())
+        self.assertTrue((APP / "page" / "alnasr" / "alnasr.js").is_file())
 
     def test_dashboard_uses_existing_erpnext_and_xpos_routes(self):
-        source = (APP / "public" / "js" / "alnasr-page.js").read_text(encoding="utf-8")
+        source = (APP / "page" / "alnasr" / "alnasr.js").read_text(encoding="utf-8")
         for route in ("/xpos/pos", '"Sales Invoice"', '"Item"', '"Purchase Invoice"', '"Stock Entry"', '"Customer"', '"Supplier"', '"Payment Entry"'):
             with self.subTest(route=route):
                 self.assertIn(route, source)
