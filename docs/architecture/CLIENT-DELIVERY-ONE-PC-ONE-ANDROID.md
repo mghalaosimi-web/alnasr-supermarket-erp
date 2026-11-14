@@ -108,3 +108,38 @@ ERPNext remains the source of truth for standard business documents. X POS remai
 ## Release boundaries
 
 No PR merge, production deployment, live database migration, or real-store data import is authorized by this architecture note. Build and verify the local test environment first. Do not enable offline sales until device restart, server outage, retry, idempotency and reconciliation acceptance tests pass.
+
+
+## Windows installer user experience contract
+
+The Windows deliverable must behave like a conventional desktop-software installer. The store owner must not be asked to open a terminal, type shell commands, install Python/Node/Bench manually, or configure Docker Compose by hand.
+
+### Setup wizard
+
+1. **Welcome** — AL-NASR name/logo, supported Windows versions, and a concise explanation that this PC will host the store's local ERP server.
+2. **License and notices** — present the AL-NASR license and required Frappe/ERPNext/X POS third-party notices. Do not imply that upstream licenses are replaced by the AL-NASR license.
+3. **Install location** — default application binaries to `C:\\Program Files\\AL-NASR ERP\\`. Keep operational database files and backups outside the application directory so upgrades and uninstalling the client do not erase business data.
+4. **System readiness** — automatically detect Windows edition/build, x64 architecture, available disk/RAM, WSL2, virtualization support, and the supported Docker Desktop runtime. Show the exact missing prerequisite and explain any Administrator approval or restart. Where permitted, the installer may launch the official prerequisite installer after explicit user approval; it must not silently enable privileged Windows features or bypass a required reboot.
+5. **Installing** — show clear progress while installing the AL-NASR launcher, preparing the supported Linux/container runtime, loading pinned application images, initializing persistent storage, and registering the local service. Never expose passwords or secret environment values in logs or UI.
+6. **First-run setup** — open a local first-run page to create the store owner account and company profile. Generate credentials securely; do not ship a shared default administrator password.
+7. **Finish** — offer “Launch AL-NASR”, a desktop shortcut, Start Menu entry, and optional start-on-Windows-login behavior. Display the local server health state and a clear recovery/help path.
+
+### Installed application behavior
+
+- The branded AL-NASR launcher must provide Start, Stop, Restart, Open System, Backup, and Restore actions with health checks and actionable error messages.
+- Bind database and application ports to loopback by default. LAN access for the paired Android phone must be enabled only through the reviewed pairing and TLS flow; do not expose MariaDB, Redis, or internal service ports to the LAN.
+- Persist database files, site files, encryption material, and backups in documented data locations with restrictive Windows ACLs. Application upgrades must preserve these locations.
+- Uninstall must remove application binaries and registered services only after confirmation. It must preserve business data by default and provide a separate, explicit data-removal path with a backup warning.
+- An upgrade must run a pre-upgrade backup, verify image/app compatibility, apply migrations to the local installation only, and retain a tested rollback/recovery path.
+- Do not claim that the wizard, managed prerequisites, service lifecycle, LAN pairing, backup/restore, or rollback are implemented until each is exercised on a clean Windows 10/11 x64 machine.
+
+### Packaging acceptance checklist
+
+- [ ] Clean Windows 10/11 x64 installation from the downloaded `AL-NASR-Setup.exe`, using only the wizard UI.
+- [ ] Missing WSL2/virtualization/runtime prerequisites are detected and explained; elevation and restart are handled explicitly.
+- [ ] First install creates a healthy local site and owner account without embedded credentials.
+- [ ] Restarting Windows restores the server according to the selected startup preference.
+- [ ] Backup and restore are verified against a disposable test company.
+- [ ] Upgrade preserves company data; uninstall preserves data unless the owner explicitly selects removal.
+- [ ] Android pairing uses authenticated HTTPS and shares the same catalog, invoices, stock, and ledger state.
+- [ ] The final installer is inspected, checksummed, and published as a versioned GitHub artifact/release only after clean-machine acceptance.
