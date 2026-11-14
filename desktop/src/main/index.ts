@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { openDatabase, type AlnasrDatabase } from "./database";
 import { authenticate, createInitialOwner, isOwnerSetupRequired } from "./auth";
 import { createProduct, listProducts } from "./products";
+import { closeCashierShift, createSale, getOpenCashierShift, openCashierShift } from "./sales";
 
 let mainWindow: BrowserWindow | null = null;
 let database: AlnasrDatabase | null = null;
@@ -101,6 +102,60 @@ app.whenReady().then(() => {
       costMinor: value.costMinor,
       priceMinor: value.priceMinor,
       openingQuantity: value.openingQuantity as number | undefined,
+      actorUserId: activeUserId
+    });
+  });
+
+
+  ipcMain.handle("alnasr:shift:current", () => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    return getOpenCashierShift(database, activeUserId);
+  });
+
+  ipcMain.handle("alnasr:shift:open", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object" || typeof (input as Record<string, unknown>).openingCashMinor !== "number") {
+      throw new Error("أدخل رصيد افتتاح الصندوق");
+    }
+    return openCashierShift(database, {
+      openingCashMinor: (input as Record<string, number>).openingCashMinor,
+      cashierUserId: activeUserId
+    });
+  });
+
+  ipcMain.handle("alnasr:shift:close", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object") throw new Error("بيانات إغلاق الوردية غير صحيحة");
+    const value = input as Record<string, unknown>;
+    if (typeof value.shiftId !== "string" || typeof value.closingCashMinor !== "number") {
+      throw new Error("أدخل بيانات إغلاق الوردية");
+    }
+    return closeCashierShift(database, {
+      shiftId: value.shiftId,
+      closingCashMinor: value.closingCashMinor,
+      actorUserId: activeUserId
+    });
+  });
+
+  ipcMain.handle("alnasr:sales:create", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object") throw new Error("بيانات الفاتورة غير صحيحة");
+    const value = input as Record<string, unknown>;
+    if (
+      !Array.isArray(value.lines) ||
+      (value.paymentMethod !== "cash" && value.paymentMethod !== "card" && value.paymentMethod !== "transfer") ||
+      typeof value.idempotencyKey !== "string"
+    ) throw new Error("أكمل بيانات الفاتورة بصورة صحيحة");
+    const lines = value.lines.map((line: unknown) => {
+      if (!line || typeof line !== "object") throw new Error("بيانات أحد المنتجات غير صحيحة");
+      const item = line as Record<string, unknown>;
+      if (typeof item.productId !== "string" || typeof item.quantity !== "number") throw new Error("بيانات أحد المنتجات غير صحيحة");
+      return { productId: item.productId, quantity: item.quantity };
+    });
+    return createSale(database, {
+      lines,
+      paymentMethod: value.paymentMethod,
+      idempotencyKey: value.idempotencyKey,
       actorUserId: activeUserId
     });
   });
