@@ -100,6 +100,9 @@ jobs:
           printf '%s\n' "$APP_LIST" | grep -q '^erpnext '
           printf '%s\n' "$APP_LIST" | grep -q '^xpos '
           printf '%s\n' "$APP_LIST" | grep -q '^alnasr '
+          "${COMPOSE[@]}" exec -T backend bench --site alnasr.local backup --with-files
+          printf '%s\n' "$DB_PASSWORD" | "${COMPOSE[@]}" exec -T backend bash -lc 'read -r DBROOT; BACKUP_DIR=/home/frappe/frappe-bench/sites/alnasr.local/private/backups; SQL_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -name "*-database.sql.gz" | sort | tail -n 1); PUBLIC_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -name "*-files.tar" ! -name "*-private-files.tar" | sort | tail -n 1); PRIVATE_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -name "*-private-files.tar" | sort | tail -n 1); test -s "$SQL_FILE" && test -s "$PUBLIC_FILE" && test -s "$PRIVATE_FILE"; bench --site alnasr.local restore "$SQL_FILE" --db-root-username root --db-root-password "$DBROOT" --with-public-files "$PUBLIC_FILE" --with-private-files "$PRIVATE_FILE" --force; bench --site alnasr.local migrate'
+          curl --fail --silent http://127.0.0.1:8080/api/method/ping | grep -q pong
           curl --insecure --fail --silent --show-error --resolve alnasr.local:443:127.0.0.1 https://alnasr.local/api/method/ping
           "${COMPOSE[@]}" cp caddy:/data/caddy/pki/authorities/local/root.crt "$RUNNER_TEMP/alnasr-root.crt"
           curl --fail --silent --show-error --cacert "$RUNNER_TEMP/alnasr-root.crt" --resolve alnasr.local:443:127.0.0.1 https://alnasr.local/api/method/ping
