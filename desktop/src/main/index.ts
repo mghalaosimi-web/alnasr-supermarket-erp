@@ -5,6 +5,7 @@ import { authenticate, createInitialOwner, isOwnerSetupRequired } from "./auth";
 import { createProduct, listProducts } from "./products";
 import { closeCashierShift, createSale, getOpenCashierShift, openCashierShift } from "./sales";
 import { adjustStockCount, listStockMovements, receiveStock } from "./inventory";
+import { createSupplier, listSuppliers } from "./suppliers";
 
 let mainWindow: BrowserWindow | null = null;
 let database: AlnasrDatabase | null = null;
@@ -109,6 +110,27 @@ app.whenReady().then(() => {
 
 
 
+
+
+  ipcMain.handle("alnasr:suppliers:list", () => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    return listSuppliers(database);
+  });
+
+  ipcMain.handle("alnasr:suppliers:create", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object") throw new Error("بيانات المورد غير صحيحة");
+    const value = input as Record<string, unknown>;
+    if (typeof value.code !== "string" || typeof value.name !== "string" || (value.phone !== undefined && typeof value.phone !== "string")) {
+      throw new Error("أكمل بيانات المورد");
+    }
+    return createSupplier(database, {
+      code: value.code,
+      name: value.name,
+      phone: value.phone as string | undefined,
+      actorUserId: activeUserId
+    });
+  });
 
   ipcMain.handle("alnasr:backup:create", async () => {
     if (!database?.open || !activeUserId || !mainWindow) throw new Error("سجّل الدخول أولاً");
