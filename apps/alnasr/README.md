@@ -35,6 +35,6 @@ AL-NASR is a separately branded retail-management product built on Frappe and ER
 - `favicon.svg`: simplified browser/application icon.
 - Public asset source directory: `alnasr/public/images/`.
 
-## Current branding coverage
+## Unified Desk entry point\n\nThe custom app now provides an AL-NASR Desk landing page at `/app/alnasr`, with Arabic-first sections and shortcuts into the existing X POS route and ERPNext standard DocTypes. The page uses shared AL-NASR CSS tokens and responsive desktop/mobile layout. It is a unified navigation entry point, not yet a complete replacement of every ERPNext/X POS screen. Runtime route loading, role-specific visibility, and visual review remain CI/UAT acceptance items.\n\n## Current branding coverage
 
 The custom app metadata and its module entry use the AL-NASR name, primary logo asset, and Royal Navy brand color. Runtime rendering and module-tile appearance remain unverified until installed in a Frappe site. This does not automatically rebrand every ERPNext, X POS, print format, login, email, report, or Electron screen. See [Brand implementation matrix](../../docs/brand/BRAND-IMPLEMENTATION-MATRIX.md) for the remaining integration work and acceptance checks.
