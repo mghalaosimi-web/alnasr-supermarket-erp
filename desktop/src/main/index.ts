@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { join, resolve } from "node:path";
-import { openDatabase, type AlnasrDatabase } from "./database";
+import { getDatabasePath, openDatabase, type AlnasrDatabase } from "./database";
+import { restoreDatabaseFile } from "./database-restore";
 import { authenticate, createInitialOwner, isOwnerSetupRequired } from "./auth";
 import { createProduct, listProducts } from "./products";
 import { addSalePayment, closeCashierShift, createSale, getOpenCashierShift, listReceivables, openCashierShift } from "./sales";
@@ -245,6 +246,26 @@ app.whenReady().then(() => {
     if (resolve(result.filePath) === resolve(database.name)) throw new Error("اختر مساراً مختلفاً عن ملف قاعدة البيانات الأصلي");
     await database.backup(result.filePath);
     return { canceled: false, filePath: result.filePath };
+  });
+
+  ipcMain.handle("alnasr:backup:restore", async () => {
+    if (!database?.open || !activeUserId || !mainWindow) throw new Error("سجّل الدخول أولاً");
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "اختيار نسخة احتياطية لاستعادتها",
+      buttonLabel: "فحص واستعادة النسخة",
+      properties: ["openFile"],
+      filters: [{ name: "SQLite Backup", extensions: ["sqlite", "db"] }]
+    });
+    if (result.canceled || !result.filePaths[0]) return { canceled: true };
+    try {
+      const restored = await restoreDatabaseFile(database, result.filePaths[0], getDatabasePath());
+      database = restored.database;
+      activeUserId = null;
+      return { canceled: false, safetyBackupPath: restored.safetyBackupPath };
+    } catch (error) {
+      if (database && !database.open) database = openDatabase();
+      throw error;
+    }
   });
 
   ipcMain.handle("alnasr:inventory:movements", () => {
