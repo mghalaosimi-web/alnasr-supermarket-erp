@@ -1,5 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { initializeDatabase, MIGRATIONS } from "./database-core";
@@ -15,7 +15,7 @@ function validateDatabase(db: Database.Database): void {
     throw new Error("فشل فحص سلامة ملف النسخة الاحتياطية");
   }
   const tables = new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map((row) => row.name));
-  for (const table of ["schema_migrations", "users", "products", "sales", "stock_movements", "purchase_documents"]) {
+  for (const table of ["schema_migrations", "users", "products", "sales", "stock_movements"]) {
     if (!tables.has(table)) throw new Error("ملف النسخة الاحتياطية ليس قاعدة بيانات AL-NASR صالحة");
   }
   const applied = db.prepare("SELECT id FROM schema_migrations").all() as Array<{ id: string }>;
