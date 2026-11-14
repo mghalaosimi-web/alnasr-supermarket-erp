@@ -120,3 +120,7 @@ footer { padding: 20px 7%; color: #8994a3; font-size: 11px; direction: ltr; text
 .supplier-form button { height: 40px; border: 0; border-radius: 7px; color: #fff; background: #172b4d; font: inherit; font-weight: 700; cursor: pointer; }
 .supplier-status { color: #276749; font-size: 12px; font-weight: 700; }
 @media (max-width: 850px) { .supplier-form { grid-template-columns: 1fr; } }
+
+.customer-workspace { padding: 22px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+.pos-customer-select { display: grid; gap: 6px; max-width: 420px; margin-bottom: 14px; color: #40536d; font-size: 12px; font-weight: 700; }
+.pos-customer-select select { height: 40px; padding: 0 10px; border: 1px solid #d8e0e9; border-radius: 7px; background: #fff; color: #172b4d; font: inherit; }
