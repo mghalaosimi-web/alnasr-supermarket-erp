@@ -249,7 +249,7 @@ export function App() {
       });
       setProducts(await window.alnasr.listProducts());
       setStockMovements(await window.alnasr.listStockMovements());
-      setError(result.difference === 0 ? "الجرد مطابق للرصيد المسجل، لم تُنشأ حركة تعديل." : null);
+      setError(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر اعتماد الجرد");
     } finally {
@@ -400,7 +400,7 @@ export function App() {
             </div>
             {error && <p className="form-error" role="alert">{error}</p>}
             <label className="inventory-product-select">المنتج
-              <select value={stockProductId} onChange={(event) => setStockProductId(event.target.value)} required>
+              <select value={stockProductId} onChange={(event) => { const id = event.target.value; setStockProductId(id); setCountedQuantity(String(products.find((product) => product.id === id)?.stockOnHand ?? 0)); }} required>
                 <option value="">اختر منتجاً</option>
                 {products.map((product) => <option key={product.id} value={product.id}>{product.nameAr} · المتوفر {product.stockOnHand}</option>)}
               </select>
@@ -423,7 +423,7 @@ export function App() {
             <div className="product-list">
               {stockMovements.length === 0 ? <p className="empty-products">لا توجد حركات مخزون مسجلة.</p> : stockMovements.map((movement) => (
                 <article className="product-row" key={movement.id}>
-                  <div><strong>{movement.productName}</strong><small>{movement.sku} · {movement.warehouseName} · {movement.movementType}</small></div>
+                  <div><strong>{movement.productName}</strong><small>{movement.sku} · {movement.warehouseName} · {({ opening: "رصيد افتتاحي", purchase: "استلام", sale: "بيع", sale_return: "مرتجع بيع", purchase_return: "مرتجع شراء", transfer_in: "تحويل وارد", transfer_out: "تحويل صادر", adjustment: "تسوية جرد" } as Record<string, string>)[movement.movementType] ?? movement.movementType}</small></div>
                   <strong className={movement.quantityDelta < 0 ? "movement-negative" : "movement-positive"}>{movement.quantityDelta > 0 ? "+" : ""}{movement.quantityDelta}</strong>
                 </article>
               ))}
