@@ -1,0 +1,28 @@
+* { box-sizing: border-box; }
+:root { font-family: "Segoe UI", Tahoma, Arial, sans-serif; color: #172b4d; background: #f3f5f7; font-synthesis: none; }
+body { margin: 0; min-width: 900px; min-height: 100vh; }
+.shell { min-height: 100vh; }
+.topbar { height: 76px; display: flex; align-items: center; gap: 14px; padding: 0 42px; background: #fff; border-bottom: 1px solid #e5e9ef; }
+.brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 10px; color: white; background: #172b4d; font-size: 24px; font-weight: 800; }
+.topbar strong, .topbar span { display: block; }
+.topbar strong { font-size: 18px; }
+.topbar span { margin-top: 3px; color: #718096; font-size: 9px; letter-spacing: 1.2px; direction: ltr; }
+.topbar-spacer { flex: 1; }
+.topbar .version { font-size: 12px; letter-spacing: 0; }
+.welcome { padding: 58px 7% 42px; background: linear-gradient(115deg, #fff, #edf2f7); border-bottom: 1px solid #e5e9ef; }
+.eyebrow { color: #315a85; font-size: 13px; font-weight: 700; }
+h1 { margin: 10px 0; font-size: 34px; }
+.description { color: #65758b; font-size: 15px; }
+.status-card { display: flex; align-items: center; gap: 14px; width: min(560px, 100%); margin-top: 30px; padding: 18px 20px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; }
+.status-indicator { width: 10px; height: 10px; flex: 0 0 auto; border-radius: 50%; background: #b69a62; }
+.status-card strong { font-size: 14px; }
+.status-card p { margin: 5px 0 0; color: #718096; font-size: 12px; direction: ltr; text-align: right; }
+.modules { padding: 34px 7%; }
+.modules h2 { margin: 0 0 18px; font-size: 19px; }
+.module-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.module-card { min-height: 112px; padding: 18px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; }
+.module-card strong, .module-card small { display: block; }
+.module-card strong { margin: 10px 0 7px; font-size: 14px; }
+.module-card small { color: #7b8798; font-size: 11px; }
+.module-dot { display: block; width: 7px; height: 7px; border-radius: 50%; background: #b69a62; }
+footer { padding: 20px 7%; color: #8994a3; font-size: 11px; direction: ltr; text-align: left; }
