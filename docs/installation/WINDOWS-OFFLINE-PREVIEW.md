@@ -12,6 +12,7 @@ The current preview includes:
 - Manual stock receiving, physical stock-count reconciliation, stock movement history and weighted-average cost updates.
 - A built-in SQLite online-backup action with a native Save dialog.
 - Barcode/SKU scanner input on the POS page.
+- Supplier and customer directories; sales can be associated with a customer.
 - Cashier shift opening and closing.
 - Basic point-of-sale checkout with cash/card/transfer method selection.
 - Atomic sale posting, stock decrement, payment record and audit event.
@@ -43,6 +44,7 @@ This is an engineering preview, not the completed AL-NASR ERP release.
 
 Not yet included:
 - Supplier-linked purchase orders and purchase invoices (manual stock receiving is available, but not yet linked to supplier documents).
+- Customer credit sales, receivables, statements and credit-limit enforcement.
 - Inter-warehouse transfers.
 - Returns, voids and refund workflows.
 - Split payments, discounts, taxes and customer credit.
