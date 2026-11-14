@@ -1,6 +1,6 @@
 # AL-NASR custom runtime image.
 # ERPNext base is pinned; X POS and AL-NASR are added from immutable repository submodules.
-FROM frappe/erpnext:v16.55.0
+FROM frappe/erpnext@sha256:15a1270f7d8d674de5facd16c3390665a12bd632f5abb846bdd67b61d7461d84
 
 USER root
 COPY --chown=frappe:frappe apps/xpos /home/frappe/frappe-bench/apps/xpos
@@ -17,4 +17,4 @@ RUN cd apps/xpos/frontend \
     && yarn install --frozen-lockfile \
     && yarn build \
     && cd /home/frappe/frappe-bench \
-    && bench build --app xpos
+    && bench build
