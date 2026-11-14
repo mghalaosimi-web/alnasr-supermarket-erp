@@ -1,7 +1,6 @@
 x-image: &alnasr-image
   image: alnasr-local:16
   pull_policy: never
-  pull_policy: never
   restart: unless-stopped
   platform: linux/amd64
 
