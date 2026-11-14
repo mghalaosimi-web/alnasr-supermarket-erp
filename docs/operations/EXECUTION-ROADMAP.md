@@ -137,3 +137,19 @@ Test these failure modes separately:
 ## Release policy
 
 Do not merge this foundation PR or deploy the system solely because GitHub reports the branch as mergeable. Merge only after code review and a successful CI run. Do not launch until all applicable exit gates above have evidence.
+
+## Latest verified runtime acceptance — 2026-11-14
+
+- Runtime workflow [#43609742158](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43609742158) completed with conclusion `success` on branch `foundation/alnasr-commerce-acceptance`, commit `bd2267e95658a00d0a70ff0ae5c3130bc9ddee3a`.
+- App/source validation workflow [#43609742148](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43609742148) also completed successfully on the same commit.
+- The runtime job installed the exact pinned Frappe 16.56.0, ERPNext 16.55.0, X POS 2.13.4 and AL-NASR 0.1.0 revisions into a disposable MariaDB-backed Bench site; migrations completed; the installed-app list was verified; Frappe imported as 16.56.0; and the HTTP ping endpoint returned `{"message":"pong"}`.
+- **1,268 tests passed**, itemized from the completed job logs:
+  - ERPNext upstream regression baseline: 779 (Sales Invoice 163, Purchase Receipt 160, Purchase Invoice 111, Delivery Note 122, Stock Entry 148, Payment Entry 75).
+  - X POS frontend: 449 tests across 24 test files.
+  - AL-NASR POS business integration: 4 tests (tax-inclusive/exclusive sales, idempotent sale retry, partial/full return with stock and GL reconciliation, and over-return rejection).
+  - AL-NASR runtime contracts: 10 tests (installed apps, ERPNext/X POS DocTypes and APIs, Desk page/workspace registration, brand metadata/defaults, and preservation of administrator custom branding).
+  - X POS backend invoice retry: 1 test; X POS shift suite: 25 tests.
+- The X POS frontend suite intentionally emitted `Could not remove confirmed invoice from recovery queue Error: disk` in the test that verifies a confirmed sale remains successful when local queue cleanup fails. The test passed; retain this as a resilience scenario, not a clean-log claim.
+- Non-blocking toolchain notices included Node.js 20 deprecation notices from older GitHub Actions versions, the Node `punycode` deprecation, Vite/Yarn peer-dependency notices, and MariaDB's `io_uring` fallback to `libaio`. These did not fail the run and should be reviewed during dependency maintenance.
+- This evidence is limited to disposable Linux CI. It does not establish browser-based visual acceptance, Windows installation, Android APK operation, LAN/device behavior, real printer/scanner compatibility, offline recovery, production configuration, or business-owner UAT.
+- PR #1 and PR #2 remain open Draft pull requests; no merge, production deployment, or production migration was performed.
