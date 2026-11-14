@@ -59,6 +59,15 @@ export function closeCashierShift(
   return close.immediate();
 }
 
+
+export function getOpenCashierShift(
+  db: Database.Database,
+  cashierUserId: string
+): { id: string; openingCashMinor: number; openedAt: string } | null {
+  return (db.prepare("SELECT id, opening_cash_minor AS openingCashMinor, opened_at AS openedAt FROM cashier_shifts WHERE cashier_user_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1")
+    .get(cashierUserId) as { id: string; openingCashMinor: number; openedAt: string } | undefined) ?? null;
+}
+
 export function createSale(db: Database.Database, input: CreateSaleInput): SaleResult {
   if (!Array.isArray(input.lines) || input.lines.length < 1 || input.lines.length > 100) {
     throw new Error("أضف منتجاً واحداً على الأقل إلى الفاتورة");
