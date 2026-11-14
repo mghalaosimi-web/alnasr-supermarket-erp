@@ -1,4 +1,4 @@
-name: AL-NASR native Windows desktop validation
+name: AL-NASR native Windows desktop validation (SQLite ABI)
 
 on:
   pull_request:
