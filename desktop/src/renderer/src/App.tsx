@@ -3,8 +3,8 @@ import { FormEvent, useEffect, useState } from "react";
 type Health = { app: string; status: string; database: string };
 type PublicUser = { id: string; username: string; displayName: string };
 type OwnerSetupInput = { username: string; displayName: string; password: string };
-type ProductInput = { sku: string; nameAr: string; nameEn?: string; barcode?: string; costMinor: number; priceMinor: number };
-type ProductRow = { id: string; sku: string; nameAr: string; nameEn: string | null; barcode: string | null; costMinor: number; priceMinor: number; isActive: number };
+type ProductInput = { sku: string; nameAr: string; nameEn?: string; barcode?: string; costMinor: number; priceMinor: number; openingQuantity?: number };
+type ProductRow = { id: string; sku: string; nameAr: string; nameEn: string | null; barcode: string | null; costMinor: number; priceMinor: number; isActive: number; stockOnHand: number };
 
 declare global {
   interface Window {
@@ -35,6 +35,7 @@ export function App() {
   const [productBarcode, setProductBarcode] = useState("");
   const [productCost, setProductCost] = useState("0");
   const [productPrice, setProductPrice] = useState("0");
+  const [openingQuantity, setOpeningQuantity] = useState("0");
   const [productBusy, setProductBusy] = useState(false);
 
   useEffect(() => {
@@ -76,7 +77,8 @@ export function App() {
         nameAr: productName,
         barcode: productBarcode || undefined,
         costMinor: Math.round(Number(productCost) * 100),
-        priceMinor: Math.round(Number(productPrice) * 100)
+        priceMinor: Math.round(Number(productPrice) * 100),
+        openingQuantity: Math.max(0, Math.trunc(Number(openingQuantity)))
       });
       setProducts(await window.alnasr.listProducts());
       setProductSku("");
@@ -84,6 +86,7 @@ export function App() {
       setProductBarcode("");
       setProductCost("0");
       setProductPrice("0");
+      setOpeningQuantity("0");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر حفظ المنتج");
     } finally {
@@ -162,6 +165,7 @@ export function App() {
               <label>الباركود (اختياري)<input value={productBarcode} onChange={(event) => setProductBarcode(event.target.value)} maxLength={64} placeholder="628..." /></label>
               <label>التكلفة<input type="number" min="0" step="0.01" value={productCost} onChange={(event) => setProductCost(event.target.value)} required /></label>
               <label>سعر البيع<input type="number" min="0" step="0.01" value={productPrice} onChange={(event) => setProductPrice(event.target.value)} required /></label>
+              <label>الكمية الافتتاحية<input type="number" min="0" step="1" value={openingQuantity} onChange={(event) => setOpeningQuantity(event.target.value)} required /></label>
               <button type="submit" disabled={productBusy}>{productBusy ? "جارٍ الحفظ..." : "إضافة المنتج"}</button>
             </form>
             {error && <p className="form-error" role="alert">{error}</p>}
@@ -169,7 +173,7 @@ export function App() {
               {products.length === 0 ? <p className="empty-products">لا توجد منتجات بعد. أضف أول منتج للبدء.</p> : products.map((product) => (
                 <article className="product-row" key={product.id}>
                   <div><strong>{product.nameAr}</strong><small>{product.sku}{product.barcode ? ` · ${product.barcode}` : ""}</small></div>
-                  <strong>{(product.priceMinor / 100).toFixed(2)}</strong>
+                  <div className="product-metrics"><small>المتوفر: {product.stockOnHand}</small><strong>{(product.priceMinor / 100).toFixed(2)}</strong></div>
                 </article>
               ))}
             </div>
