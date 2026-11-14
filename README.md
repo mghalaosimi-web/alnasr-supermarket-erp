@@ -64,7 +64,9 @@ If the repository was cloned without submodules, the bootstrap script initialize
 
 **Status: Foundation and initial brand assets / not production-ready.**
 
-- Repository initialized and custom Frappe app scaffold created.\n- Frappe, ERPNext, and X POS are pinned as recursive Git submodules; GitHub Actions verified their exact upstream commit SHAs.
+- Repository initialized and custom Frappe app scaffold created.
+- Frappe, ERPNext, and X POS are pinned as recursive Git submodules; GitHub Actions verified their exact upstream commit SHAs.
+- A clean disposable Bench integration passed on 2026-11-14: all three apps installed, migrations completed on temporary MariaDB, application contracts and HTTP health passed. See [runtime integration run #43604127743](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43604127743).
 - Initial AL-NASR brand wordmark, mark, favicon, and brand documentation added.
 - Custom app metadata is branded; full ERPNext/X POS screen, receipt, email, login, and desktop-client branding remains to be integrated and tested.
 - Installation, offline recovery, LAN multi-terminal synchronization, mobile behavior, barcode hardware, thermal printing, and accounting flows require integration tests before release.
