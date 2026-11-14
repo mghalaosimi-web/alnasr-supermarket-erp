@@ -5,14 +5,16 @@ export type OwnerSetupInput = { username: string; displayName: string; password:
 export type ProductInput = { sku: string; nameAr: string; nameEn?: string; barcode?: string; costMinor: number; priceMinor: number; openingQuantity?: number };
 export type ProductRow = { id: string; sku: string; nameAr: string; nameEn: string | null; barcode: string | null; costMinor: number; priceMinor: number; isActive: number; stockOnHand: number };
 export type CashierShift = { id: string; openingCashMinor: number; openedAt?: string; status?: "open" };
-export type SaleInput = { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string; customerId?: string };
-export type SaleResult = { id: string; saleNumber: string; totalMinor: number; status: "posted"; lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> };
+export type SaleInput = { lines: Array<{ productId: string; quantity: number }>; paymentMethod?: "cash" | "card" | "transfer"; paidMinor?: number; idempotencyKey: string; customerId?: string };
+export type SaleResult = { id: string; saleNumber: string; totalMinor: number; paidMinor: number; outstandingMinor: number; status: "posted"; lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> };
 export type StockMovementRow = { id: string; sku: string; productName: string; warehouseName: string; movementType: string; quantityDelta: number; unitCostMinor: number; occurredAt: string };
 export type SupplierRow = { id: string; code: string; name: string; phone: string | null; isActive: number };
 export type CustomerRow = { id: string; code: string; name: string; phone: string | null; creditLimitMinor: number; isActive: number };
 export type PurchaseInput = { supplierId: string; documentNumber?: string; lines: Array<{ productId: string; quantity: number; unitCostMinor: number }>; paidMinor?: number; paymentMethod?: "cash" | "card" | "transfer" };
 export type PurchaseRow = { id: string; documentNumber: string; supplierId: string; supplierName: string; subtotalMinor: number; paidMinor: number; outstandingMinor: number; occurredAt: string; lineCount: number };
 export type PurchasePaymentInput = { purchaseId: string; amountMinor: number; method: "cash" | "card" | "transfer" };
+export type ReceivableRow = { id: string; saleNumber: string; customerId: string; customerName: string; totalMinor: number; paidMinor: number; outstandingMinor: number; occurredAt: string };
+export type SalePaymentInput = { saleId: string; amountMinor: number; method: "cash" | "card" | "transfer" };
 
 contextBridge.exposeInMainWorld("alnasr", {
   health: () => ipcRenderer.invoke("alnasr:health"),
@@ -26,6 +28,8 @@ contextBridge.exposeInMainWorld("alnasr", {
   openShift: (openingCashMinor: number) => ipcRenderer.invoke("alnasr:shift:open", { openingCashMinor }) as Promise<CashierShift>,
   closeShift: (input: { shiftId: string; closingCashMinor: number }) => ipcRenderer.invoke("alnasr:shift:close", input) as Promise<{ id: string; closingCashMinor: number; status: "closed" }>,
   createSale: (input: SaleInput) => ipcRenderer.invoke("alnasr:sales:create", input) as Promise<SaleResult>,
+  listReceivables: () => ipcRenderer.invoke("alnasr:receivables:list") as Promise<ReceivableRow[]>,
+  addSalePayment: (input: SalePaymentInput) => ipcRenderer.invoke("alnasr:receivables:add-payment", input) as Promise<ReceivableRow>,
   listCustomers: () => ipcRenderer.invoke("alnasr:customers:list") as Promise<CustomerRow[]>,
   createCustomer: (input: { code: string; name: string; phone?: string; creditLimitMinor?: number }) => ipcRenderer.invoke("alnasr:customers:create", input) as Promise<CustomerRow>,
   listSuppliers: () => ipcRenderer.invoke("alnasr:suppliers:list") as Promise<SupplierRow[]>,
@@ -51,6 +55,8 @@ export type AlnasrBridge = {
   openShift: (openingCashMinor: number) => Promise<CashierShift>,
   closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>,
   createSale: (input: SaleInput) => Promise<SaleResult>,
+  listReceivables: () => Promise<ReceivableRow[]>,
+  addSalePayment: (input: SalePaymentInput) => Promise<ReceivableRow>,
   listCustomers: () => Promise<CustomerRow[]>,
   createCustomer: (input: { code: string; name: string; phone?: string; creditLimitMinor?: number }) => Promise<CustomerRow>,
   listSuppliers: () => Promise<SupplierRow[]>,
