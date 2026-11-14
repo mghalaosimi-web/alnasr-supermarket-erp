@@ -26,3 +26,17 @@ h1 { margin: 10px 0; font-size: 34px; }
 .module-card small { color: #7b8798; font-size: 11px; }
 .module-dot { display: block; width: 7px; height: 7px; border-radius: 50%; background: #b69a62; }
 footer { padding: 20px 7%; color: #8994a3; font-size: 11px; direction: ltr; text-align: left; }
+
+.auth-section { display: flex; justify-content: center; padding: 36px 7% 44px; }
+.auth-card { width: min(460px, 100%); padding: 28px; display: grid; gap: 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 10px 28px rgba(23,43,77,.06); }
+.auth-card h2 { margin: 0 0 4px; font-size: 21px; }
+.auth-card label { display: grid; gap: 7px; color: #40536d; font-size: 13px; font-weight: 600; }
+.auth-card input { width: 100%; height: 43px; padding: 0 12px; border: 1px solid #d8e0e9; border-radius: 8px; background: #fff; color: #172b4d; font: inherit; outline: none; }
+.auth-card input:focus { border-color: #315a85; box-shadow: 0 0 0 3px rgba(49,90,133,.12); }
+.form-hint { color: #7b8798; line-height: 1.7; }
+.form-error { margin: 0; padding: 10px 12px; color: #9b2c2c; background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; font-size: 12px; }
+.auth-card button, .secondary-button { height: 43px; padding: 0 18px; border: 0; border-radius: 8px; color: #fff; background: #172b4d; font: inherit; font-weight: 700; cursor: pointer; }
+.auth-card button:disabled { opacity: .55; cursor: wait; }
+.signed-in { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+.signed-in h2 { margin: 6px 0 0; }
+.secondary-button { color: #315a85; background: #eaf0f6; }
