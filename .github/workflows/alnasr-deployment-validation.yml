@@ -65,6 +65,47 @@ jobs:
         run: bash scripts/bootstrap-upstream.sh
       - name: Build the local AL-NASR runtime image
         run: docker build --pull --file deploy/Dockerfile --tag alnasr-local:ci .
+      - name: Run disposable Compose, site-install, health and TLS smoke tests
+        env:
+          DB_PASSWORD: alnasr-ci-db-password-not-for-production
+          ADMIN_PASSWORD: alnasr-ci-admin-password-not-for-production
+        run: |
+          docker tag alnasr-local:ci alnasr-local:16
+          cat > deploy/.env <<EOF
+          DB_PASSWORD=$DB_PASSWORD
+          SITE_NAME=alnasr.local
+          BIND_ADDRESS=127.0.0.1
+          HTTP_PUBLISH_PORT=8080
+          LAN_BIND_ADDRESS=127.0.0.1
+          EOF
+          COMPOSE=(docker compose --project-name alnasr-ci --env-file deploy/.env -f deploy/compose.yaml)
+          "${COMPOSE[@]}" run --rm configurator
+          printf '%s\\n%s\\n' "$DB_PASSWORD" "$ADMIN_PASSWORD" | "${COMPOSE[@]}" run --rm -T --no-deps --entrypoint bash backend -lc 'read -r DBROOT; read -r ADMIN; bench new-site alnasr.local --db-host db --mariadb-user-host-login-scope % --db-root-username root --db-root-password "$DBROOT" --admin-password "$ADMIN" --install-app erpnext --install-app xpos --install-app alnasr --set-default'
+          "${COMPOSE[@]}" up -d
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8080/api/method/ping | grep -q pong; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ready" -ne 1 ]; then
+            "${COMPOSE[@]}" ps
+            "${COMPOSE[@]}" logs --no-color
+            exit 1
+          fi
+          APP_LIST="$("${COMPOSE[@]}" exec -T backend bench --site alnasr.local list-apps)"
+          printf '%s\\n' "$APP_LIST"
+          printf '%s\\n' "$APP_LIST" | grep -q '^erpnext '
+          printf '%s\\n' "$APP_LIST" | grep -q '^xpos '
+          printf '%s\\n' "$APP_LIST" | grep -q '^alnasr '
+          curl --insecure --fail --silent --show-error --resolve alnasr.local:443:127.0.0.1 https://alnasr.local/api/method/ping
+          "${COMPOSE[@]}" cp caddy:/data/caddy/pki/authorities/local/root.crt "$RUNNER_TEMP/alnasr-root.crt"
+          curl --fail --silent --show-error --cacert "$RUNNER_TEMP/alnasr-root.crt" --resolve alnasr.local:443:127.0.0.1 https://alnasr.local/api/method/ping
+      - name: Stop disposable local stack and remove CI volumes
+        if: always()
+        run: docker compose --project-name alnasr-ci --env-file deploy/.env -f deploy/compose.yaml down --volumes --remove-orphans || true
       - name: Verify app versions are importable in the image
         run: |
           docker run --rm --entrypoint bash alnasr-local:ci -lc 'bench version'
