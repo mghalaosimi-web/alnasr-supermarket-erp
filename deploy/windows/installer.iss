@@ -1,5 +1,5 @@
-# AL-NASR Windows installer scaffold.
-# The installer deploys the local runtime files; Docker Desktop/WSL2 remain prerequisites.
+; AL-NASR Windows installer scaffold.
+; The installer deploys the local runtime files; Docker Desktop/WSL2 remain prerequisites.
 #define AppName "AL-NASR ERP"
 #define AppVersion "0.1.0"
 #define AppPublisher "AL-NASR"
