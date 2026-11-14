@@ -32,6 +32,7 @@ Name: "{app}\deploy"
 Name: "{app}\apps"
 
 [Files]
+Source: "..\\..\\apps\\xpos\\LICENSE"; DestDir: "{app}\\licenses"; DestName: "X-POS-MIT-LICENSE.txt"; Flags: ignoreversion
 Source: "..\..\.dockerignore"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\Dockerfile"; DestDir: "{app}\deploy"; Flags: ignoreversion
 Source: "..\compose.yaml"; DestDir: "{app}\deploy"; Flags: ignoreversion
