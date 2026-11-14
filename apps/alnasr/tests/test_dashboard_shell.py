@@ -5,24 +5,30 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 APP = ROOT / "apps" / "alnasr" / "alnasr"
+MODULE = APP / "al_nasr"
 
 
 class DashboardShellTests(unittest.TestCase):
     def test_dashboard_page_controller_and_script_exist(self):
-        self.assertTrue((APP / "page" / "alnasr" / "alnasr.py").is_file())
-        self.assertTrue((APP / "page" / "alnasr" / "alnasr.js").is_file())
+        self.assertTrue((MODULE / "page" / "alnasr" / "alnasr.py").is_file())
+        self.assertTrue((MODULE / "page" / "alnasr" / "alnasr.js").is_file())
+        page = json.loads((MODULE / "page" / "alnasr" / "alnasr.json").read_text(encoding="utf-8"))
+        self.assertEqual(page["name"], "alnasr")
+        self.assertEqual(page["module"], "AL-NASR")
+        self.assertEqual(page["standard"], "Yes")
 
     def test_dashboard_uses_existing_erpnext_and_xpos_routes(self):
-        source = (APP / "page" / "alnasr" / "alnasr.js").read_text(encoding="utf-8")
+        source = (MODULE / "page" / "alnasr" / "alnasr.js").read_text(encoding="utf-8")
         for route in ("/xpos/pos", '"Sales Invoice"', '"Item"', '"Purchase Invoice"', '"Stock Entry"', '"Customer"', '"Supplier"', '"Payment Entry"'):
             with self.subTest(route=route):
                 self.assertIn(route, source)
 
-    def test_workspace_fixture_exposes_the_unified_product_entry(self):
-        workspace_path = APP / "workspace" / "al_nasr" / "al_nasr.json"
+    def test_workspace_source_exposes_the_unified_product_entry(self):
+        workspace_path = MODULE / "workspace" / "al_nasr" / "al_nasr.json"
         workspace = json.loads(workspace_path.read_text(encoding="utf-8"))
         self.assertEqual(workspace["name"], "AL-NASR")
         self.assertEqual(workspace["module"], "AL-NASR")
+        self.assertEqual(workspace.get("standard"), 1)
         self.assertTrue(any(item.get("url") == "/app/alnasr" for item in workspace["shortcuts"]))
         self.assertTrue(any(item.get("url") == "/xpos/pos" for item in workspace["shortcuts"]))
 
