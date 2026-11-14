@@ -100,3 +100,10 @@ footer { padding: 20px 7%; color: #8994a3; font-size: 11px; direction: ltr; text
 .movement-positive { color: #276749; }
 .movement-negative { color: #9b2c2c; }
 @media (max-width: 850px) { .inventory-forms { grid-template-columns: 1fr; } }
+
+.backup-workspace { max-width: 720px; padding: 24px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+.backup-workspace h2 { margin: 7px 0 10px; }
+.backup-workspace p { color: #65758b; font-size: 13px; line-height: 1.8; }
+.backup-workspace button { min-height: 42px; padding: 0 18px; border: 0; border-radius: 8px; color: #fff; background: #172b4d; font: inherit; font-weight: 700; cursor: pointer; }
+.backup-workspace button:disabled { opacity: .55; cursor: wait; }
+.backup-success { padding: 12px; color: #276749 !important; background: #f0fff4; border: 1px solid #c6f6d5; border-radius: 8px; overflow-wrap: anywhere; }
