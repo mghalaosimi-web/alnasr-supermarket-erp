@@ -53,7 +53,28 @@ jobs:
           node-version: "24"
 
       - name: Validate AL-NASR Desk dashboard JavaScript syntax
-        run: node --check apps/alnasr/alnasr/page/alnasr/alnasr.js
+        run: node --check apps/alnasr/alnasr/al_nasr/page/alnasr/alnasr.js
+
+      - name: Validate AL-NASR module document locations
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          module = Path("apps/alnasr/alnasr/al_nasr")
+          page = module / "page/alnasr/alnasr.json"
+          workspace = module / "workspace/al_nasr/al_nasr.json"
+          page_doc = json.loads(page.read_text(encoding="utf-8"))
+          workspace_doc = json.loads(workspace.read_text(encoding="utf-8"))
+          assert page_doc["name"] == "alnasr" and page_doc["module"] == "AL-NASR"
+          assert page_doc["standard"] == "Yes"
+          assert workspace_doc["name"] == "AL-NASR"
+          assert workspace_doc["module"] == "AL-NASR"
+          assert workspace_doc.get("standard") == 1
+          assert not Path("apps/alnasr/alnasr/page/alnasr").exists()
+          assert not Path("apps/alnasr/alnasr/workspace/al_nasr").exists()
+          print("AL-NASR Page and Workspace are in the Frappe module sync path.")
+          PY
 
       - name: Compile Python sources
         run: python -m compileall -q apps/alnasr/alnasr
