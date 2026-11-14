@@ -4,6 +4,7 @@ import { openDatabase, type AlnasrDatabase } from "./database";
 import { authenticate, createInitialOwner, isOwnerSetupRequired } from "./auth";
 import { createProduct, listProducts } from "./products";
 import { closeCashierShift, createSale, getOpenCashierShift, openCashierShift } from "./sales";
+import { adjustStockCount, listStockMovements, receiveStock } from "./inventory";
 
 let mainWindow: BrowserWindow | null = null;
 let database: AlnasrDatabase | null = null;
@@ -106,6 +107,41 @@ app.whenReady().then(() => {
     });
   });
 
+
+
+  ipcMain.handle("alnasr:inventory:movements", () => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    return listStockMovements(database);
+  });
+
+  ipcMain.handle("alnasr:inventory:receive", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object") throw new Error("بيانات الاستلام غير صحيحة");
+    const value = input as Record<string, unknown>;
+    if (typeof value.productId !== "string" || typeof value.quantity !== "number" || typeof value.unitCostMinor !== "number") {
+      throw new Error("أكمل بيانات استلام المخزون");
+    }
+    return receiveStock(database, {
+      productId: value.productId,
+      quantity: value.quantity,
+      unitCostMinor: value.unitCostMinor,
+      actorUserId: activeUserId
+    });
+  });
+
+  ipcMain.handle("alnasr:inventory:adjust", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object") throw new Error("بيانات الجرد غير صحيحة");
+    const value = input as Record<string, unknown>;
+    if (typeof value.productId !== "string" || typeof value.countedQuantity !== "number") {
+      throw new Error("أكمل بيانات الجرد");
+    }
+    return adjustStockCount(database, {
+      productId: value.productId,
+      countedQuantity: value.countedQuantity,
+      actorUserId: activeUserId
+    });
+  });
 
   ipcMain.handle("alnasr:shift:current", () => {
     if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
