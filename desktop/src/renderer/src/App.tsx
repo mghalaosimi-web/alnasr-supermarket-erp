@@ -12,6 +12,7 @@ type SupplierRow = { id: string; code: string; name: string; phone: string | nul
 type CustomerRow = { id: string; code: string; name: string; phone: string | null; creditLimitMinor: number; isActive: number };
 type PurchaseRow = { id: string; documentNumber: string; supplierId: string; supplierName: string; subtotalMinor: number; paidMinor: number; outstandingMinor: number; occurredAt: string; lineCount: number };
 type PurchaseInput = { supplierId: string; documentNumber?: string; lines: Array<{ productId: string; quantity: number; unitCostMinor: number }>; paidMinor?: number; paymentMethod?: "cash" | "card" | "transfer" };
+type PurchasePaymentInput = { purchaseId: string; amountMinor: number; method: "cash" | "card" | "transfer" };
 type SaleInput = { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string; customerId?: string };
 
 declare global {
@@ -34,6 +35,7 @@ declare global {
       createSupplier: (input: { code: string; name: string; phone?: string }) => Promise<SupplierRow>;
       listPurchases: () => Promise<PurchaseRow[]>;
       createPurchase: (input: PurchaseInput) => Promise<PurchaseRow>;
+      addPurchasePayment: (input: PurchasePaymentInput) => Promise<PurchaseRow>;
       createBackup: () => Promise<{ canceled: boolean; filePath?: string }>;
       listStockMovements: () => Promise<StockMovementRow[]>;
       receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => Promise<{ movementId: string; quantityOnHand: number }>;
@@ -103,6 +105,10 @@ export function App() {
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [purchaseMessage, setPurchaseMessage] = useState<string | null>(null);
   const [purchaseLines, setPurchaseLines] = useState<Array<{ productId: string; productName: string; sku: string; quantity: number; unitCostMinor: number }>>([]);
+  const [settlementPurchaseId, setSettlementPurchaseId] = useState("");
+  const [settlementAmount, setSettlementAmount] = useState("0");
+  const [settlementMethod, setSettlementMethod] = useState<"cash" | "card" | "transfer">("cash");
+  const [settlementBusy, setSettlementBusy] = useState(false);
 
   useEffect(() => {
     Promise.all([window.alnasr.health(), window.alnasr.setupStatus()])
@@ -413,6 +419,24 @@ export function App() {
     }
   }
 
+  async function submitPurchasePayment(purchaseId: string) {
+    setSettlementBusy(true);
+    setError(null);
+    setPurchaseMessage(null);
+    try {
+      const amountMinor = Math.round(Number(settlementAmount) * 100);
+      const updated = await window.alnasr.addPurchasePayment({ purchaseId, amountMinor, method: settlementMethod });
+      setPurchases(await window.alnasr.listPurchases());
+      setSettlementPurchaseId("");
+      setSettlementAmount("0");
+      setPurchaseMessage("تم تسجيل دفعة المورد · المتبقي على الفاتورة: " + (updated.outstandingMinor / 100).toFixed(2));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر تسجيل دفعة المورد");
+    } finally {
+      setSettlementBusy(false);
+    }
+  }
+
   async function createDatabaseBackup() {
     setBackupBusy(true);
     setBackupMessage(null);
@@ -669,9 +693,26 @@ export function App() {
             {purchaseMessage && <p className="sale-success">{purchaseMessage}</p>}
             <div className="product-list">
               {purchases.length === 0 ? <p className="empty-products">لا توجد فواتير شراء مسجلة بعد.</p> : purchases.map((purchase) => (
-                <article className="product-row" key={purchase.id}>
+                <article className="product-row purchase-document-row" key={purchase.id}>
                   <div><strong>{purchase.documentNumber} · {purchase.supplierName}</strong><small>{purchase.lineCount} صنف · {new Date(purchase.occurredAt).toLocaleString("ar")}</small></div>
-                  <div className="product-metrics"><small>المدفوع {(purchase.paidMinor / 100).toFixed(2)} · المتبقي {(purchase.outstandingMinor / 100).toFixed(2)}</small><strong>{(purchase.subtotalMinor / 100).toFixed(2)}</strong></div>
+                  <div className="product-metrics">
+                    <small>المدفوع {(purchase.paidMinor / 100).toFixed(2)} · المتبقي {(purchase.outstandingMinor / 100).toFixed(2)}</small>
+                    <strong>{(purchase.subtotalMinor / 100).toFixed(2)}</strong>
+                    {purchase.outstandingMinor > 0 && <button type="button" className="secondary-button" onClick={() => {
+                      setSettlementPurchaseId(settlementPurchaseId === purchase.id ? "" : purchase.id);
+                      setSettlementAmount((purchase.outstandingMinor / 100).toFixed(2));
+                    }}>تسديد دفعة</button>}
+                  </div>
+                  {settlementPurchaseId === purchase.id && <form className="supplier-form purchase-settlement-form" onSubmit={(event) => {
+                    event.preventDefault();
+                    void submitPurchasePayment(purchase.id);
+                  }}>
+                    <label>مبلغ الدفعة<input type="number" min="0.01" max={(purchase.outstandingMinor / 100).toFixed(2)} step="0.01" value={settlementAmount} onChange={(event) => setSettlementAmount(event.target.value)} required /></label>
+                    <label>طريقة الدفع<select value={settlementMethod} onChange={(event) => setSettlementMethod(event.target.value as "cash" | "card" | "transfer")}>
+                      <option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option>
+                    </select></label>
+                    <button type="submit" disabled={settlementBusy}>{settlementBusy ? "جارٍ تسجيل الدفعة..." : "تأكيد الدفعة"}</button>
+                  </form>}
                 </article>
               ))}
             </div>
