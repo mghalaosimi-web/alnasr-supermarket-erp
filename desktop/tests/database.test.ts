@@ -148,10 +148,12 @@ describe("AL-NASR point of sale transactions", () => {
   it("posts a paid sale atomically, reduces stock and is idempotent", async () => {
     const { createInitialOwner } = await import("../src/main/auth");
     const { createProduct, listProducts } = await import("../src/main/products");
+    const { createCustomer } = await import("../src/main/customers");
     const { createSale, openCashierShift, closeCashierShift } = await import("../src/main/sales");
     db = new Database(":memory:");
     initializeDatabase(db);
     const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const customer = createCustomer(db, { code: "CUS-POS-01", name: "عميل نقطة البيع", actorUserId: owner.id });
     const product = createProduct(db, {
       sku: "POS-001", nameAr: "ماء شرب", costMinor: 500, priceMinor: 1500,
       openingQuantity: 5, actorUserId: owner.id
@@ -161,11 +163,13 @@ describe("AL-NASR point of sale transactions", () => {
       lines: [{ productId: product.id, quantity: 2 }],
       paymentMethod: "cash" as const,
       idempotencyKey: "pos-test-sale-0001",
+      customerId: customer.id,
       actorUserId: owner.id
     };
     const sale = createSale(db, input);
     expect(sale).toMatchObject({ totalMinor: 3000, status: "posted", lines: [{ quantity: 2, lineTotalMinor: 3000 }] });
     expect(listProducts(db)[0].stockOnHand).toBe(3);
+    expect(db.prepare("SELECT customer_id AS customerId FROM sales WHERE id=?").get(sale.id)).toEqual({ customerId: customer.id });
     expect(db.prepare("SELECT COUNT(*) AS count FROM payments WHERE sale_id=?").get(sale.id)).toEqual({ count: 1 });
     expect(db.prepare("SELECT amount_minor, method FROM payments WHERE sale_id=?").get(sale.id)).toEqual({ amount_minor: 3000, method: "cash" });
     const retry = createSale(db, input);
