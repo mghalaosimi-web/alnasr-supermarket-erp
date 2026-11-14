@@ -3,10 +3,6 @@ name: AL-NASR app validation
 on:
   pull_request:
     branches: [main]
-  push:
-    branches:
-      - main
-      - "foundation/**"
   workflow_dispatch:
 
 concurrency:
