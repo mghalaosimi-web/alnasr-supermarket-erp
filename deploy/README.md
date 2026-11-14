@@ -27,6 +27,18 @@ The script does not silently enable Windows features, install Docker Desktop, or
 5. Use the Backup shortcut to create a Frappe backup. The Restore shortcut lists complete database/public/private backups, creates a safety backup first, requires typing RESTORE, then restores and checks HTTP health.
 6. For phone pairing, export the Caddy CA with the export-cert action, install it on Android, then change `LAN_BIND_ADDRESS=0.0.0.0` in the private local .env only on a trusted private Wi-Fi network. Configure Windows Firewall for TCP 443 on the Private profile. Do not expose the service publicly.
 
+## Offline runtime bundle
+
+The release pipeline now exports the exact local runtime image set used by Compose:
+- `alnasr-local:16` (Frappe + ERPNext + X POS + AL-NASR)
+- `mariadb:11.8`
+- `redis:8.6-alpine`
+- `caddy:2.10-alpine`
+
+The Windows installer embeds `offline/alnasr-runtime-images.tar.gz`. First-time setup imports these images with `docker load` before creating the site, so the application image and Compose service images do not need to be pulled during setup.
+
+**Offline boundary:** Docker Desktop with its WSL2 Linux engine must already be installed and running before first-time setup. This repository does not redistribute Docker Desktop, Windows optional-feature payloads, or the WSL2 kernel installer. A machine that has never had those prerequisites installed is not yet a zero-internet installation target. Install and initialize those Windows prerequisites while online (or provide approved offline Windows installation media) before disconnecting.
+
 ## Important limitations — not a release installer
 
 This is an engineering deployment scaffold plus an unsigned installer preview, not an accepted consumer release. It has not yet been built or run on a real Windows PC. The following remain release blockers:
