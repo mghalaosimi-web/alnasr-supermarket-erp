@@ -101,6 +101,7 @@ export function App() {
   const [purchasePaymentMethod, setPurchasePaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
   const [purchaseDocumentNumber, setPurchaseDocumentNumber] = useState("");
   const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [purchaseMessage, setPurchaseMessage] = useState<string | null>(null);
   const [purchaseLines, setPurchaseLines] = useState<Array<{ productId: string; productName: string; sku: string; quantity: number; unitCostMinor: number }>>([]);
 
   useEffect(() => {
@@ -400,11 +401,11 @@ export function App() {
       setPurchaseLines([]);
       setPurchaseQuantity("1");
       setPurchasePaid("0");
-      setBackupMessage(null);
+      setPurchaseMessage(null);
       setError(null);
       setLastSale(null);
       setPurchaseUnitCost(String((products.find((item) => item.id === purchaseProductId)?.costMinor ?? 0) / 100));
-      setBackupMessage("تم ترحيل مستند الشراء " + purchase.documentNumber + " · المتبقي للمورد: " + (purchase.outstandingMinor / 100).toFixed(2));
+      setPurchaseMessage("تم ترحيل مستند الشراء " + purchase.documentNumber + " · المتبقي للمورد: " + (purchase.outstandingMinor / 100).toFixed(2));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر ترحيل مستند الشراء");
     } finally {
@@ -665,7 +666,7 @@ export function App() {
                 <div className="product-metrics"><strong>{(line.quantity * line.unitCostMinor / 100).toFixed(2)}</strong><button type="button" className="remove-line" onClick={() => setPurchaseLines((current) => current.filter((item) => item.productId !== line.productId))}>حذف</button></div>
               </article>)}
             </div>}
-            {backupMessage && <p className="sale-success">{backupMessage}</p>}
+            {purchaseMessage && <p className="sale-success">{purchaseMessage}</p>}
             <div className="product-list">
               {purchases.length === 0 ? <p className="empty-products">لا توجد فواتير شراء مسجلة بعد.</p> : purchases.map((purchase) => (
                 <article className="product-row" key={purchase.id}>
