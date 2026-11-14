@@ -22,7 +22,10 @@ describe("AL-NASR SQLite core", () => {
     expect(tables.map((table) => table.name)).toContain("products");
     expect(tables.map((table) => table.name)).toContain("sales");
     expect(tables.map((table) => table.name)).toContain("stock_movements");
-    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 2 });
+    expect(tables.map((table) => table.name)).toContain("purchase_documents");
+    expect(tables.map((table) => table.name)).toContain("purchase_lines");
+    expect(tables.map((table) => table.name)).toContain("purchase_payments");
+    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 3 });
   });
 
   it("enforces foreign keys and business constraints", () => {
