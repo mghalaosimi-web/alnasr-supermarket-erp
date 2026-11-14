@@ -25,7 +25,7 @@ describe("AL-NASR SQLite core", () => {
     expect(tables.map((table) => table.name)).toContain("purchase_documents");
     expect(tables.map((table) => table.name)).toContain("purchase_lines");
     expect(tables.map((table) => table.name)).toContain("purchase_payments");
-    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 3 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 4 });
   });
 
   it("enforces foreign keys and business constraints", () => {
@@ -381,5 +381,69 @@ describe("AL-NASR supplier purchase documents", () => {
     expect(db.prepare("SELECT COUNT(*) AS count FROM purchase_lines").get()).toEqual({ count: 0 });
     expect(db.prepare("SELECT COUNT(*) AS count FROM purchase_payments").get()).toEqual({ count: 0 });
     expect(listProducts(db)[0].stockOnHand).toBe(2);
+  });
+});
+
+describe("AL-NASR supplier payment settlement", () => {
+  it("records subsequent partial payments, updates the payable balance and closes the invoice at zero", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct } = await import("../src/main/products");
+    const { createSupplier } = await import("../src/main/suppliers");
+    const { createPurchase, addPurchasePayment, listPurchases } = await import("../src/main/purchases");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const supplier = createSupplier(db, { code: "SUP-PAY-01", name: "مورد التسوية", actorUserId: owner.id });
+    const product = createProduct(db, { sku: "PAY-001", nameAr: "منظف", costMinor: 100, priceMinor: 200, openingQuantity: 1, actorUserId: owner.id });
+    const purchase = createPurchase(db, {
+      supplierId: supplier.id,
+      documentNumber: "PUR-SETTLE-001",
+      lines: [{ productId: product.id, quantity: 10, unitCostMinor: 100 }],
+      paidMinor: 200,
+      paymentMethod: "cash",
+      actorUserId: owner.id
+    });
+
+    const first = addPurchasePayment(db, {
+      purchaseId: purchase.id, amountMinor: 300, method: "transfer", actorUserId: owner.id
+    });
+    expect(first).toMatchObject({ paidMinor: 500, outstandingMinor: 500 });
+    const final = addPurchasePayment(db, {
+      purchaseId: purchase.id, amountMinor: 500, method: "cash", actorUserId: owner.id
+    });
+    expect(final).toMatchObject({ paidMinor: 1000, outstandingMinor: 0 });
+    expect(listPurchases(db)[0]).toMatchObject({ paidMinor: 1000, outstandingMinor: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS count, SUM(amount_minor) AS total FROM purchase_payments WHERE purchase_id=?").get(purchase.id)).toEqual({ count: 3, total: 1000 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM audit_events WHERE entity_id=? AND action='purchase.payment'").get(purchase.id)).toEqual({ count: 2 });
+    expect(() => addPurchasePayment(db!, {
+      purchaseId: purchase.id, amountMinor: 1, method: "cash", actorUserId: owner.id
+    })).toThrow("فاتورة الشراء مسددة بالكامل");
+    expect(db.prepare("SELECT COUNT(*) AS count FROM purchase_payments WHERE purchase_id=?").get(purchase.id)).toEqual({ count: 3 });
+  });
+
+  it("rejects zero and over-balance payments without changing the supplier balance", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct } = await import("../src/main/products");
+    const { createSupplier } = await import("../src/main/suppliers");
+    const { createPurchase, addPurchasePayment } = await import("../src/main/purchases");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const supplier = createSupplier(db, { code: "SUP-PAY-02", name: "مورد آخر", actorUserId: owner.id });
+    const product = createProduct(db, { sku: "PAY-002", nameAr: "صابون", costMinor: 100, priceMinor: 200, openingQuantity: 1, actorUserId: owner.id });
+    const purchase = createPurchase(db, {
+      supplierId: supplier.id,
+      lines: [{ productId: product.id, quantity: 5, unitCostMinor: 100 }],
+      actorUserId: owner.id
+    });
+
+    expect(() => addPurchasePayment(db!, {
+      purchaseId: purchase.id, amountMinor: 0, method: "cash", actorUserId: owner.id
+    })).toThrow("يجب أن يكون مبلغ الدفعة أكبر من صفر");
+    expect(() => addPurchasePayment(db!, {
+      purchaseId: purchase.id, amountMinor: 501, method: "cash", actorUserId: owner.id
+    })).toThrow("مبلغ الدفعة يتجاوز المبلغ المستحق للمورد");
+    expect(db.prepare("SELECT paid_minor FROM purchase_documents WHERE id=?").get(purchase.id)).toEqual({ paid_minor: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM purchase_payments WHERE purchase_id=?").get(purchase.id)).toEqual({ count: 0 });
   });
 });
