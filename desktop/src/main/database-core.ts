@@ -173,6 +173,17 @@ export const MIGRATIONS = [
       );
     `
   }
+
+  {
+    id: "0002_default_catalog",
+    sql: `
+      INSERT OR IGNORE INTO units (id, code, name_ar, name_en, precision_digits)
+      VALUES ('unit-pcs', 'PCS', 'قطعة', 'Piece', 0);
+
+      INSERT OR IGNORE INTO warehouses (id, code, name_ar, name_en)
+      VALUES ('warehouse-main', 'MAIN', 'المخزن الرئيسي', 'Main Warehouse');
+    `
+  }
 ] as const;
 
 
