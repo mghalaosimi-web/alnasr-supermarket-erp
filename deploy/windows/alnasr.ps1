@@ -1,4 +1,5 @@
 [CmdletBinding()]
+# Offline release: import the prebuilt runtime archive before site initialization.
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet("prepare", "setup", "build", "start", "stop", "restart", "status", "open", "init", "backup", "restore", "export-cert")]
