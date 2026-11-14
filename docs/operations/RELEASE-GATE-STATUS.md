@@ -18,7 +18,7 @@ All three validation workflows below ran against the exact source commit above:
 ### Exact-head artifacts
 
 - **Offline runtime image bundle:** run #109 → artifact `AL-NASR-Offline-Runtime-Images`; 2,277,966,602 bytes; GitHub artifact ZIP digest `sha256:7d441c0d97a2ea24bd6b4ab3b614e3d6286c1693e870ac2a4e78d9204154a1aa`. [Open run #109](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43632113820).
-- **Android Debug preview:** run #43 → artifact `AL-NASR-Android-Debug-Preview`; 811,827 bytes; GitHub artifact ZIP digest `sha256:a5a575b09d594a3c508f10e5ae7746346c7af66d28ee372622ce8bb01072b997`. The extracted APK SHA-256 is `34ffd7003e8d91af7775f416f9f7a1262f295edb69b7cda3238eae60ad41e349`. It is an unsigned Debug build, not a release-signed Android package.
+- **Android Debug preview:** run #43 → artifact `AL-NASR-Android-Debug-Preview`; 811,827 bytes; GitHub artifact ZIP digest `sha256:a5a575b09d594a3c508f10e5ae7746346c7af66d28ee372622ce8bb01072b997`. The extracted APK SHA-256 is `34ffd7003e8d91af7775f416f9f7a1262f295edb69b7cda3238eae60ad41e349`. It is a Gradle Debug-signed build, not signed with the owner-controlled Android release key; it is not a Play Store/release package.
 
 The offline image artifact is approximately 2.28 GB. It is retained as a GitHub Actions artifact for 30 days. Large artifact downloads may be constrained by the client or transfer limits.
 
