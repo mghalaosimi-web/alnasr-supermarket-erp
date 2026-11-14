@@ -181,7 +181,8 @@ const MIGRATIONS = [
 export type AlnasrDatabase = Database.Database;
 
 export function openDatabase(): AlnasrDatabase {
-  const dataDirectory = join(app.getPath("appData"), "AL-NASR", "data");
+  const dataRoot = process.env.ProgramData || app.getPath("appData");
+  const dataDirectory = join(dataRoot, "AL-NASR", "data");
   mkdirSync(dataDirectory, { recursive: true });
   const databasePath = join(dataDirectory, "alnasr.sqlite");
   const db = new Database(databasePath);
