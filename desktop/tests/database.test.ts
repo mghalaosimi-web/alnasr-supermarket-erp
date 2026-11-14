@@ -25,7 +25,7 @@ describe("AL-NASR SQLite core", () => {
     expect(tables.map((table) => table.name)).toContain("purchase_documents");
     expect(tables.map((table) => table.name)).toContain("purchase_lines");
     expect(tables.map((table) => table.name)).toContain("purchase_payments");
-    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 4 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 5 });
   });
 
   it("enforces foreign keys and business constraints", () => {
@@ -445,5 +445,70 @@ describe("AL-NASR supplier payment settlement", () => {
     })).toThrow("مبلغ الدفعة يتجاوز المبلغ المستحق للمورد");
     expect(db.prepare("SELECT paid_minor FROM purchase_documents WHERE id=?").get(purchase.id)).toEqual({ paid_minor: 0 });
     expect(db.prepare("SELECT COUNT(*) AS count FROM purchase_payments WHERE purchase_id=?").get(purchase.id)).toEqual({ count: 0 });
+  });
+});
+
+describe("AL-NASR customer receivables", () => {
+  it("posts a partial-credit sale, enforces payment limits and settles the receivable", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct } = await import("../src/main/products");
+    const { createCustomer } = await import("../src/main/customers");
+    const { createSale, openCashierShift, addSalePayment, listReceivables } = await import("../src/main/sales");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const customer = createCustomer(db, { code: "CUS-AR-01", name: "عميل آجل", creditLimitMinor: 5000, actorUserId: owner.id });
+    const product = createProduct(db, { sku: "AR-001", nameAr: "حليب", costMinor: 500, priceMinor: 1500, openingQuantity: 10, actorUserId: owner.id });
+    openCashierShift(db, { openingCashMinor: 0, cashierUserId: owner.id });
+
+    const sale = createSale(db, {
+      lines: [{ productId: product.id, quantity: 2 }],
+      customerId: customer.id,
+      paidMinor: 1000,
+      paymentMethod: "cash",
+      idempotencyKey: "receivable-sale-0001",
+      actorUserId: owner.id
+    });
+    expect(sale).toMatchObject({ totalMinor: 3000, paidMinor: 1000, outstandingMinor: 2000 });
+    expect(listReceivables(db)).toHaveLength(1);
+
+    const partial = addSalePayment(db, { saleId: sale.id, amountMinor: 500, method: "transfer", actorUserId: owner.id });
+    expect(partial).toMatchObject({ paidMinor: 1500, outstandingMinor: 1500 });
+    const settled = addSalePayment(db, { saleId: sale.id, amountMinor: 1500, method: "cash", actorUserId: owner.id });
+    expect(settled).toMatchObject({ paidMinor: 3000, outstandingMinor: 0 });
+    expect(listReceivables(db)).toHaveLength(0);
+    expect(db.prepare("SELECT paid_minor FROM sales WHERE id=?").get(sale.id)).toEqual({ paid_minor: 3000 });
+    expect(db.prepare("SELECT COUNT(*) AS count, SUM(amount_minor) AS total FROM payments WHERE sale_id=?").get(sale.id)).toEqual({ count: 3, total: 3000 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM audit_events WHERE entity_id=? AND action='sale.payment'").get(sale.id)).toEqual({ count: 2 });
+    expect(() => addSalePayment(db!, { saleId: sale.id, amountMinor: 1, method: "cash", actorUserId: owner.id })).toThrow("فاتورة العميل مسددة بالكامل");
+  });
+
+  it("rejects credit sales without a customer or beyond the customer's credit limit", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct } = await import("../src/main/products");
+    const { createCustomer } = await import("../src/main/customers");
+    const { createSale, openCashierShift } = await import("../src/main/sales");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const customer = createCustomer(db, { code: "CUS-AR-02", name: "عميل حد منخفض", creditLimitMinor: 1000, actorUserId: owner.id });
+    const product = createProduct(db, { sku: "AR-002", nameAr: "عصير", costMinor: 300, priceMinor: 1000, openingQuantity: 5, actorUserId: owner.id });
+    openCashierShift(db, { openingCashMinor: 0, cashierUserId: owner.id });
+
+    expect(() => createSale(db!, {
+      lines: [{ productId: product.id, quantity: 1 }],
+      paidMinor: 0,
+      idempotencyKey: "receivable-no-customer",
+      actorUserId: owner.id
+    })).toThrow("اختر عميلاً لتسجيل البيع الآجل");
+    expect(() => createSale(db!, {
+      lines: [{ productId: product.id, quantity: 2 }],
+      customerId: customer.id,
+      paidMinor: 0,
+      idempotencyKey: "receivable-over-limit",
+      actorUserId: owner.id
+    })).toThrow("تجاوز البيع الآجل حد ائتمان العميل");
+    expect(db.prepare("SELECT COUNT(*) AS count FROM sales").get()).toEqual({ count: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM payments").get()).toEqual({ count: 0 });
   });
 });
