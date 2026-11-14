@@ -87,6 +87,24 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
         self.assertIn("/app/alnasr", shortcut_urls)
         self.assertIn("/xpos/pos", shortcut_urls)
 
+    def test_xpos_branding_defaults_use_alnasr_identity(self):
+        self.assertEqual(
+            frappe.db.get_single_value("XPOS Branding Settings", "logo_light"),
+            "/assets/alnasr/images/alnasr-mark.svg",
+        )
+        self.assertEqual(
+            frappe.db.get_single_value("XPOS Branding Settings", "logo_dark"),
+            "/assets/alnasr/images/alnasr-mark-light.svg",
+        )
+        self.assertEqual(
+            frappe.db.get_single_value("XPOS Branding Settings", "light_primary"),
+            "#0F2537",
+        )
+        self.assertEqual(
+            frappe.db.get_single_value("XPOS Branding Settings", "dark_primary"),
+            "#C5A059",
+        )
+
     def test_alnasr_brand_metadata_is_registered(self):
         from alnasr import hooks
 
