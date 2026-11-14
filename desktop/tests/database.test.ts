@@ -208,3 +208,39 @@ describe("AL-NASR point of sale transactions", () => {
     expect(() => openCashierShift(db!, { openingCashMinor: 0, cashierUserId: owner.id })).toThrow("يوجد وردية مفتوحة");
   });
 });
+
+
+describe("AL-NASR inventory receiving and stock counts", () => {
+  it("receives stock and reconciles a physical count through immutable movements", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct, listProducts } = await import("../src/main/products");
+    const { adjustStockCount, listStockMovements, receiveStock } = await import("../src/main/inventory");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const product = createProduct(db, { sku: "INV-001", nameAr: "سكر", costMinor: 300, priceMinor: 500, openingQuantity: 5, actorUserId: owner.id });
+    const received = receiveStock(db, { productId: product.id, quantity: 7, unitCostMinor: 320, actorUserId: owner.id });
+    expect(received.quantityOnHand).toBe(12);
+    expect(listProducts(db)[0].stockOnHand).toBe(12);
+    const adjusted = adjustStockCount(db, { productId: product.id, countedQuantity: 9, actorUserId: owner.id });
+    expect(adjusted).toMatchObject({ previousQuantity: 12, countedQuantity: 9, difference: -3 });
+    expect(listProducts(db)[0].stockOnHand).toBe(9);
+    const unchanged = adjustStockCount(db, { productId: product.id, countedQuantity: 9, actorUserId: owner.id });
+    expect(unchanged).toMatchObject({ movementId: null, difference: 0 });
+    expect(listStockMovements(db)).toHaveLength(3);
+    expect(db.prepare("SELECT COUNT(*) AS count FROM audit_events WHERE action IN ('stock.receive','stock.adjust')").get()).toEqual({ count: 2 });
+  });
+
+  it("rejects invalid receipt and count quantities without changing stock", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct, listProducts } = await import("../src/main/products");
+    const { adjustStockCount, receiveStock } = await import("../src/main/inventory");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const product = createProduct(db, { sku: "INV-002", nameAr: "أرز", costMinor: 400, priceMinor: 600, openingQuantity: 2, actorUserId: owner.id });
+    expect(() => receiveStock(db!, { productId: product.id, quantity: 0, unitCostMinor: 400, actorUserId: owner.id })).toThrow();
+    expect(() => adjustStockCount(db!, { productId: product.id, countedQuantity: -1, actorUserId: owner.id })).toThrow();
+    expect(listProducts(db)[0].stockOnHand).toBe(2);
+  });
+});
