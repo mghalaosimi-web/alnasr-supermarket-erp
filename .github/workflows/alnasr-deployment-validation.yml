@@ -159,7 +159,10 @@ jobs:
           $archive = "dist/offline/alnasr-runtime-images.tar.gz"
           if (-not (Test-Path $archive)) { throw "Offline runtime image archive is missing." }
           if ((Get-Item $archive).Length -lt 100MB) { throw "Offline runtime image archive is unexpectedly small." }
-          Get-Content "dist/offline/SHA256SUMS.txt"
+          $expected = ((Get-Content "dist/offline/SHA256SUMS.txt" -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
+          $actual = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Offline runtime archive checksum verification failed." }
+          Write-Host "Offline runtime archive size and SHA-256 verified."
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
       - name: Compile AL-NASR Windows installer
@@ -183,6 +186,8 @@ jobs:
             "deploy/windows/alnasr.ps1",
             "deploy/compose.yaml",
             "deploy/Caddyfile",
+            "offline/alnasr-runtime-images.tar.gz",
+            "offline/SHA256SUMS.txt",
             "apps/alnasr/alnasr/__init__.py",
             "apps/xpos/pyproject.toml",
             "licenses/X-POS-MIT-LICENSE.txt"
