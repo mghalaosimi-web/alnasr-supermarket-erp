@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("start", "stop", "restart", "status", "open", "init", "backup")]
+    [ValidateSet("build", "start", "stop", "restart", "status", "open", "init", "backup")]
     [string]$Action
 )
 $ErrorActionPreference = "Stop"
@@ -27,7 +27,17 @@ function Assert-Docker {
 }
 Assert-Docker
 switch ($Action) {
-    "start" { Invoke-Compose up -d; Write-Host "Containers started. Check status and initialize the site if this is the first run." }
+    "build" {
+        docker build --file (Join-Path $Deploy "Dockerfile") --tag alnasr-local:16 $Root
+        if ($LASTEXITCODE -ne 0) { throw "AL-NASR image build failed." }
+        Write-Host "AL-NASR runtime image built locally."
+    }
+    "start" {
+        $image = docker image inspect alnasr-local:16 2>$null
+        if ($LASTEXITCODE -ne 0) { throw "Runtime image is missing. Run this script with -Action build first." }
+        Invoke-Compose up -d
+        Write-Host "Containers started. Initialize the site on first use with -Action init."
+    }
     "stop" { Invoke-Compose stop; Write-Host "Services stopped; persistent data volumes retained." }
     "restart" { Invoke-Compose restart; Write-Host "Services restarted." }
     "status" {
@@ -37,7 +47,10 @@ switch ($Action) {
     }
     "open" { Start-Process "http://127.0.0.1:8080" }
     "init" {
-        Invoke-Compose up -d db redis-cache redis-queue
+        docker build --file (Join-Path $Deploy "Dockerfile") --tag alnasr-local:16 $Root
+        if ($LASTEXITCODE -ne 0) { throw "AL-NASR image build failed." }
+        Invoke-Compose run --rm configurator
+        if ($LASTEXITCODE -ne 0) { throw "Runtime configurator failed." }
         $match = Select-String -Path $EnvFile -Pattern '^DB_PASSWORD=(.+)$'
         $dbPassword = if ($match) { $match.Matches[0].Groups[1].Value } else { "" }
         if (-not $dbPassword -or $dbPassword -eq "REPLACE_WITH_A_LONG_RANDOM_SECRET") { throw "Set a strong DB_PASSWORD in deploy/.env first." }
@@ -45,7 +58,7 @@ switch ($Action) {
         $adminPassword = [System.Net.NetworkCredential]::new("", $secure).Password
         if ($adminPassword.Length -lt 12) { throw "Administrator password must be at least 12 characters." }
         $payload = $dbPassword + [Environment]::NewLine + $adminPassword + [Environment]::NewLine
-        $payload | docker compose --env-file $EnvFile -f $Compose run --rm -T --no-deps --entrypoint bash backend -lc 'read -r DBROOT; read -r ADMIN; bench new-site alnasr.local --db-host db --db-root-username root --db-root-password "$DBROOT" --admin-password "$ADMIN" --install-app erpnext --install-app alnasr --set-default'
+        $payload | docker compose --env-file $EnvFile -f $Compose run --rm -T --no-deps --entrypoint bash backend -lc 'read -r DBROOT; read -r ADMIN; bench new-site alnasr.local --db-host db --mariadb-user-host-login-scope % --db-root-username root --db-root-password "$DBROOT" --admin-password "$ADMIN" --install-app erpnext --install-app alnasr --set-default'
         if ($LASTEXITCODE -ne 0) { throw "Site creation failed. Inspect logs before retrying." }
         Invoke-Compose up -d
         Write-Host "Initial site created. Open http://127.0.0.1:8080; login user is Administrator."
