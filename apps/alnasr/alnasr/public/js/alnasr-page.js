@@ -35,7 +35,7 @@ frappe.pages["alnasr"].on_page_load = function (wrapper) {
       items: [
         { label: "المدفوعات", detail: "سندات القبض والصرف", icon: "wallet", route: ["List", "Payment Entry"] },
         { label: "القيود المحاسبية", detail: "دفتر الأستاذ والقيود", icon: "calculator", route: ["List", "Journal Entry"] },
-        { label: "التقارير", detail: "تقارير المبيعات والمخزون", icon: "chart-line", route: ["query-report", "Sales Analytics"] },
+        { label: "التقارير", detail: "تقارير المبيعات والمخزون", icon: "chart-line", route: ["List", "Report"] },
       ],
     },
     {
@@ -49,8 +49,6 @@ frappe.pages["alnasr"].on_page_load = function (wrapper) {
   ];
 
   const icon = (name) => frappe.utils.icon(name, "lg");
-  const escape = (value) => frappe.utils.escape_html(value);
-
   const $root = $(
     '<div class="alnasr-dashboard" dir="rtl">' +
       '<section class="alnasr-welcome">' +
@@ -87,7 +85,7 @@ frappe.pages["alnasr"].on_page_load = function (wrapper) {
           $("<strong></strong>").text(item.label),
           $("<small></small>").text(item.detail)
         ),
-        $('<span class="alnasr-link-arrow"></span>').html(frappe.utils.icon("arrow-up-left", "sm"))
+        $('<span class="alnasr-link-arrow"></span>').html("←")
       );
       $button.on("click", () => {
         if (item.external) {
