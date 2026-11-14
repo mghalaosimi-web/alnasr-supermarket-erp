@@ -66,6 +66,12 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
         self.assertIsNotNone(field)
         self.assertEqual(str(field.default), "1")
 
+    def test_alnasr_desk_page_is_registered(self):
+        page = frappe.get_doc("Page", "alnasr")
+        self.assertEqual(page.module, "AL-NASR")
+        self.assertEqual(page.title, "النصر | AL-NASR")
+        self.assertEqual(page.standard, "Yes")
+
     def test_alnasr_workspace_fixture_is_installed(self):
         self.assertTrue(
             frappe.db.exists("Workspace", "AL-NASR"),
