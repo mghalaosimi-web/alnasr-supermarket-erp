@@ -27,16 +27,24 @@ export function receiveStock(
   if (!Number.isSafeInteger(input.unitCostMinor) || input.unitCostMinor < 0) throw new Error("تكلفة الوحدة غير صحيحة");
 
   const receive = db.transaction(() => {
-    const product = db.prepare("SELECT id, is_active AS isActive FROM products WHERE id = ?")
-      .get(input.productId) as { id: string; isActive: number } | undefined;
+    const product = db.prepare("SELECT id, cost_minor AS costMinor, is_active AS isActive FROM products WHERE id = ?")
+      .get(input.productId) as { id: string; costMinor: number; isActive: number } | undefined;
     if (!product || product.isActive !== 1) throw new Error("المنتج غير موجود أو غير نشط");
     const warehouse = db.prepare("SELECT id FROM warehouses WHERE code = 'MAIN'").get() as { id: string } | undefined;
     if (!warehouse) throw new Error("المستودع الرئيسي غير مهيأ");
+    const balanceBefore = db.prepare("SELECT COALESCE(SUM(quantity_delta), 0) AS quantity FROM stock_movements WHERE product_id = ? AND warehouse_id = ?")
+      .get(input.productId, warehouse.id) as { quantity: number };
+    const quantityAfter = balanceBefore.quantity + input.quantity;
+    const averageCost = quantityAfter > 0
+      ? Math.round((Math.max(0, balanceBefore.quantity) * product.costMinor + input.quantity * input.unitCostMinor) / (Math.max(0, balanceBefore.quantity) + input.quantity))
+      : input.unitCostMinor;
+    db.prepare("UPDATE products SET cost_minor = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
+      .run(averageCost, input.productId);
     const movementId = randomUUID();
     db.prepare("INSERT INTO stock_movements (id, product_id, warehouse_id, movement_type, quantity_delta, unit_cost_minor, reference_type, reference_id, created_by) VALUES (?, ?, ?, 'purchase', ?, ?, 'manual_receipt', ?, ?)")
       .run(movementId, input.productId, warehouse.id, input.quantity, input.unitCostMinor, movementId, input.actorUserId);
     db.prepare("INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'stock.receive', 'product', ?, ?)")
-      .run(randomUUID(), input.actorUserId, input.productId, JSON.stringify({ quantity: input.quantity, unitCostMinor: input.unitCostMinor, movementId }));
+      .run(randomUUID(), input.actorUserId, input.productId, JSON.stringify({ quantity: input.quantity, unitCostMinor: input.unitCostMinor, averageCost, movementId }));
     const balance = db.prepare("SELECT COALESCE(SUM(quantity_delta), 0) AS quantity FROM stock_movements WHERE product_id = ? AND warehouse_id = ?")
       .get(input.productId, warehouse.id) as { quantity: number };
     return { movementId, quantityOnHand: balance.quantity };
