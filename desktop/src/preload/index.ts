@@ -8,6 +8,7 @@ export type CashierShift = { id: string; openingCashMinor: number; openedAt?: st
 export type SaleInput = { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string };
 export type SaleResult = { id: string; saleNumber: string; totalMinor: number; status: "posted"; lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> };
 export type StockMovementRow = { id: string; sku: string; productName: string; warehouseName: string; movementType: string; quantityDelta: number; unitCostMinor: number; occurredAt: string };
+export type SupplierRow = { id: string; code: string; name: string; phone: string | null; isActive: number };
 
 contextBridge.exposeInMainWorld("alnasr", {
   health: () => ipcRenderer.invoke("alnasr:health"),
@@ -21,6 +22,8 @@ contextBridge.exposeInMainWorld("alnasr", {
   openShift: (openingCashMinor: number) => ipcRenderer.invoke("alnasr:shift:open", { openingCashMinor }) as Promise<CashierShift>,
   closeShift: (input: { shiftId: string; closingCashMinor: number }) => ipcRenderer.invoke("alnasr:shift:close", input) as Promise<{ id: string; closingCashMinor: number; status: "closed" }>,
   createSale: (input: SaleInput) => ipcRenderer.invoke("alnasr:sales:create", input) as Promise<SaleResult>,
+  listSuppliers: () => ipcRenderer.invoke("alnasr:suppliers:list") as Promise<SupplierRow[]>,
+  createSupplier: (input: { code: string; name: string; phone?: string }) => ipcRenderer.invoke("alnasr:suppliers:create", input) as Promise<SupplierRow>,
   createBackup: () => ipcRenderer.invoke("alnasr:backup:create") as Promise<{ canceled: boolean; filePath?: string }>,
   listStockMovements: () => ipcRenderer.invoke("alnasr:inventory:movements") as Promise<StockMovementRow[]>,
   receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => ipcRenderer.invoke("alnasr:inventory:receive", input) as Promise<{ movementId: string; quantityOnHand: number }>,
@@ -39,6 +42,8 @@ export type AlnasrBridge = {
   openShift: (openingCashMinor: number) => Promise<CashierShift>,
   closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>,
   createSale: (input: SaleInput) => Promise<SaleResult>,
+  listSuppliers: () => Promise<SupplierRow[]>,
+  createSupplier: (input: { code: string; name: string; phone?: string }) => Promise<SupplierRow>,
   createBackup: () => Promise<{ canceled: boolean; filePath?: string }>,
   listStockMovements: () => Promise<StockMovementRow[]>,
   receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => Promise<{ movementId: string; quantityOnHand: number }>,
