@@ -69,7 +69,7 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
         # In Frappe v16, label is the Workspace autoname field (internal name);
         # title is the human-facing title rendered in the Desk.
         self.assertEqual(workspace.name, "AL-NASR")
-        self.assertEqual(workspace.label, "AL-NASR")
+        self.assertEqual(workspace.label, workspace.name)
         self.assertEqual(workspace.title, "النصر | AL-NASR")
         self.assertEqual(workspace.module, "AL-NASR")
         shortcut_urls = {shortcut.url for shortcut in workspace.shortcuts}
