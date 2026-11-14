@@ -2,7 +2,7 @@
 
 **Checked:** 2026-11-14  
 **Development branch:** `foundation/offline-release-bundle`  
-**Latest source commit:** `d75ce2afa40760c0175d67b0c5fcc130710b22dc`  
+**Latest source commit:** `1d3df65198eeabd1fd6c8343235d3da5d0ec083b`  
 **Draft PR:** [#4](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/pull/4) → `foundation/alnasr-commerce-acceptance`
 
 ## What is present in source
