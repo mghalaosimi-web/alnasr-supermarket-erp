@@ -6,14 +6,16 @@ type OwnerSetupInput = { username: string; displayName: string; password: string
 type ProductInput = { sku: string; nameAr: string; nameEn?: string; barcode?: string; costMinor: number; priceMinor: number; openingQuantity?: number };
 type ProductRow = { id: string; sku: string; nameAr: string; nameEn: string | null; barcode: string | null; costMinor: number; priceMinor: number; isActive: number; stockOnHand: number };
 type CashierShift = { id: string; openingCashMinor: number; openedAt?: string; status?: "open" };
-type SaleResult = { id: string; saleNumber: string; totalMinor: number; status: "posted"; lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> };
+type SaleResult = { id: string; saleNumber: string; totalMinor: number; paidMinor: number; outstandingMinor: number; status: "posted"; lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> };
 type StockMovementRow = { id: string; sku: string; productName: string; warehouseName: string; movementType: string; quantityDelta: number; unitCostMinor: number; occurredAt: string };
 type SupplierRow = { id: string; code: string; name: string; phone: string | null; isActive: number };
 type CustomerRow = { id: string; code: string; name: string; phone: string | null; creditLimitMinor: number; isActive: number };
 type PurchaseRow = { id: string; documentNumber: string; supplierId: string; supplierName: string; subtotalMinor: number; paidMinor: number; outstandingMinor: number; occurredAt: string; lineCount: number };
 type PurchaseInput = { supplierId: string; documentNumber?: string; lines: Array<{ productId: string; quantity: number; unitCostMinor: number }>; paidMinor?: number; paymentMethod?: "cash" | "card" | "transfer" };
 type PurchasePaymentInput = { purchaseId: string; amountMinor: number; method: "cash" | "card" | "transfer" };
-type SaleInput = { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string; customerId?: string };
+type ReceivableRow = { id: string; saleNumber: string; customerId: string; customerName: string; totalMinor: number; paidMinor: number; outstandingMinor: number; occurredAt: string };
+type SalePaymentInput = { saleId: string; amountMinor: number; method: "cash" | "card" | "transfer" };
+type SaleInput = { lines: Array<{ productId: string; quantity: number }>; paymentMethod?: "cash" | "card" | "transfer"; paidMinor?: number; idempotencyKey: string; customerId?: string };
 
 declare global {
   interface Window {
@@ -29,6 +31,8 @@ declare global {
       openShift: (openingCashMinor: number) => Promise<CashierShift>;
       closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>;
       createSale: (input: SaleInput) => Promise<SaleResult>;
+      listReceivables: () => Promise<ReceivableRow[]>;
+      addSalePayment: (input: SalePaymentInput) => Promise<ReceivableRow>;
       listCustomers: () => Promise<CustomerRow[]>;
       createCustomer: (input: { code: string; name: string; phone?: string; creditLimitMinor?: number }) => Promise<CustomerRow>;
       listSuppliers: () => Promise<SupplierRow[]>;
@@ -71,6 +75,7 @@ export function App() {
   const [barcodeScan, setBarcodeScan] = useState("");
   const [cart, setCart] = useState<Array<{ productId: string; sku: string; nameAr: string; priceMinor: number; quantity: number }>>([]);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
+  const [salePaidAmount, setSalePaidAmount] = useState("");
   const [saleBusy, setSaleBusy] = useState(false);
   const [lastSale, setLastSale] = useState<SaleResult | null>(null);
   const [saleKey, setSaleKey] = useState(() => window.crypto.randomUUID());
@@ -88,6 +93,11 @@ export function App() {
   const [supplierPhone, setSupplierPhone] = useState("");
   const [supplierBusy, setSupplierBusy] = useState(false);
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
+  const [receivableSaleId, setReceivableSaleId] = useState("");
+  const [receivablePaymentAmount, setReceivablePaymentAmount] = useState("0");
+  const [receivablePaymentMethod, setReceivablePaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
+  const [receivablePaymentBusy, setReceivablePaymentBusy] = useState(false);
   const [customerCode, setCustomerCode] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -140,6 +150,7 @@ export function App() {
       setPurchases(await window.alnasr.listPurchases());
       const loadedCustomers = await window.alnasr.listCustomers();
       setCustomers(loadedCustomers);
+      setReceivables(await window.alnasr.listReceivables());
       setShift(await window.alnasr.currentShift());
       setPassword("");
     } catch (reason) {
@@ -267,14 +278,18 @@ export function App() {
     setSaleBusy(true);
     setError(null);
     try {
+      const paidMinor = salePaidAmount.trim() === "" ? undefined : Math.round(Number(salePaidAmount) * 100);
       const result = await window.alnasr.createSale({
         lines: cart.map(({ productId, quantity }) => ({ productId, quantity })),
-        paymentMethod,
+        paymentMethod: paidMinor === 0 ? undefined : paymentMethod,
+        paidMinor,
         idempotencyKey: saleKey,
         customerId: selectedCustomerId || undefined
       });
       setLastSale(result);
       setCart([]);
+      setSalePaidAmount("");
+      setReceivables(await window.alnasr.listReceivables());
       setProducts(await window.alnasr.listProducts());
       setStockMovements(await window.alnasr.listStockMovements());
       setSaleKey(window.crypto.randomUUID());
@@ -285,6 +300,27 @@ export function App() {
     }
   }
 
+
+  async function submitReceivablePayment(saleId: string) {
+    setReceivablePaymentBusy(true);
+    setError(null);
+    try {
+      const amountMinor = Math.round(Number(receivablePaymentAmount) * 100);
+      const updated = await window.alnasr.addSalePayment({
+        saleId,
+        amountMinor,
+        method: receivablePaymentMethod
+      });
+      setReceivables(await window.alnasr.listReceivables());
+      setReceivableSaleId("");
+      setReceivablePaymentAmount("0");
+      setPurchaseMessage("تم تحصيل دفعة من العميل " + updated.customerName + " · المتبقي: " + (updated.outstandingMinor / 100).toFixed(2));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر تحصيل المبلغ من العميل");
+    } finally {
+      setReceivablePaymentBusy(false);
+    }
+  }
 
   async function submitStockReceipt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -569,10 +605,13 @@ export function App() {
                       <option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option>
                     </select>
                   </label>
+                  <label>المبلغ المحصل الآن (اتركه فارغاً للسداد الكامل)
+                    <input type="number" min="0" step="0.01" value={salePaidAmount} onChange={(event) => setSalePaidAmount(event.target.value)} placeholder={(cart.reduce((sum, item) => sum + item.priceMinor * item.quantity, 0) / 100).toFixed(2)} />
+                  </label>
                   <div className="cart-total"><small>الإجمالي</small><strong>{(cart.reduce((sum, item) => sum + item.priceMinor * item.quantity, 0) / 100).toFixed(2)}</strong></div>
                   <button type="button" onClick={() => void completeSale()} disabled={saleBusy || cart.length === 0}>{saleBusy ? "جارٍ اعتماد الفاتورة..." : "اعتماد البيع"}</button>
                 </div>
-                {lastSale && <p className="sale-success">تم اعتماد الفاتورة {lastSale.saleNumber} · الإجمالي {(lastSale.totalMinor / 100).toFixed(2)}</p>}
+                {lastSale && <p className="sale-success">تم اعتماد الفاتورة {lastSale.saleNumber} · الإجمالي {(lastSale.totalMinor / 100).toFixed(2)} · المدفوع {(lastSale.paidMinor / 100).toFixed(2)} · المتبقي {(lastSale.outstandingMinor / 100).toFixed(2)}</p>}
                 <form className="shift-form shift-close" onSubmit={finishShift}>
                   <label>الرصيد الفعلي عند الإغلاق<input type="number" min="0" step="0.01" value={shiftClosingCash} onChange={(event) => setShiftClosingCash(event.target.value)} required /></label>
                   <button type="submit" disabled={shiftBusy}>إغلاق الوردية</button>
@@ -753,6 +792,35 @@ export function App() {
               <button type="submit" disabled={customerBusy}>{customerBusy ? "جارٍ الحفظ..." : "إضافة العميل"}</button>
             </form>
             {error && <p className="form-error" role="alert">{error}</p>}
+            <div className="product-heading">
+              <div><span className="eyebrow">الذمم المدينة</span><h3>فواتير العملاء المستحقة</h3></div>
+              <span className="product-count">{receivables.length} فاتورة</span>
+            </div>
+            <div className="product-list">
+              {receivables.length === 0 ? <p className="empty-products">لا توجد مبالغ مستحقة على العملاء.</p> : receivables.map((receivable) => (
+                <article className="product-row receivable-document-row" key={receivable.id}>
+                  <div><strong>{receivable.saleNumber} · {receivable.customerName}</strong><small>{new Date(receivable.occurredAt).toLocaleString("ar")}</small></div>
+                  <div className="product-metrics">
+                    <small>المدفوع {(receivable.paidMinor / 100).toFixed(2)} · المتبقي {(receivable.outstandingMinor / 100).toFixed(2)}</small>
+                    <strong>{(receivable.totalMinor / 100).toFixed(2)}</strong>
+                    <button type="button" className="secondary-button" onClick={() => {
+                      setReceivableSaleId(receivableSaleId === receivable.id ? "" : receivable.id);
+                      setReceivablePaymentAmount((receivable.outstandingMinor / 100).toFixed(2));
+                    }}>تحصيل دفعة</button>
+                  </div>
+                  {receivableSaleId === receivable.id && <form className="supplier-form receivable-settlement-form" onSubmit={(event) => {
+                    event.preventDefault();
+                    void submitReceivablePayment(receivable.id);
+                  }}>
+                    <label>مبلغ التحصيل<input type="number" min="0.01" max={(receivable.outstandingMinor / 100).toFixed(2)} step="0.01" value={receivablePaymentAmount} onChange={(event) => setReceivablePaymentAmount(event.target.value)} required /></label>
+                    <label>طريقة التحصيل<select value={receivablePaymentMethod} onChange={(event) => setReceivablePaymentMethod(event.target.value as "cash" | "card" | "transfer")}>
+                      <option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option>
+                    </select></label>
+                    <button type="submit" disabled={receivablePaymentBusy}>{receivablePaymentBusy ? "جارٍ التحصيل..." : "تأكيد التحصيل"}</button>
+                  </form>}
+                </article>
+              ))}
+            </div>
             <div className="product-list">
               {customers.length === 0 ? <p className="empty-products">لا يوجد عملاء مسجلون بعد.</p> : customers.map((customer) => (
                 <article className="product-row" key={customer.id}>
