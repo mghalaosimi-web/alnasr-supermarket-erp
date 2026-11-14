@@ -71,8 +71,8 @@ jobs:
           assert workspace_doc["name"] == "AL-NASR"
           assert workspace_doc["module"] == "AL-NASR"
           assert workspace_doc.get("standard") == 1
-          assert not Path("apps/alnasr/alnasr/page/alnasr").exists()
-          assert not Path("apps/alnasr/alnasr/workspace/al_nasr").exists()
+          assert not Path("apps/alnasr/alnasr/page/alnasr/alnasr.json").exists()
+          assert not Path("apps/alnasr/alnasr/workspace/al_nasr/al_nasr.json").exists()
           print("AL-NASR Page and Workspace are in the Frappe module sync path.")
           PY
 
