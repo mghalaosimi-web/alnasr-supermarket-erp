@@ -23,6 +23,7 @@ declare global {
       openShift: (openingCashMinor: number) => Promise<CashierShift>;
       closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>;
       createSale: (input: { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string }) => Promise<SaleResult>;
+      createBackup: () => Promise<{ canceled: boolean; filePath?: string }>;
       listStockMovements: () => Promise<StockMovementRow[]>;
       receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => Promise<{ movementId: string; quantityOnHand: number }>;
       adjustStock: (input: { productId: string; countedQuantity: number }) => Promise<{ movementId: string | null; previousQuantity: number; countedQuantity: number; difference: number }>;
@@ -34,7 +35,7 @@ export function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [ownerSetupRequired, setOwnerSetupRequired] = useState<boolean | null>(null);
   const [user, setUser] = useState<PublicUser | null>(null);
-  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products" | "inventory">("dashboard");
+  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products" | "inventory" | "backup">("dashboard");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -65,6 +66,8 @@ export function App() {
   const [receiveUnitCost, setReceiveUnitCost] = useState("0");
   const [countedQuantity, setCountedQuantity] = useState("0");
   const [inventoryBusy, setInventoryBusy] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([window.alnasr.health(), window.alnasr.setupStatus()])
@@ -257,6 +260,21 @@ export function App() {
     }
   }
 
+
+  async function createDatabaseBackup() {
+    setBackupBusy(true);
+    setBackupMessage(null);
+    setError(null);
+    try {
+      const result = await window.alnasr.createBackup();
+      if (!result.canceled) setBackupMessage("تم إنشاء النسخة الاحتياطية بنجاح: " + result.filePath);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر إنشاء النسخة الاحتياطية");
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -270,6 +288,7 @@ export function App() {
           <button type="button" className={activePage === "pos" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("pos")}>نقطة البيع</button>
           <button type="button" className={activePage === "products" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("products")}>المنتجات</button>
           <button type="button" className={activePage === "inventory" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("inventory")}>المخزون</button>
+          <button type="button" className={activePage === "backup" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("backup")}>النسخ الاحتياطي</button>
         </nav>}
         <div className="topbar-spacer" />
         <span className="version">نسخة التطوير 0.1.0</span>
@@ -428,6 +447,16 @@ export function App() {
                 </article>
               ))}
             </div>
+          </section>}
+
+          {activePage === "backup" && <section className="backup-workspace">
+            <span className="eyebrow">حماية البيانات المحلية</span>
+            <h2>النسخ الاحتياطي</h2>
+            <p>أنشئ نسخة SQLite متسقة من قاعدة بيانات النظام باستخدام آلية SQLite Backup، حتى أثناء تشغيل التطبيق.</p>
+            <button type="button" onClick={() => void createDatabaseBackup()} disabled={backupBusy}>{backupBusy ? "جارٍ إنشاء النسخة..." : "إنشاء نسخة احتياطية"}</button>
+            {backupMessage && <p className="backup-success">{backupMessage}</p>}
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <small className="form-hint">احفظ النسخة في قرص خارجي أو مكان آمن منفصل عن جهاز التشغيل. استعادة النسخ الاحتياطية لم تُضف بعد.</small>
           </section>}
           {activePage === "dashboard" && <>
           <h2>وحدات النظام</h2>
