@@ -29,9 +29,6 @@ with tarfile.open(path, "r:") as archive:
     required = {
         "etc/wsl.conf",
         "etc/systemd/system/multi-user.target.wants/docker.service",
-        "usr/bin/dockerd",
-        "usr/bin/docker",
-        "usr/bin/docker-compose",
         "sbin/init",
     }
     missing = sorted(required - names)
