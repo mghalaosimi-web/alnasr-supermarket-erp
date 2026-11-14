@@ -1,8 +1,8 @@
 """Runtime contract tests for the pinned ERPNext + X POS stack.
 
 These tests run inside a disposable Frappe site after all three apps migrate.
-They deliberately validate integration contracts, not pretend to test a full
-cashier transaction or offline recovery.
+They validate integration contracts and business transactions, not physical
+device behavior or a complete offline acceptance run.
 """
 
 import frappe
@@ -16,31 +16,17 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
 
     def test_standard_erpnext_business_doctypes_are_available(self):
         required = (
-            "Company",
-            "Item",
-            "Item Group",
-            "UOM",
-            "Warehouse",
-            "Stock Ledger Entry",
-            "Customer",
-            "Supplier",
-            "Sales Invoice",
-            "Purchase Invoice",
-            "Purchase Receipt",
-            "Payment Entry",
-            "GL Entry",
+            "Company", "Item", "Item Group", "UOM", "Warehouse",
+            "Stock Ledger Entry", "Customer", "Supplier", "Sales Invoice",
+            "Purchase Invoice", "Purchase Receipt", "Payment Entry", "GL Entry",
         )
         missing = [name for name in required if not frappe.db.exists("DocType", name)]
         self.assertEqual(missing, [], f"Missing standard ERPNext DocTypes: {missing}")
 
     def test_xpos_operational_doctypes_are_available(self):
         required = (
-            "POS Profile",
-            "POS Opening Shift",
-            "POS Closing Shift",
-            "POS Permission",
-            "POS Role",
-            "POS Cash Movement",
+            "POS Profile", "POS Opening Shift", "POS Closing Shift",
+            "POS Permission", "POS Role", "POS Cash Movement",
         )
         missing = [name for name in required if not frappe.db.exists("DocType", name)]
         self.assertEqual(missing, [], f"Missing X POS DocTypes: {missing}")
@@ -51,7 +37,6 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
 
         for endpoint in (create_invoice, check_open_shift, close_shift, open_shift):
             self.assertTrue(callable(endpoint))
-
 
     def test_erpnext_return_credit_note_default_is_preserved(self):
         # X POS 2.13.4 ships a Property Setter forcing this field to 0,
@@ -73,12 +58,12 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
         self.assertEqual(page.standard, "Yes")
         page.load_assets()
         self.assertIn('frappe.pages["alnasr"].on_page_load', page.script)
-        self.assertIn('/xpos/pos', page.script)
+        self.assertIn("/xpos/pos", page.script)
 
-    def test_alnasr_workspace_fixture_is_installed(self):
+    def test_alnasr_workspace_is_installed(self):
         self.assertTrue(
             frappe.db.exists("Workspace", "AL-NASR"),
-            "The AL-NASR unified workspace fixture must be installed",
+            "The AL-NASR module workspace must be synchronized from its module file",
         )
         workspace = frappe.get_doc("Workspace", "AL-NASR")
         self.assertEqual(workspace.module, "AL-NASR")
@@ -112,12 +97,32 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
         self.assertEqual(payload["light"]["primary"], "#0F2537")
         self.assertEqual(payload["dark"]["primary"], "#C5A059")
 
+    def test_branding_patch_replaces_upstream_defaults_and_preserves_custom_values(self):
+        from alnasr.patches.branding import apply_xpos_branding_defaults
+
+        meta = frappe.get_meta("XPOS Branding Settings")
+        upstream_default = meta.get_field("light_primary").default
+        frappe.db.set_single_value("XPOS Branding Settings", "light_primary", upstream_default)
+        apply_xpos_branding_defaults()
+        self.assertEqual(
+            frappe.db.get_single_value("XPOS Branding Settings", "light_primary"),
+            "#0F2537",
+        )
+
+        frappe.db.set_single_value("XPOS Branding Settings", "light_primary", "#123456")
+        apply_xpos_branding_defaults()
+        self.assertEqual(
+            frappe.db.get_single_value("XPOS Branding Settings", "light_primary"),
+            "#123456",
+            "An administrator's non-default brand customization must be preserved",
+        )
+
+        # Leave the disposable test site in the approved AL-NASR state.
+        frappe.db.set_single_value("XPOS Branding Settings", "light_primary", "#0F2537")
+
     def test_alnasr_brand_metadata_is_registered(self):
         from alnasr import hooks
 
         self.assertEqual(hooks.app_title, "النصر | AL-NASR")
         self.assertEqual(hooks.app_color, "#0F2537")
-        self.assertEqual(
-            hooks.app_logo_url,
-            "/assets/alnasr/images/alnasr-logo.svg",
-        )
+        self.assertEqual(hooks.app_logo_url, "/assets/alnasr/images/alnasr-logo.svg")
