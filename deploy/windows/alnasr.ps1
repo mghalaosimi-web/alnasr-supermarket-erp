@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("prepare", "setup", "build", "start", "stop", "restart", "status", "open", "init", "backup", "export-cert")]
+    [ValidateSet("prepare", "setup", "build", "start", "stop", "restart", "status", "open", "init", "backup", "restore", "export-cert")]
     [string]$Action
 )
 $ErrorActionPreference = "Stop"
@@ -104,6 +104,65 @@ switch ($Action) {
         Invoke-Compose cp "caddy:/data/caddy/pki/authorities/local/root.crt" (Join-Path $DataRoot "alnasr-local-root.crt")
         if ($LASTEXITCODE -ne 0) { throw "Could not export the local CA certificate." }
         Write-Host "Local CA exported to $DataRoot. Install it on the Android phone as a CA certificate."
+    }
+    "restore" {
+        Ensure-LocalEnv
+        if (-not (Test-Path $BackupDir)) { throw "No local backup directory exists at $BackupDir." }
+        $backups = @(Get-ChildItem -Path $BackupDir -Filter "*-database.sql.gz" -File | Sort-Object LastWriteTime -Descending)
+        if ($backups.Count -eq 0) { throw "No database backups were found in $BackupDir." }
+        for ($index = 0; $index -lt $backups.Count; $index++) {
+            Write-Host "[$index] $($backups[$index].Name) — $($backups[$index].LastWriteTime)"
+        }
+        $selection = Read-Host "Enter the backup number to restore"
+        $number = -1
+        if (-not [int]::TryParse($selection, [ref]$number) -or $number -lt 0 -or $number -ge $backups.Count) {
+            throw "Invalid backup selection."
+        }
+        $sql = $backups[$number]
+        $prefix = $sql.Name -replace '-database\.sql\.gz
+        New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+        Invoke-Compose exec -T backend bench --site $SiteName backup --with-files
+        if ($LASTEXITCODE -ne 0) { throw "Bench backup failed." }
+        Invoke-Compose cp "backend:/home/frappe/frappe-bench/sites/$SiteName/private/backups/." $BackupDir
+        Write-Host "Backup files copied to $BackupDir. Verify a restore on a separate test site before relying on this backup."
+    }
+}
+, ''
+        $publicFile = Join-Path $BackupDir ($prefix + "-files.tar")
+        $privateFile = Join-Path $BackupDir ($prefix + "-private-files.tar")
+        if (-not (Test-Path $publicFile) -or -not (Test-Path $privateFile)) {
+            throw "The selected backup is incomplete. Database, public files, and private files are all required."
+        }
+        $confirm = Read-Host "This replaces the current AL-NASR database and files. Type RESTORE to continue"
+        if ($confirm -cne "RESTORE") { throw "Restore cancelled." }
+        & $PSCommandPath -Action backup
+        if (-not $?) { throw "Pre-restore safety backup failed; restore was not started." }
+        Invoke-Compose cp $sql.FullName "backend:/tmp/alnasr-restore-database.sql.gz"
+        Invoke-Compose cp $publicFile "backend:/tmp/alnasr-restore-public-files.tar"
+        Invoke-Compose cp $privateFile "backend:/tmp/alnasr-restore-private-files.tar"
+        $match = Select-String -Path $EnvFile -Pattern '^DB_PASSWORD=(.+)
+        New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+        Invoke-Compose exec -T backend bench --site $SiteName backup --with-files
+        if ($LASTEXITCODE -ne 0) { throw "Bench backup failed." }
+        Invoke-Compose cp "backend:/home/frappe/frappe-bench/sites/$SiteName/private/backups/." $BackupDir
+        Write-Host "Backup files copied to $BackupDir. Verify a restore on a separate test site before relying on this backup."
+    }
+}
+
+        $dbPassword = if ($match) { $match.Matches[0].Groups[1].Value } else { "" }
+        if (-not $dbPassword) { throw "Database password is missing from the private local configuration." }
+        $payload = $dbPassword + [Environment]::NewLine
+        $payload | docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose exec -T backend bash -lc 'read -r DBROOT; bench --site alnasr.local restore /tmp/alnasr-restore-database.sql.gz --db-root-username root --db-root-password "$DBROOT" --with-public-files /tmp/alnasr-restore-public-files.tar --with-private-files /tmp/alnasr-restore-private-files.tar --force && bench --site alnasr.local migrate'
+        if ($LASTEXITCODE -ne 0) { throw "Restore or post-restore migration failed. Keep the pre-restore backup and inspect logs." }
+        Invoke-Compose restart backend websocket queue-short queue-long scheduler frontend caddy
+        if ($LASTEXITCODE -ne 0) { throw "Services could not be restarted after restore." }
+        try {
+            $health = Invoke-WebRequest -Uri "http://127.0.0.1:8080/api/method/ping" -TimeoutSec 30
+            if ($health.StatusCode -ne 200 -or $health.Content -notmatch "pong") { throw "Unexpected health response." }
+        } catch {
+            throw "Restore completed but HTTP health verification failed. The pre-restore backup remains in $BackupDir."
+        }
+        Write-Host "Restore and HTTP health check completed. Verify stock, invoices, payments, and GL before resuming sales."
     }
     "backup" {
         New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
