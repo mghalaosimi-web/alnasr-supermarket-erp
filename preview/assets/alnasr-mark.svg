@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="210 30 380 315" role="img" aria-labelledby="title desc">
+  <title id="title">رمز النصر</title>
+  <desc id="desc">صقر هندسي داخل درع حرف النون، تحيط به أجنحة وأعمدة تجارية ونجمة ذهبية.</desc>
+  <g>
+    <g fill="#C5A059">
+      <rect x="305" y="108" width="6" height="12"/><rect x="317" y="96" width="6" height="24"/>
+      <rect x="329" y="88" width="8" height="35"/><rect x="344" y="88" width="7" height="75"/>
+      <rect x="449" y="88" width="7" height="75"/><rect x="463" y="88" width="8" height="35"/>
+      <rect x="477" y="96" width="6" height="24"/><rect x="489" y="108" width="6" height="12"/>
+    </g>
+    <g fill="#0F2537"><rect x="355" y="75" width="7" height="125"/><rect x="438" y="75" width="7" height="125"/></g>
+    <g fill="#4A0E17" stroke="#C5A059" stroke-width="2.5">
+      <path d="M230 50 C255 110 305 125 345 155 L345 190 C295 160 245 130 230 50Z"/>
+      <path d="M236 115 C265 160 308 172 348 198 L352 225 C302 198 255 175 236 115Z"/>
+    </g>
+    <path d="M242 128 C270 165 310 176 348 200 L350 212 C308 188 265 170 242 128Z" fill="#0F2537"/>
+    <path d="M252 175 C280 205 315 212 360 238 L368 258 C320 228 275 220 252 175Z" fill="#0F2537" stroke="#C5A059" stroke-width="2"/>
+    <g transform="translate(800 0) scale(-1 1)">
+      <g fill="#4A0E17" stroke="#C5A059" stroke-width="2.5">
+        <path d="M230 50 C255 110 305 125 345 155 L345 190 C295 160 245 130 230 50Z"/>
+        <path d="M236 115 C265 160 308 172 348 198 L352 225 C302 198 255 175 236 115Z"/>
+      </g>
+      <path d="M242 128 C270 165 310 176 348 200 L350 212 C308 188 265 170 242 128Z" fill="#0F2537"/>
+      <path d="M252 175 C280 205 315 212 360 238 L368 258 C320 228 275 220 252 175Z" fill="#0F2537" stroke="#C5A059" stroke-width="2"/>
+    </g>
+    <g fill="#4A0E17">
+      <polygon points="376,262 356,298 368,306 385,268"/><polygon points="388,268 373,310 387,316 396,272"/>
+      <polygon points="400,272 392,319 400,326 408,319 400,272"/><polygon points="412,268 427,310 413,316 404,272"/>
+      <polygon points="424,262 444,298 432,306 415,268"/>
+    </g>
+    <path d="M366 64 L382 76 L382 195 C382 222 418 222 418 195 L418 76 L434 64 L434 198 C434 242 400 265 400 265 C400 265 366 242 366 198Z" fill="#0F2537" stroke="#C5A059" stroke-width="3"/>
+    <path d="M384 148 L408 148 L420 158 L410 160 C404 162 402 172 408 182 C414 190 420 194 420 202 C418 222 382 222 380 198 C379 180 392 164 392 155 L384 153Z" fill="#4A0E17"/>
+    <polygon points="400,98 413,112 400,126 387,112" fill="#4A0E17" stroke="#C5A059" stroke-width="1.5"/>
+    <polygon points="400,45 405,59 420,59 408,68 412,82 400,73 388,82 392,68 380,59 395,59" fill="#C5A059"/>
+  </g>
+</svg>

@@ -1,0 +1,96 @@
+name: AL-NASR app validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - "foundation/**"
+  workflow_dispatch:
+
+concurrency:
+  group: alnasr-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-custom-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Initialize and verify pinned upstream submodules
+        run: bash scripts/bootstrap-upstream.sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+
+      - name: Validate project metadata
+        working-directory: apps/alnasr
+        run: |
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          data = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
+          project = data["project"]
+          assert project["name"] == "alnasr"
+          assert project["requires-python"] == ">=3.14,<3.15"
+          assert data["tool"]["bench"]["frappe-dependencies"]["frappe"] == ">=16.55.0,<17.0.0"
+          assert data["tool"]["bench"]["frappe-dependencies"]["erpnext"] == ">=16.55.0,<17.0.0"
+          assert "frappe" not in project.get("dependencies", [])
+          print("AL-NASR package metadata is valid.")
+          PY
+
+      - name: Set up Node.js for dashboard syntax validation
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate AL-NASR Desk dashboard JavaScript syntax
+        run: node --check apps/alnasr/alnasr/al_nasr/page/alnasr/alnasr.js
+
+      - name: Validate AL-NASR module document locations
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          module = Path("apps/alnasr/alnasr/al_nasr")
+          page = module / "page/alnasr/alnasr.json"
+          workspace = module / "workspace/al_nasr/al_nasr.json"
+          page_doc = json.loads(page.read_text(encoding="utf-8"))
+          workspace_doc = json.loads(workspace.read_text(encoding="utf-8"))
+          assert page_doc["name"] == "alnasr" and page_doc["module"] == "AL-NASR"
+          assert page_doc["standard"] == "Yes"
+          assert workspace_doc["name"] == "AL-NASR"
+          assert workspace_doc["module"] == "AL-NASR"
+          assert workspace_doc.get("standard") == 1
+          assert not Path("apps/alnasr/alnasr/page/alnasr/alnasr.json").exists()
+          assert not Path("apps/alnasr/alnasr/workspace/al_nasr/al_nasr.json").exists()
+          print("AL-NASR Page and Workspace are in the Frappe module sync path.")
+          PY
+
+      - name: Compile Python sources
+        run: python -m compileall -q apps/alnasr/alnasr
+
+      - name: Run standard-library brand asset contract tests
+        run: python -m unittest discover -s apps/alnasr/tests -v
+
+      - name: Build source and wheel distributions
+        working-directory: apps/alnasr
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+
+      - name: Check patch whitespace
+        run: git diff --check

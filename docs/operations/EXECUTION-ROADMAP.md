@@ -1,0 +1,182 @@
+# AL-NASR execution roadmap and release gates
+
+**Owner:** AL-NASR / Nasr Othman Abdullah Al-Aosimi  
+**Current phase:** Foundation and source integration  
+**Status:** Active planning baseline; tasks are not complete merely because they are listed here.
+
+## Delivery principles
+
+1. Reuse upstream ERPNext and X POS capabilities before adding custom code.
+2. Never duplicate ERPNext stock, sales, purchasing, payment, or general-ledger records.
+3. Preserve upstream Git history, license files, notices, and source attribution.
+4. Keep secrets, production credentials, customer data, and real transaction data out of this public repository.
+5. Mark every task as implemented, verified, blocked, or not started. A commit is not a passing test.
+6. No production deployment before backup/restore, permission, accounting, stock, and recovery acceptance gates pass.
+
+## Workstream A — source and runtime foundation
+
+- [x] Resolve and lock exact Frappe v16.56.0, ERPNext v16.55.0 and X POS v2.13.4 source revisions.
+- [x] Preserve the three upstream repositories as recursive Git submodules and verify their exact SHAs in CI.
+- [x] Initialize a clean Bench from the pinned local Frappe source in disposable CI.
+- [x] Link the monorepo AL-NASR package into Bench and install it editable without inventing a separate Git repository.
+- [x] Build the X POS frontend and Frappe assets in a clean runtime job.
+- [x] Create a disposable MariaDB-backed site, install ERPNext, X POS and AL-NASR, and run migrations.
+- [x] Verify installed app names, import the Frappe framework, and receive a successful HTTP ping.
+- [x] Source validation and clean runtime integration passed on commit `891786162d696d9a54c892e66b3270b226300c1d`.
+- [x] Run the Frappe-native AL-NASR runtime contract suite: all 5 tests passed in [PR runtime run #43329925389](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43329925389).
+- [x] Run expanded X POS suites: 449 frontend tests across 24 files, 1 backend invoice-retry/idempotency test, and 25 backend shift tests passed in [runtime run #43330277075](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43330277075).
+- [x] Add business-level POS sale and tax integration tests: submitted invoice, stock decrement, idempotent retry, tax-inclusive/exclusive totals and balanced GL verified in runtime run #43524108112.\n- [x] Add dedicated X POS partial/full return scenarios: partial return restores one unit, final return restores the remainder, original/credit-note GL entries balance, and over-return beyond the remaining sold quantity is rejected. Passed in runtime run [#43528341526](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43528341526) on commit `da7250d116901fc7c06778e1afb5d70447e4e355`.
+
+**Exit gate:** Clean install/migrate/HTTP gate, Frappe-native app contracts, ERPNext upstream regression baseline (779 tests), POS sale/idempotency, tax-inclusive/exclusive integration, partial/full returns, stock restoration, GL balance, and over-return rejection passed on commit `da7250d116901fc7c06778e1afb5d70447e4e355` in runtime run [#43528341526](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43528341526). Broader operations acceptance remains open.
+## Workstream B — business configuration
+
+- [ ] Company, fiscal year, currency, taxes, chart of accounts, and cost centers approved by the owner/accountant.
+- [ ] Warehouses and branch structure approved.
+- [ ] Item groups, brands, UOMs, conversions, and multiple barcodes validated.
+- [ ] Retail and wholesale price lists, pricing rules, promotions, and discount limits configured.
+- [ ] Supplier/customer masters, credit limits, and due-date policies configured.
+- [ ] POS profiles, payment modes, cashier users, and shift controls configured.
+
+**Exit gate:** Representative opening balances and master data imported into a test site and reconciled.
+
+## Workstream C — POS and retail operations
+
+- [ ] Barcode scan and item search.
+- [ ] Cash, split tender, and configured payment methods.
+- [ ] Draft/suspended cart persistence and recovery.
+- [ ] Discount and price override permissions.
+- [ ] Partial/full returns, refunds, voids, and cancellation.
+- [ ] Cash shift opening, closing, variance, expenses, and deposits.
+- [ ] Thermal receipt layout in Arabic RTL and English LTR.
+- [ ] Purchasing, receiving, purchase returns, and supplier invoice workflow.
+
+**Exit gate:** End-to-end scenarios reconcile invoice totals, stock ledger, payment records, and GL effects.
+
+## Workstream D — stock, accounting, and governance
+
+- [ ] Multi-warehouse transfers and stock counts.
+- [ ] Batch/serial/expiry tracking where required.
+- [ ] Costing and valuation method approved and tested.
+- [ ] Purchase/sales tax behavior tested.
+- [ ] Cash/bank reconciliation and expenses tested.
+- [ ] Roles for owner, manager, cashier, buyer, stock controller, and accountant.
+- [ ] Segregation of duties for discounts, refunds, voids, and stock adjustments.
+- [ ] Audit trail and approval evidence verified.
+
+**Exit gate:** Stock valuation and general-ledger balances reconcile after sales, returns, purchases, cancellations, and stock adjustments.
+
+## Workstream E — network, offline, and recovery
+
+Test these failure modes separately:
+- [ ] Internet unavailable while local LAN and ERP server remain reachable.
+- [ ] LAN/server unavailable.
+- [ ] Client device restarts while transactions are queued.
+- [ ] Browser/PWA storage is cleared or quota is exhausted.
+- [ ] Reconnection and repeated synchronization attempts.
+- [ ] Duplicate submission and idempotent replay.
+- [ ] Conflicting stock/pricing/customer updates.
+- [ ] Backup restore into a clean environment.
+
+**Exit gate:** No silent transaction loss, duplicate invoices/payments, or untraceable stock/GL divergence. Offline support remains disabled for production until this gate passes.
+
+## Workstream F — launch readiness
+
+- [ ] Owner acceptance of workflows, labels, reports, and permissions.
+- [ ] Staff training and operating procedures.
+- [ ] Backup schedule and restore drill.
+- [ ] Monitoring, error reporting, and update/rollback procedure.
+- [ ] Production credentials stored only in deployment secret management.
+- [ ] Final data migration and reconciliation plan.
+- [ ] Signed go-live checklist and rollback plan.
+
+
+## Workstream G — one Windows computer + one Android phone
+
+**Scope decision:** one Windows computer hosts the local Frappe/ERPNext/X POS server and is also the desktop client; one Android phone connects over the same local Wi-Fi/LAN. No cloud dependency or extra terminals are in scope.
+
+- [x] Record the target topology, shared-data rules, unified UI requirements, packaging boundaries and acceptance gates in [CLIENT-DELIVERY-ONE-PC-ONE-ANDROID.md](../architecture/CLIENT-DELIVERY-ONE-PC-ONE-ANDROID.md).
+- [x] Add an AL-NASR Desk landing page at `/app/alnasr` with shared brand styling, responsive layout, quick actions and navigation into X POS and ERPNext standard workflows; source contracts added to app validation. Runtime rendering and role-based access verification remain open.
+- [ ] Integrate ERPNext management surfaces and X POS into one branded navigation without iframe-based coupling or upstream source patches.
+- [ ] Validate the local Frappe server lifecycle on a clean supported Windows installation.
+- [ ] Produce and test the Windows installer/desktop launcher.
+- [ ] Produce and test the Android APK client connecting to the PC server over LAN.
+- [ ] Verify login/session behavior, same catalog/invoice/stock state on both devices, restart/reconnect and duplicate prevention.
+- [ ] Validate target barcode scanner and receipt printer.
+- [ ] Complete backup/restore and owner acceptance before any live use.
+
+**Exit gate:** A clean Windows installation starts the local server reliably; the Android phone connects over LAN; both clients show the same authoritative data; sale, return and cash-close flows reconcile; and packaged EXE/APK installation, update and recovery are tested. Offline sales remain disabled until their own failure/reconciliation gate passes.
+
+## Latest integration finding — return credit notes
+
+- Confirmed the pinned X POS v2.13.4 customization `Sales Invoice-update_outstanding_for_self-default` forces the ERPNext v16 field default to `0`, while ERPNext's upstream default is `1`.
+- The override caused the two remaining upstream Sales Invoice regressions: return GL `against_voucher` linkage and the credit note's own negative outstanding balance.
+- Added an AL-NASR `after_migrate` compatibility hook to remove only that conflicting Property Setter and assert the ERPNext default remains `1`; added a runtime contract test and documented the decision in `docs/architecture/COMPATIBILITY-OVERRIDES.md`.
+- This correction is committed on the Draft PR branch. The integrated runtime run #43524108112 passed the unchanged ERPNext Sales Invoice regression module (163 tests) and the full 779-test ERPNext baseline. This verifies the upstream credit-note regressions against the compatibility hook; dedicated X POS refund settlement scenarios remain open.
+
+## Latest verified integration — POS sale and tax\n\n- Runtime run [#43524108112](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43524108112) passed on commit `7308762c4677fd0c26d8d3c350c62dd3cb28fb94`.\n- ERPNext upstream regression baseline passed unchanged: Sales Invoice 163, Purchase Receipt 160, Purchase Invoice 111, Delivery Note 122, Stock Entry 148, Payment Entry 75 (779 total).\n- POS integration passed: a real X POS API sale submitted a Sales Invoice, reduced stock, and returned the same invoice on retry without a second stock issue.\n- Tax integration passed for both tax-inclusive and tax-exclusive POS profiles, checking invoice totals, tax flags and balanced GL.\n- The CI site was disposable MariaDB. This is not production deployment, real hardware validation, LAN/offline recovery, or full business UAT.\n\n
+## Latest verified integration — POS returns
+
+- Runtime run [#43528341526](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43528341526) passed on commit `da7250d116901fc7c06778e1afb5d70447e4e355`.
+- The six unchanged ERPNext upstream suites passed: Sales Invoice 163, Purchase Receipt 160, Purchase Invoice 111, Delivery Note 122, Stock Entry 148, and Payment Entry 75 (779 total).
+- Four X POS business integration tests passed: tax-inclusive/exclusive sale totals and GL; sale retry without a second stock issue; partial then full returns restoring stock and balancing GL; and rejection of returns exceeding the remaining original sale quantity.
+- The runtime also passed the AL-NASR contract suite (6 tests), X POS shift suite (25 tests), installed-app verification, and Frappe HTTP ping.
+- The CI database was disposable. This does not prove real printer/scanner compatibility, desktop EXE packaging, Android APK packaging, LAN/device behavior, offline recovery, or production readiness.
+
+## Current verified state
+
+- The active development branch is `foundation/alnasr-commerce-acceptance`; PR #2 remains open and Draft against `main` (not merged).
+- Exact source locks: Frappe `49789a1711d4dde2be9c6888efe35651465f4b64` (16.56.0), ERPNext `8e10a348daaa93853de8c36dc55ec789a440c219` (16.55.0), X POS `3668fca6ffcab737347d4d223ac93f5d74aa90b3` (2.13.4).
+- Clean source validation passed on commit `891786162d696d9a54c892e66b3270b226300c1d` in [run #43327483463](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43327483463).
+- Clean runtime integration passed on the same commit in [run #43327483473](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43327483473): X POS assets built; disposable site created; ERPNext, X POS and AL-NASR installed; migrations completed; installed apps and Frappe HTTP ping verified.
+- The Frappe-native AL-NASR runtime contract suite passed all 5 tests in [PR run #43329925389](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43329925389): installed apps, standard ERPNext DocTypes, X POS operational DocTypes, API imports and AL-NASR brand metadata.
+- Expanded X POS tests passed in [runtime run #43330277075](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43330277075): 449 frontend unit tests across 24 files; one backend idempotent invoice-retry test; and 25 backend shift tests. The frontend suite includes offline queue (12), offline receipt storage (6), offline sale (7), durable invoice submission (5), payment processing (24), and shift management (21) test cases.
+- These are unit/contract tests, not a complete browser-to-database sale, device restart, LAN outage, hardware, or financial reconciliation acceptance test.
+- X POS source inspection confirms an IndexedDB-backed offline queue, stable local sale identity and server-side duplicate detection/fingerprint checks. This is source-level evidence only; no AL-NASR offline recovery or device failure test has passed.
+- No end-to-end sale/return/purchase, stock valuation, GL reconciliation, real hardware, Arabic receipt, multi-terminal LAN, backup/restore or production test has passed.
+- The primary SVG wordmark source is contract-tested at 165 px with 18 px burgundy outer and 12 px antique-gold inner outlines. Browser rendering, Arabic font shaping, vector-path conversion and print checks remain open.
+## Release policy
+
+Do not merge this foundation PR or deploy the system solely because GitHub reports the branch as mergeable. Merge only after code review and a successful CI run. Do not launch until all applicable exit gates above have evidence.
+
+## Latest verified runtime acceptance — 2026-11-14
+
+- Runtime workflow [#43609742158](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43609742158) completed with conclusion `success` on branch `foundation/alnasr-commerce-acceptance`, commit `bd2267e95658a00d0a70ff0ae5c3130bc9ddee3a`.
+- App/source validation workflow [#43609742148](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43609742148) also completed successfully on the same commit.
+- The runtime job installed the exact pinned Frappe 16.56.0, ERPNext 16.55.0, X POS 2.13.4 and AL-NASR 0.1.0 revisions into a disposable MariaDB-backed Bench site; migrations completed; the installed-app list was verified; Frappe imported as 16.56.0; and the HTTP ping endpoint returned `{"message":"pong"}`.
+- **1,268 tests passed**, itemized from the completed job logs:
+  - ERPNext upstream regression baseline: 779 (Sales Invoice 163, Purchase Receipt 160, Purchase Invoice 111, Delivery Note 122, Stock Entry 148, Payment Entry 75).
+  - X POS frontend: 449 tests across 24 test files.
+  - AL-NASR POS business integration: 4 tests (tax-inclusive/exclusive sales, idempotent sale retry, partial/full return with stock and GL reconciliation, and over-return rejection).
+  - AL-NASR runtime contracts: 10 tests (installed apps, ERPNext/X POS DocTypes and APIs, Desk page/workspace registration, brand metadata/defaults, and preservation of administrator custom branding).
+  - X POS backend invoice retry: 1 test; X POS shift suite: 25 tests.
+- The X POS frontend suite intentionally emitted `Could not remove confirmed invoice from recovery queue Error: disk` in the test that verifies a confirmed sale remains successful when local queue cleanup fails. The test passed; retain this as a resilience scenario, not a clean-log claim.
+- Non-blocking toolchain notices included Node.js 20 deprecation notices from older GitHub Actions versions, the Node `punycode` deprecation, Vite/Yarn peer-dependency notices, and MariaDB's `io_uring` fallback to `libaio`. These did not fail the run and should be reviewed during dependency maintenance.
+- This evidence is limited to disposable Linux CI. It does not establish browser-based visual acceptance, Windows installation, Android APK operation, LAN/device behavior, real printer/scanner compatibility, offline recovery, production configuration, or business-owner UAT.
+- PR #1 and PR #2 remain open Draft pull requests; no merge, production deployment, or production migration was performed.
+
+## Latest verified runtime acceptance — 2026-11-14 (expanded rerun)
+
+- Runtime workflow [#43612318630](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43612318630) completed successfully. Job `frappe-v16-install` completed all 17 substantive steps, including clean Bench initialization, pinned upstream checkout verification, X POS asset builds, disposable MariaDB site creation, isolated ERPNext Sales Invoice baseline, installation of ERPNext/X POS/AL-NASR, runtime contract tests, installed-app verification, and HTTP health.
+- App validation workflow [#43612318635](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43612318635) also completed successfully.
+- Runtime logs confirm **1,268 passing tests**: ERPNext upstream suites 779; X POS frontend 449 across 24 files; AL-NASR POS integration 4; AL-NASR runtime contracts 10; X POS invoice retry 1; X POS shift tests 25.
+- The ERPNext 779-test breakdown: Sales Invoice 163, Purchase Receipt 160, Purchase Invoice 111, Delivery Note 122, Stock Entry 148, Payment Entry 75.
+- The health endpoint returned `{"message":"pong"}`. All test data and MariaDB state were disposable CI resources.
+- Non-blocking warnings include MariaDB `io_uring` fallback to `libaio`; prior frontend resilience tests also intentionally exercise local recovery-queue cleanup failure. These warnings do not change the successful conclusion, but they must remain visible in acceptance records.
+- This run does not prove browser visual acceptance, Windows server installation/EXE, Android APK, LAN/TLS/session behavior, real printer/scanner support, offline recovery, backup/restore, or production readiness.
+- No production deployment, production migration, PR merge, or paid resource creation was performed.
+
+
+## Local Windows + Android delivery implementation — 2026-11-14
+
+- Added a local Windows runtime image definition pinned to the immutable ERPNext base-image manifest digest; the image adds the locked X POS and AL-NASR app sources, installs their Python packages, builds X POS frontend assets, and runs the Frappe asset build.
+- Added a Compose stack for Frappe/ERPNext, X POS, AL-NASR, MariaDB 11.8, Redis cache/queue, workers, scheduler, Nginx frontend, and a Caddy internal-CA HTTPS gateway. Database and Redis ports are not published. HTTP and HTTPS host bindings default to loopback.
+- Added a Windows PowerShell lifecycle script for local configuration, image build, first site creation, start/stop/restart/status, local CA export, backup, and guarded restore. Restore requires explicit typed confirmation and takes a safety backup first.
+- Added an Inno Setup Windows installer definition. Workflow run [#43618669025](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43618669025) compiled the installer, installed it in an isolated Windows runner, verified required application/runtime files, uninstalled it, and confirmed owner data outside the install directory remained intact.
+- The same deployment workflow passed the full disposable Linux Compose acceptance: image build; site creation and migrations with ERPNext, X POS and AL-NASR; installed-app verification; HTTP ping; database plus public/private file backup; restore and post-restore migration; Caddy TLS request; export of the internal CA; and a second HTTPS ping with the exported CA trusted.
+- The container image reported Frappe 16.56.0, ERPNext 16.55.0, X POS 2.13.4, and AL-NASR 0.1.0. The disposable site was destroyed with its CI volumes after the test.
+- Added a native Kotlin Android WebView client with HTTPS-only navigation, a domain-scoped user-CA trust policy for the local AL-NASR host, persistent session storage, and no SSL-error bypass. Android debug APK build passed in [run #43618932578](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43618932578).
+- Windows installer artifact from [run #43618669025](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43618669025) and Android debug APK artifact from [run #43618932578](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43618932578) are CI previews, not signed production releases.
+- A later commit adds the guarded Windows Restore shortcut and action; deployment validation [run #43619348927](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43619348927) is pending at the time of this record.
+- These CI results do **not** establish a successful installation on the owner's physical Windows PC or Android phone, local Wi-Fi/mDNS reachability, Windows Firewall behavior, thermal printer/barcode scanner compatibility, camera scanning, offline recovery, browser visual acceptance, or business-owner UAT.
+- The Windows installer is unsigned and requires Docker Desktop with WSL2 installed separately. The Android package is debug-signed and requires manual installation of the Caddy local CA certificate on the phone before HTTPS pairing. The default server binding remains loopback until the owner deliberately enables LAN binding on a trusted private network.
+- No PR was merged, no production deployment or production migration was performed, and no paid hosted service was created.

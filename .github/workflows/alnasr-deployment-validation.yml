@@ -1,0 +1,190 @@
+name: AL-NASR local deployment validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "deploy/**"
+      - ".dockerignore"
+      - ".gitmodules"
+      - "apps/alnasr/**"
+      - "apps/xpos"
+      - ".github/workflows/alnasr-deployment-validation.yml"
+  push:
+    branches:
+      - "foundation/**"
+    paths:
+      - "deploy/**"
+      - ".dockerignore"
+      - ".gitmodules"
+      - "apps/alnasr/**"
+      - "apps/xpos"
+      - ".github/workflows/alnasr-deployment-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose configuration without pulling images
+        env:
+          DB_PASSWORD: ci-only-not-a-real-secret
+        run: |
+          docker compose -f deploy/compose.yaml config --quiet
+          docker compose -f deploy/compose.yaml config --format json > "$RUNNER_TEMP/alnasr-compose.resolved.json"
+          python - <<'PY'
+          import json, os
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "alnasr-compose.resolved.json"), encoding="utf-8") as handle:
+              config = json.load(handle)
+          assert config["services"]["frontend"]["ports"][0]["host_ip"] == "127.0.0.1"
+          assert config["services"]["frontend"]["ports"][0]["published"] == "8080"
+          assert config["services"]["backend"]["image"] == "alnasr-local:16"
+          assert config["services"]["db"]["image"] == "mariadb:11.8"
+          assert config["services"]["caddy"]["ports"][0]["host_ip"] == "127.0.0.1"
+          assert config["services"]["caddy"]["ports"][0]["published"] == "443"
+          print("Compose config valid; frontend is loopback-only; pinned local app image and MariaDB are present.")
+          PY
+      - name: Verify secrets and persistent data are excluded from Git
+        run: |
+          git check-ignore deploy/.env
+          git check-ignore deploy/backups/example.sql.gz
+
+
+  container-image-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Verify immutable upstream revisions
+        run: bash scripts/bootstrap-upstream.sh
+      - name: Build the local AL-NASR runtime image
+        run: docker build --pull --file deploy/Dockerfile --tag alnasr-local:ci .
+      - name: Run disposable Compose, site-install, health and TLS smoke tests
+        env:
+          DB_PASSWORD: alnasr-ci-db-password-not-for-production
+          ADMIN_PASSWORD: alnasr-ci-admin-password-not-for-production
+        run: |
+          docker tag alnasr-local:ci alnasr-local:16
+          cat > deploy/.env <<EOF
+          DB_PASSWORD=$DB_PASSWORD
+          SITE_NAME=alnasr.local
+          BIND_ADDRESS=127.0.0.1
+          HTTP_PUBLISH_PORT=8080
+          LAN_BIND_ADDRESS=127.0.0.1
+          EOF
+          COMPOSE=(docker compose --project-name alnasr-ci --env-file deploy/.env -f deploy/compose.yaml)
+          "${COMPOSE[@]}" run --rm configurator
+          printf '%s\n%s\n' "$DB_PASSWORD" "$ADMIN_PASSWORD" | "${COMPOSE[@]}" run --rm -T --no-deps --entrypoint bash backend -lc 'read -r DBROOT; read -r ADMIN; bench new-site alnasr.local --db-host db --mariadb-user-host-login-scope % --db-root-username root --db-root-password "$DBROOT" --admin-password "$ADMIN" --install-app erpnext --install-app xpos --install-app alnasr --set-default'
+          "${COMPOSE[@]}" up -d
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8080/api/method/ping | grep -q pong; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ready" -ne 1 ]; then
+            "${COMPOSE[@]}" ps
+            "${COMPOSE[@]}" logs --no-color
+            exit 1
+          fi
+          APP_LIST="$("${COMPOSE[@]}" exec -T backend bench --site alnasr.local list-apps)"
+          printf '%s\n' "$APP_LIST"
+          printf '%s\n' "$APP_LIST" | grep -q '^erpnext '
+          printf '%s\n' "$APP_LIST" | grep -q '^xpos '
+          printf '%s\n' "$APP_LIST" | grep -q '^alnasr '
+          "${COMPOSE[@]}" exec -T backend bench --site alnasr.local backup --with-files
+          printf '%s\n' "$DB_PASSWORD" | "${COMPOSE[@]}" exec -T backend bash -lc 'read -r DBROOT; BACKUP_DIR=/home/frappe/frappe-bench/sites/alnasr.local/private/backups; SQL_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -name "*-database.sql.gz" | sort | tail -n 1); PUBLIC_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -name "*-files.tar" ! -name "*-private-files.tar" | sort | tail -n 1); PRIVATE_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -name "*-private-files.tar" | sort | tail -n 1); test -s "$SQL_FILE" && test -s "$PUBLIC_FILE" && test -s "$PRIVATE_FILE"; bench --site alnasr.local restore "$SQL_FILE" --db-root-username root --db-root-password "$DBROOT" --with-public-files "$PUBLIC_FILE" --with-private-files "$PRIVATE_FILE" --force; bench --site alnasr.local migrate'
+          curl --fail --silent http://127.0.0.1:8080/api/method/ping | grep -q pong
+          curl --insecure --fail --silent --show-error --resolve alnasr.local:443:127.0.0.1 https://alnasr.local/api/method/ping
+          "${COMPOSE[@]}" cp caddy:/data/caddy/pki/authorities/local/root.crt "$RUNNER_TEMP/alnasr-root.crt"
+          curl --fail --silent --show-error --cacert "$RUNNER_TEMP/alnasr-root.crt" --resolve alnasr.local:443:127.0.0.1 https://alnasr.local/api/method/ping
+      - name: Stop disposable local stack and remove CI volumes
+        if: always()
+        run: docker compose --project-name alnasr-ci --env-file deploy/.env -f deploy/compose.yaml down --volumes --remove-orphans || true
+      - name: Verify app versions are importable in the image
+        run: |
+          docker run --rm --entrypoint bash alnasr-local:ci -lc 'bench version'
+          docker run --rm --entrypoint bash alnasr-local:ci -lc '/home/frappe/frappe-bench/env/bin/python -c "import frappe, xpos, alnasr; print(\"Frappe\", frappe.__version__); print(\"X POS\", xpos.__version__); print(\"AL-NASR\", alnasr.__version__)"'
+
+
+  windows-installer-build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+      - name: Compile AL-NASR Windows installer
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6/ISCC.exe"
+          if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
+          & $compiler "deploy/windows/installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
+          $installer = "dist/installer/AL-NASR-Setup.exe"
+          if (-not (Test-Path $installer)) { throw "Installer output was not created." }
+          Get-FileHash $installer -Algorithm SHA256 | Format-List | Out-File "dist/installer/SHA256SUMS.txt"
+      - name: Install and uninstall preview in isolated Windows profile
+        shell: pwsh
+        run: |
+          $installer = Resolve-Path "dist/installer/AL-NASR-Setup.exe"
+          $process = Start-Process -FilePath $installer -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer returned exit code $($process.ExitCode)." }
+          $installRoot = Join-Path $env:LOCALAPPDATA "Programs/AL-NASR ERP"
+          $required = @(
+            "deploy/windows/alnasr.ps1",
+            "deploy/compose.yaml",
+            "deploy/Caddyfile",
+            "apps/alnasr/alnasr/__init__.py",
+            "apps/xpos/pyproject.toml",
+            "licenses/X-POS-MIT-LICENSE.txt"
+          )
+          foreach ($relative in $required) {
+            if (-not (Test-Path (Join-Path $installRoot $relative))) { throw "Installed file is missing: $relative" }
+          }
+          $dataRoot = Join-Path $env:LOCALAPPDATA "AL-NASR ERP"
+          New-Item -ItemType Directory -Force -Path $dataRoot | Out-Null
+          Set-Content -Path (Join-Path $dataRoot "preserve-on-uninstall.txt") -Value "owner data sentinel"
+          $uninstaller = Join-Path $installRoot "unins000.exe"
+          if (-not (Test-Path $uninstaller)) { throw "Uninstaller was not installed." }
+          $remove = Start-Process -FilePath $uninstaller -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait -PassThru
+          if ($remove.ExitCode -ne 0) { throw "Uninstaller returned exit code $($remove.ExitCode)." }
+          if (-not (Test-Path (Join-Path $dataRoot "preserve-on-uninstall.txt"))) { throw "Uninstall removed owner data; this is not allowed." }
+      - name: Upload unsigned installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AL-NASR-Windows-Installer-Preview
+          path: |
+            dist/installer/AL-NASR-Setup.exe
+            dist/installer/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-script-parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Windows lifecycle script
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD "deploy/windows/alnasr.ps1"),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Error
+          }
+          Write-Host "PowerShell syntax parsed successfully."
