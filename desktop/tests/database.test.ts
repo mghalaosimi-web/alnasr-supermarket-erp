@@ -288,3 +288,21 @@ describe("AL-NASR supplier registry", () => {
     expect(listSuppliers(db)).toHaveLength(1);
   });
 });
+
+
+describe("AL-NASR customer registry", () => {
+  it("creates customers with validated credit limits and audit history", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createCustomer, listCustomers } = await import("../src/main/customers");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const customer = createCustomer(db, { code: "CUS-001", name: "عميل تجريبي", phone: "777123456", creditLimitMinor: 50000, actorUserId: owner.id });
+    expect(customer).toMatchObject({ code: "CUS-001", name: "عميل تجريبي", creditLimitMinor: 50000 });
+    expect(listCustomers(db)).toHaveLength(1);
+    expect(db.prepare("SELECT action, entity_id FROM audit_events WHERE entity_id=?").get(customer.id)).toMatchObject({ action: "customer.create", entity_id: customer.id });
+    expect(() => createCustomer(db!, { code: "CUS-002", name: "عميل غير صالح", creditLimitMinor: -1, actorUserId: owner.id })).toThrow();
+    expect(() => createCustomer(db!, { code: "CUS-001", name: "مكرر", actorUserId: owner.id })).toThrow();
+    expect(listCustomers(db)).toHaveLength(1);
+  });
+});
