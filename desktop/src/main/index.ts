@@ -90,7 +90,8 @@ app.whenReady().then(() => {
       (value.nameEn !== undefined && typeof value.nameEn !== "string") ||
       (value.barcode !== undefined && typeof value.barcode !== "string") ||
       typeof value.costMinor !== "number" ||
-      typeof value.priceMinor !== "number"
+      typeof value.priceMinor !== "number" ||
+      (value.openingQuantity !== undefined && typeof value.openingQuantity !== "number")
     ) throw new Error("أكمل بيانات المنتج بصورة صحيحة");
     return createProduct(database, {
       sku: value.sku,
@@ -99,6 +100,7 @@ app.whenReady().then(() => {
       barcode: value.barcode as string | undefined,
       costMinor: value.costMinor,
       priceMinor: value.priceMinor,
+      openingQuantity: value.openingQuantity as number | undefined,
       actorUserId: activeUserId
     });
   });
