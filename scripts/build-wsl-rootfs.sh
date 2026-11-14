@@ -29,7 +29,7 @@ with tarfile.open(path, "r:") as archive:
     required = {
         "etc/wsl.conf",
         "etc/systemd/system/multi-user.target.wants/docker.service",
-        "sbin/init",
+        "usr/lib/systemd/systemd",
     }
     missing = sorted(required - names)
     if missing:
