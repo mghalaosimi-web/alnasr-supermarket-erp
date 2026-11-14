@@ -8,6 +8,7 @@ type ProductRow = { id: string; sku: string; nameAr: string; nameEn: string | nu
 type CashierShift = { id: string; openingCashMinor: number; openedAt?: string; status?: "open" };
 type SaleResult = { id: string; saleNumber: string; totalMinor: number; status: "posted"; lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> };
 type StockMovementRow = { id: string; sku: string; productName: string; warehouseName: string; movementType: string; quantityDelta: number; unitCostMinor: number; occurredAt: string };
+type SupplierRow = { id: string; code: string; name: string; phone: string | null; isActive: number };
 
 declare global {
   interface Window {
@@ -23,6 +24,8 @@ declare global {
       openShift: (openingCashMinor: number) => Promise<CashierShift>;
       closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>;
       createSale: (input: { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string }) => Promise<SaleResult>;
+      listSuppliers: () => Promise<SupplierRow[]>;
+      createSupplier: (input: { code: string; name: string; phone?: string }) => Promise<SupplierRow>;
       createBackup: () => Promise<{ canceled: boolean; filePath?: string }>;
       listStockMovements: () => Promise<StockMovementRow[]>;
       receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => Promise<{ movementId: string; quantityOnHand: number }>;
@@ -35,7 +38,7 @@ export function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [ownerSetupRequired, setOwnerSetupRequired] = useState<boolean | null>(null);
   const [user, setUser] = useState<PublicUser | null>(null);
-  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products" | "inventory" | "backup">("dashboard");
+  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products" | "inventory" | "backup" | "suppliers">("dashboard");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -69,6 +72,11 @@ export function App() {
   const [inventoryBusy, setInventoryBusy] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
+  const [supplierCode, setSupplierCode] = useState("");
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierPhone, setSupplierPhone] = useState("");
+  const [supplierBusy, setSupplierBusy] = useState(false);
 
   useEffect(() => {
     Promise.all([window.alnasr.health(), window.alnasr.setupStatus()])
@@ -94,6 +102,7 @@ export function App() {
       setProducts(loadedProducts);
       setStockProductId(loadedProducts[0]?.id ?? "");
       setStockMovements(await window.alnasr.listStockMovements());
+      setSuppliers(await window.alnasr.listSuppliers());
       setShift(await window.alnasr.currentShift());
       setPassword("");
     } catch (reason) {
@@ -140,6 +149,7 @@ export function App() {
     setActivePage("dashboard");
     setProducts([]);
     setStockMovements([]);
+    setSuppliers([]);
     setStockProductId("");
     setShift(null);
     setCart([]);
@@ -275,6 +285,24 @@ export function App() {
   }
 
 
+
+  async function submitSupplier(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSupplierBusy(true);
+    setError(null);
+    try {
+      await window.alnasr.createSupplier({ code: supplierCode, name: supplierName, phone: supplierPhone || undefined });
+      setSuppliers(await window.alnasr.listSuppliers());
+      setSupplierCode("");
+      setSupplierName("");
+      setSupplierPhone("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر حفظ المورد");
+    } finally {
+      setSupplierBusy(false);
+    }
+  }
+
   async function createDatabaseBackup() {
     setBackupBusy(true);
     setBackupMessage(null);
@@ -303,6 +331,7 @@ export function App() {
           <button type="button" className={activePage === "products" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("products")}>المنتجات</button>
           <button type="button" className={activePage === "inventory" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("inventory")}>المخزون</button>
           <button type="button" className={activePage === "backup" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("backup")}>النسخ الاحتياطي</button>
+          <button type="button" className={activePage === "suppliers" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("suppliers")}>الموردون</button>
         </nav>}
         <div className="topbar-spacer" />
         <span className="version">نسخة التطوير 0.1.0</span>
@@ -478,6 +507,28 @@ export function App() {
             {backupMessage && <p className="backup-success">{backupMessage}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
             <small className="form-hint">احفظ النسخة في قرص خارجي أو مكان آمن منفصل عن جهاز التشغيل. استعادة النسخ الاحتياطية لم تُضف بعد.</small>
+          </section>}
+
+          {activePage === "suppliers" && <section className="supplier-workspace">
+            <div className="product-heading">
+              <div><span className="eyebrow">دليل الشركاء</span><h2>إدارة الموردين</h2></div>
+              <span className="product-count">{suppliers.length} مورد</span>
+            </div>
+            <form className="supplier-form" onSubmit={submitSupplier}>
+              <label>رمز المورد<input value={supplierCode} onChange={(event) => setSupplierCode(event.target.value)} required minLength={2} maxLength={40} placeholder="SUP-001" /></label>
+              <label>اسم المورد<input value={supplierName} onChange={(event) => setSupplierName(event.target.value)} required minLength={2} maxLength={160} placeholder="اسم المؤسسة أو المورد" /></label>
+              <label>رقم الهاتف<input value={supplierPhone} onChange={(event) => setSupplierPhone(event.target.value)} maxLength={40} placeholder="اختياري" /></label>
+              <button type="submit" disabled={supplierBusy}>{supplierBusy ? "جارٍ الحفظ..." : "إضافة المورد"}</button>
+            </form>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <div className="product-list">
+              {suppliers.length === 0 ? <p className="empty-products">لا يوجد موردون مسجلون بعد.</p> : suppliers.map((supplier) => (
+                <article className="product-row" key={supplier.id}>
+                  <div><strong>{supplier.name}</strong><small>{supplier.code}{supplier.phone ? " · " + supplier.phone : ""}</small></div>
+                  <span className="supplier-status">{supplier.isActive ? "نشط" : "موقوف"}</span>
+                </article>
+              ))}
+            </div>
           </section>}
           {activePage === "dashboard" && <>
           <h2>وحدات النظام</h2>
