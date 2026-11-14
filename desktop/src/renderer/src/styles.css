@@ -130,3 +130,7 @@ footer { padding: 20px 7%; color: #8994a3; font-size: 11px; direction: ltr; text
 .purchase-draft { margin: 16px 0; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; }
 .purchase-draft > strong { display: block; margin-bottom: 8px; color: #172b4d; font-size: 13px; }
 .remove-line { padding: 6px 10px; border: 1px solid #f1caca; border-radius: 6px; color: #9b2c2c; background: #fff; font: inherit; font-size: 11px; cursor: pointer; }
+
+.purchase-document-row { flex-wrap: wrap; }
+.purchase-settlement-form { flex: 1 0 100%; width: 100%; margin-top: 10px; }
+.purchase-settlement-form label { min-width: 0; }
