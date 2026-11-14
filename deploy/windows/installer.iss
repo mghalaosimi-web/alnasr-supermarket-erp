@@ -43,6 +43,8 @@ Source: "..\README.md"; DestDir: "{app}\deploy"; Flags: ignoreversion
 Source: "alnasr.ps1"; DestDir: "{app}\deploy\windows"; Flags: ignoreversion
 Source: "..\..\apps\alnasr\*"; DestDir: "{app}\apps\alnasr"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: ".git\*,__pycache__\*,*.pyc"
 Source: "..\..\apps\xpos\*"; DestDir: "{app}\apps\xpos"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: ".git\*,__pycache__\*,*.pyc,frontend\node_modules\*,frontend\dist\*,frontend\dist-electron\*"
+Source: "..\..\dist\offline\alnasr-runtime-images.tar.gz"; DestDir: "{app}\offline"; Flags: ignoreversion
+Source: "..\..\dist\offline\SHA256SUMS.txt"; DestDir: "{app}\offline"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\AL-NASR ERP\First-time setup"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\deploy\windows\alnasr.ps1"" -Action setup"; WorkingDir: "{app}"
