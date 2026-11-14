@@ -10,6 +10,7 @@ type SaleResult = { id: string; saleNumber: string; totalMinor: number; status: 
 type StockMovementRow = { id: string; sku: string; productName: string; warehouseName: string; movementType: string; quantityDelta: number; unitCostMinor: number; occurredAt: string };
 type SupplierRow = { id: string; code: string; name: string; phone: string | null; isActive: number };
 type CustomerRow = { id: string; code: string; name: string; phone: string | null; creditLimitMinor: number; isActive: number };
+type SaleInput = { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string; customerId?: string };
 
 declare global {
   interface Window {
@@ -24,7 +25,7 @@ declare global {
       currentShift: () => Promise<CashierShift | null>;
       openShift: (openingCashMinor: number) => Promise<CashierShift>;
       closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>;
-      createSale: (input: { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string; customerId?: string }) => Promise<SaleResult>;
+      createSale: (input: SaleInput) => Promise<SaleResult>;
       listCustomers: () => Promise<CustomerRow[]>;
       createCustomer: (input: { code: string; name: string; phone?: string; creditLimitMinor?: number }) => Promise<CustomerRow>;
       listSuppliers: () => Promise<SupplierRow[]>;
