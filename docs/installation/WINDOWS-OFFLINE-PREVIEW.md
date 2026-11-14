@@ -9,6 +9,9 @@ The current preview includes:
 - Local SQLite database initialization and migrations.
 - Product creation and listing with SKU, barcode, cost, selling price and opening stock.
 - A main warehouse and default piece unit.
+- Manual stock receiving, physical stock-count reconciliation, stock movement history and weighted-average cost updates.
+- A built-in SQLite online-backup action with a native Save dialog.
+- Barcode/SKU scanner input on the POS page.
 - Cashier shift opening and closing.
 - Basic point-of-sale checkout with cash/card/transfer method selection.
 - Atomic sale posting, stock decrement, payment record and audit event.
@@ -39,14 +42,14 @@ Use the **النسخ الاحتياطي** page in AL-NASR to create a consistent
 This is an engineering preview, not the completed AL-NASR ERP release.
 
 Not yet included:
-- Purchase orders and supplier receiving workflows.
-- Stock adjustments and transfers.
+- Supplier-linked purchase orders and purchase invoices (manual stock receiving is available, but not yet linked to supplier documents).
+- Inter-warehouse transfers.
 - Returns, voids and refund workflows.
 - Split payments, discounts, taxes and customer credit.
 - Printable receipts and receipt-printer integration.
 - Full accounting, financial reports and period closing.
 - Android client and authenticated LAN pairing.
-- Automated backup/restore and business acceptance testing.
+- Database restore workflow and business acceptance testing.
 
 The current sales implementation supports whole-number quantities and one payment method per sale. It checks stock availability and posts sale, payment, stock movement and audit records in one SQLite transaction. It does not yet implement all supermarket pricing, weighing or accounting rules.
 
