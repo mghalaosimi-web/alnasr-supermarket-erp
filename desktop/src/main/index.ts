@@ -244,7 +244,8 @@ app.whenReady().then(() => {
     if (
       !Array.isArray(value.lines) ||
       (value.paymentMethod !== "cash" && value.paymentMethod !== "card" && value.paymentMethod !== "transfer") ||
-      typeof value.idempotencyKey !== "string"
+      typeof value.idempotencyKey !== "string" ||
+      (value.customerId !== undefined && typeof value.customerId !== "string")
     ) throw new Error("أكمل بيانات الفاتورة بصورة صحيحة");
     const lines = value.lines.map((line: unknown) => {
       if (!line || typeof line !== "object") throw new Error("بيانات أحد المنتجات غير صحيحة");
@@ -256,6 +257,7 @@ app.whenReady().then(() => {
       lines,
       paymentMethod: value.paymentMethod,
       idempotencyKey: value.idempotencyKey,
+      customerId: value.customerId as string | undefined,
       actorUserId: activeUserId
     });
   });
