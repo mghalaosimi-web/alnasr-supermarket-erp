@@ -22,7 +22,7 @@ describe("AL-NASR SQLite core", () => {
     expect(tables.map((table) => table.name)).toContain("products");
     expect(tables.map((table) => table.name)).toContain("sales");
     expect(tables.map((table) => table.name)).toContain("stock_movements");
-    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 1 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 2 });
   });
 
   it("enforces foreign keys and business constraints", () => {
@@ -89,5 +89,52 @@ describe("AL-NASR owner authentication", () => {
     db = new Database(":memory:");
     initializeDatabase(db);
     expect(() => createInitialOwner(db!, { username: "owner01", displayName: "مالك النظام", password: "weak" })).toThrow();
+  });
+});
+
+
+describe("AL-NASR default catalog and products", () => {
+  it("seeds the default piece unit and main warehouse idempotently", () => {
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    initializeDatabase(db);
+    expect(db.prepare("SELECT code, name_ar FROM units WHERE code='PCS'").get()).toEqual({ code: "PCS", name_ar: "قطعة" });
+    expect(db.prepare("SELECT code, name_ar FROM warehouses WHERE code='MAIN'").get()).toEqual({ code: "MAIN", name_ar: "المخزن الرئيسي" });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM units WHERE code='PCS'").get()).toEqual({ count: 1 });
+  });
+
+  it("creates and lists a product with an optional unique barcode and audit event", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct, listProducts } = await import("../src/main/products");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const created = createProduct(db, {
+      sku: "P-001",
+      nameAr: "حليب كامل الدسم",
+      nameEn: "Whole Milk",
+      barcode: "6281000000001",
+      costMinor: 1200,
+      priceMinor: 1500,
+      actorUserId: owner.id
+    });
+    expect(created).toMatchObject({ sku: "P-001", nameAr: "حليب كامل الدسم", barcode: "6281000000001", costMinor: 1200, priceMinor: 1500 });
+    expect(listProducts(db)).toHaveLength(1);
+    expect(db.prepare("SELECT action, entity_type, entity_id FROM audit_events WHERE entity_id=?").get(created.id)).toMatchObject({
+      action: "product.create", entity_type: "product", entity_id: created.id
+    });
+  });
+
+  it("rejects duplicate product identifiers without leaving partial records", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct } = await import("../src/main/products");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const input = { sku: "P-001", nameAr: "منتج اختبار", barcode: "6281000000001", costMinor: 100, priceMinor: 150, actorUserId: owner.id };
+    createProduct(db, input);
+    expect(() => createProduct(db!, input)).toThrow();
+    expect(db.prepare("SELECT COUNT(*) AS count FROM products").get()).toEqual({ count: 1 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM audit_events WHERE action='product.create'").get()).toEqual({ count: 1 });
   });
 });
