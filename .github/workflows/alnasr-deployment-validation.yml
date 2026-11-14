@@ -68,7 +68,7 @@ jobs:
       - name: Verify app versions are importable in the image
         run: |
           docker run --rm --entrypoint bash alnasr-local:ci -lc 'bench version'
-          docker run --rm --entrypoint bash alnasr-local:ci -lc 'python -c "import frappe, xpos, alnasr; print(\"Frappe\", frappe.__version__); print(\"X POS\", xpos.__version__); print(\"AL-NASR\", alnasr.__version__)"'
+          docker run --rm --entrypoint bash alnasr-local:ci -lc '/home/frappe/frappe-bench/env/bin/python -c "import frappe, xpos, alnasr; print(\"Frappe\", frappe.__version__); print(\"X POS\", xpos.__version__); print(\"AL-NASR\", alnasr.__version__)"'
 
 
   windows-installer-build:
