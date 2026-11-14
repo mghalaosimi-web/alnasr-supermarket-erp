@@ -182,8 +182,7 @@ export const MIGRATIONS = [
       INSERT OR IGNORE INTO warehouses (id, code, name_ar, name_en)
       VALUES ('warehouse-main', 'MAIN', 'المخزن الرئيسي', 'Main Warehouse');
     `
-  }
-
+  },
   {
     id: "0003_supplier_purchases",
     sql: `
@@ -204,7 +203,7 @@ export const MIGRATIONS = [
         product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
         quantity INTEGER NOT NULL CHECK (quantity > 0),
         unit_cost_minor INTEGER NOT NULL CHECK (unit_cost_minor >= 0),
-        line_total_minor INTEGER NOT NULL CHECK (line_total_minor > 0)
+        line_total_minor INTEGER NOT NULL CHECK (line_total_minor >= 0)
       );
 
       CREATE TABLE IF NOT EXISTS purchase_payments (
