@@ -66,6 +66,18 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
         self.assertIsNotNone(field)
         self.assertEqual(str(field.default), "1")
 
+    def test_alnasr_workspace_fixture_is_installed(self):
+        self.assertTrue(
+            frappe.db.exists("Workspace", "AL-NASR"),
+            "The AL-NASR unified workspace fixture must be installed",
+        )
+        workspace = frappe.get_doc("Workspace", "AL-NASR")
+        self.assertEqual(workspace.module, "AL-NASR")
+        self.assertEqual(workspace.label, "النصر")
+        shortcut_urls = {shortcut.url for shortcut in workspace.shortcuts}
+        self.assertIn("/app/alnasr", shortcut_urls)
+        self.assertIn("/xpos/pos", shortcut_urls)
+
     def test_alnasr_brand_metadata_is_registered(self):
         from alnasr import hooks
 
