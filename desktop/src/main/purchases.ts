@@ -77,7 +77,7 @@ export function createPurchase(db: Database.Database, input: CreatePurchaseInput
         .get(productId) as { id: string; costMinor: number; isActive: number } | undefined;
       if (!product || product.isActive !== 1) throw new Error("أحد المنتجات غير موجود أو غير نشط");
       const lineTotalMinor = item.quantity * item.unitCostMinor;
-      if (!Number.isSafeInteger(lineTotalMinor) || lineTotalMinor <= 0) {
+      if (!Number.isSafeInteger(lineTotalMinor) || lineTotalMinor < 0) {
         throw new Error("قيمة أحد أصناف الشراء غير صحيحة");
       }
       return { productId, quantity: item.quantity, unitCostMinor: item.unitCostMinor, lineTotalMinor, previousCostMinor: product.costMinor };
