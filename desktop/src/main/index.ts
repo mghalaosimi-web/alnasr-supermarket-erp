@@ -7,6 +7,7 @@ import { closeCashierShift, createSale, getOpenCashierShift, openCashierShift } 
 import { adjustStockCount, listStockMovements, receiveStock } from "./inventory";
 import { createSupplier, listSuppliers } from "./suppliers";
 import { createCustomer, listCustomers } from "./customers";
+import { createPurchase, listPurchases } from "./purchases";
 
 let mainWindow: BrowserWindow | null = null;
 let database: AlnasrDatabase | null = null;
@@ -154,6 +155,40 @@ app.whenReady().then(() => {
       code: value.code,
       name: value.name,
       phone: value.phone as string | undefined,
+      actorUserId: activeUserId
+    });
+  });
+
+  ipcMain.handle("alnasr:purchases:list", () => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    return listPurchases(database);
+  });
+
+  ipcMain.handle("alnasr:purchases:create", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object") throw new Error("بيانات مستند الشراء غير صحيحة");
+    const value = input as Record<string, unknown>;
+    if (
+      typeof value.supplierId !== "string" ||
+      !Array.isArray(value.lines) ||
+      (value.documentNumber !== undefined && typeof value.documentNumber !== "string") ||
+      (value.paidMinor !== undefined && typeof value.paidMinor !== "number") ||
+      (value.paymentMethod !== undefined && value.paymentMethod !== "cash" && value.paymentMethod !== "card" && value.paymentMethod !== "transfer")
+    ) throw new Error("أكمل بيانات مستند الشراء بصورة صحيحة");
+    const lines = value.lines.map((line: unknown) => {
+      if (!line || typeof line !== "object") throw new Error("بيانات أحد الأصناف غير صحيحة");
+      const item = line as Record<string, unknown>;
+      if (typeof item.productId !== "string" || typeof item.quantity !== "number" || typeof item.unitCostMinor !== "number") {
+        throw new Error("بيانات أحد الأصناف غير صحيحة");
+      }
+      return { productId: item.productId, quantity: item.quantity, unitCostMinor: item.unitCostMinor };
+    });
+    return createPurchase(database, {
+      supplierId: value.supplierId,
+      documentNumber: value.documentNumber as string | undefined,
+      lines,
+      paidMinor: value.paidMinor as number | undefined,
+      paymentMethod: value.paymentMethod as "cash" | "card" | "transfer" | undefined,
       actorUserId: activeUserId
     });
   });
