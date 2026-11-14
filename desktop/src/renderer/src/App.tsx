@@ -101,6 +101,7 @@ export function App() {
   const [purchasePaymentMethod, setPurchasePaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
   const [purchaseDocumentNumber, setPurchaseDocumentNumber] = useState("");
   const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [purchaseLines, setPurchaseLines] = useState<Array<{ productId: string; productName: string; sku: string; quantity: number; unitCostMinor: number }>>([]);
 
   useEffect(() => {
     Promise.all([window.alnasr.health(), window.alnasr.setupStatus()])
@@ -360,6 +361,25 @@ export function App() {
     }
   }
 
+  function addPurchaseLine() {
+    const product = products.find((item) => item.id === purchaseProductId && item.isActive);
+    const quantity = Number(purchaseQuantity);
+    const unitCostMinor = Math.round(Number(purchaseUnitCost) * 100);
+    if (!product || !Number.isSafeInteger(quantity) || quantity <= 0 || !Number.isSafeInteger(unitCostMinor) || unitCostMinor < 0) {
+      setError("اختر صنفاً وأدخل كمية وتكلفة صحيحتين");
+      return;
+    }
+    const existing = purchaseLines.find((line) => line.productId === product.id);
+    if (existing && existing.unitCostMinor !== unitCostMinor) {
+      setError("الصنف مضاف بالفعل بتكلفة مختلفة؛ لا تكرر الصنف بتكلفتين في الفاتورة نفسها");
+      return;
+    }
+    setPurchaseLines(existing
+      ? purchaseLines.map((line) => line.productId === product.id ? { ...line, quantity: line.quantity + quantity } : line)
+      : [...purchaseLines, { productId: product.id, productName: product.nameAr, sku: product.sku, quantity, unitCostMinor }]);
+    setError(null);
+  }
+
   async function submitPurchase(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPurchaseBusy(true);
@@ -369,11 +389,7 @@ export function App() {
       const purchase = await window.alnasr.createPurchase({
         supplierId: purchaseSupplierId,
         documentNumber: purchaseDocumentNumber.trim() || undefined,
-        lines: [{
-          productId: purchaseProductId,
-          quantity: Number(purchaseQuantity),
-          unitCostMinor: Math.round(Number(purchaseUnitCost) * 100)
-        }],
+        lines: purchaseLines,
         paidMinor,
         paymentMethod: paidMinor > 0 ? purchasePaymentMethod : undefined
       });
@@ -381,6 +397,7 @@ export function App() {
       setProducts(await window.alnasr.listProducts());
       setStockMovements(await window.alnasr.listStockMovements());
       setPurchaseDocumentNumber("");
+      setPurchaseLines([]);
       setPurchaseQuantity("1");
       setPurchasePaid("0");
       setBackupMessage(null);
@@ -637,9 +654,17 @@ export function App() {
                   <option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option>
                 </select>
               </label>
-              <button type="submit" disabled={purchaseBusy || !purchaseSupplierId || !purchaseProductId}>{purchaseBusy ? "جارٍ ترحيل المستند..." : "ترحيل فاتورة الشراء"}</button>
+              <button type="button" onClick={addPurchaseLine} disabled={!purchaseProductId}>إضافة الصنف إلى الفاتورة</button>
+              <button type="submit" disabled={purchaseBusy || !purchaseSupplierId || purchaseLines.length === 0}>{purchaseBusy ? "جارٍ ترحيل المستند..." : "ترحيل فاتورة الشراء"}</button>
             </form>
             {error && <p className="form-error" role="alert">{error}</p>}
+            {purchaseLines.length > 0 && <div className="product-list purchase-draft">
+              <strong>أصناف الفاتورة · الإجمالي {(purchaseLines.reduce((sum, line) => sum + line.quantity * line.unitCostMinor, 0) / 100).toFixed(2)}</strong>
+              {purchaseLines.map((line) => <article className="product-row" key={line.productId}>
+                <div><strong>{line.productName}</strong><small>{line.sku} · الكمية {line.quantity} · تكلفة الوحدة {(line.unitCostMinor / 100).toFixed(2)}</small></div>
+                <div className="product-metrics"><strong>{(line.quantity * line.unitCostMinor / 100).toFixed(2)}</strong><button type="button" className="remove-line" onClick={() => setPurchaseLines((current) => current.filter((item) => item.productId !== line.productId))}>حذف</button></div>
+              </article>)}
+            </div>}
             {backupMessage && <p className="sale-success">{backupMessage}</p>}
             <div className="product-list">
               {purchases.length === 0 ? <p className="empty-products">لا توجد فواتير شراء مسجلة بعد.</p> : purchases.map((purchase) => (
