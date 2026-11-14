@@ -209,7 +209,7 @@
  function back(){if(activeDetail){const g=groups.find(x=>x.id===current);renderGroup(g);headingTitle.textContent=g.title;headingDesc.textContent=g.desc;heading.querySelector('.page-back')?.remove();activeDetail=null}else setPage('home')}
  nav.forEach(n=>n.addEventListener('click',()=>setPage(n.dataset.section)));
  document.querySelectorAll('.action').forEach((b,i)=>b.addEventListener('click',()=>openModule(i===0?groups[0].items[0]:i===1?groups[1].items[0]:groups[1].items[2])));
- document.querySelectorAll('.module').forEach(b=>b.addEventListener('click',()=>notify('اختر القسم من شريط التنقل للوصول إلى الوظائف')));
+ document.querySelectorAll('.module').forEach(b=>b.addEventListener('click',()=>{const label=b.querySelector('strong')?.textContent;const item=groups.flatMap(g=>g.items).find(x=>x[0]===label);if(item){const group=groups.find(g=>g.items.includes(item));setPage(group.id);openModule(item)}else notify('هذه وظيفة ضمن المعاينة')}));
  window.addEventListener('popstate',e=>{if(e.state?.detail){const g=groups.find(x=>x.id===e.state.page);if(g){setPage(g.id,false);const item=g.items.find(x=>x[0]===e.state.detail);if(item)openModule(item,false)}}else setPage(e.state?.page||'home',false)});
  stage.addEventListener('touchstart',e=>{startX=e.changedTouches[0].clientX;startY=e.changedTouches[0].clientY},{passive:true});
  stage.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-startX,dy=e.changedTouches[0].clientY-startY;if(Math.abs(dx)<75||Math.abs(dx)<Math.abs(dy)*1.25)return;if(activeDetail){back();return}const idx=pages.findIndex(p=>p.id===current),next=idx+(dx<0?1:-1);if(next>=0&&next<pages.length)setPage(pages[next].id)},{passive:true});
