@@ -226,6 +226,19 @@ export const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_purchase_payments_purchase_time
         ON purchase_payments(purchase_id, occurred_at);
     `
+  },
+  {
+    id: "0005_customer_receivables",
+    sql: `
+      ALTER TABLE sales ADD COLUMN paid_minor INTEGER NOT NULL DEFAULT 0
+        CHECK (paid_minor >= 0 AND paid_minor <= total_minor);
+
+      UPDATE sales
+      SET paid_minor = COALESCE((SELECT SUM(amount_minor) FROM payments WHERE payments.sale_id = sales.id), 0);
+
+      CREATE INDEX IF NOT EXISTS idx_sales_customer_receivables
+        ON sales(customer_id, status, occurred_at);
+    `
   }
 ] as const;
 
