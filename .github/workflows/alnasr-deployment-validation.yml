@@ -27,9 +27,17 @@ jobs:
           DB_PASSWORD: ci-only-not-a-real-secret
         run: |
           docker compose -f deploy/compose.yaml config --quiet
-          docker compose -f deploy/compose.yaml config > "$RUNNER_TEMP/alnasr-compose.resolved.yaml"
-          grep -F '127.0.0.1:8080:8080' "$RUNNER_TEMP/alnasr-compose.resolved.yaml"
-          grep -F 'alnasr-local:16' "$RUNNER_TEMP/alnasr-compose.resolved.yaml"
+          docker compose -f deploy/compose.yaml config --format json > "$RUNNER_TEMP/alnasr-compose.resolved.json"
+          python - <<'PY'
+          import json, os
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "alnasr-compose.resolved.json"), encoding="utf-8") as handle:
+              config = json.load(handle)
+          assert config["services"]["frontend"]["ports"][0]["host_ip"] == "127.0.0.1"
+          assert config["services"]["frontend"]["ports"][0]["published"] == "8080"
+          assert config["services"]["backend"]["image"] == "alnasr-local:16"
+          assert config["services"]["db"]["image"] == "mariadb:11.8"
+          print("Compose config valid; frontend is loopback-only; pinned local app image and MariaDB are present.")
+          PY
       - name: Verify secrets and persistent data are excluded from Git
         run: |
           git check-ignore deploy/.env
