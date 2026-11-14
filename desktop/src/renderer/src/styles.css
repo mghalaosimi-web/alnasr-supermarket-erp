@@ -79,3 +79,9 @@ footer { padding: 20px 7%; color: #8994a3; font-size: 11px; direction: ltr; text
 .shift-close { justify-content: flex-end; margin-top: 18px; padding-top: 18px; border-top: 1px solid #edf0f4; }
 .shift-close button { color: #8b2c2c; background: #fff1f1; }
 @media (max-width: 760px) { .checkout-row { align-items: stretch; flex-direction: column; } .checkout-row label { width: 100%; } }
+
+.top-nav { display: flex; align-items: center; gap: 6px; margin-inline-start: 24px; }
+.nav-link { min-height: 38px; padding: 0 13px; border: 0; border-radius: 7px; color: #53657c; background: transparent; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.nav-link:hover { background: #f3f5f7; }
+.nav-link.active { color: #172b4d; background: #edf2f7; box-shadow: inset 0 -2px 0 #b69a62; }
+@media (max-width: 1050px) { .topbar { padding: 0 20px; } .top-nav { margin-inline-start: 10px; } .nav-link { padding: 0 9px; } }
