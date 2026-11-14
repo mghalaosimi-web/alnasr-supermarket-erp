@@ -23,22 +23,18 @@ export function openCashierShift(
   if (!Number.isSafeInteger(input.openingCashMinor) || input.openingCashMinor < 0) {
     throw new Error("رصيد افتتاح الصندوق غير صحيح");
   }
-  const existing = db.prepare(
-    "SELECT id FROM cashier_shifts WHERE cashier_user_id = ? AND status = 'open' LIMIT 1"
-  ).get(input.cashierUserId) as { id: string } | undefined;
-  if (existing) throw new Error("يوجد وردية مفتوحة لهذا المستخدم بالفعل");
-
-  const id = randomUUID();
   const create = db.transaction(() => {
-    db.prepare(
-      "INSERT INTO cashier_shifts (id, cashier_user_id, opening_cash_minor, status) VALUES (?, ?, ?, 'open')"
-    ).run(id, input.cashierUserId, input.openingCashMinor);
-    db.prepare(
-      "INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'shift.open', 'cashier_shift', ?, ?)"
-    ).run(randomUUID(), input.cashierUserId, id, JSON.stringify({ openingCashMinor: input.openingCashMinor }));
+    const existing = db.prepare("SELECT id FROM cashier_shifts WHERE cashier_user_id = ? AND status = 'open' LIMIT 1")
+      .get(input.cashierUserId) as { id: string } | undefined;
+    if (existing) throw new Error("يوجد وردية مفتوحة لهذا المستخدم بالفعل");
+    const id = randomUUID();
+    db.prepare("INSERT INTO cashier_shifts (id, cashier_user_id, opening_cash_minor, status) VALUES (?, ?, ?, 'open')")
+      .run(id, input.cashierUserId, input.openingCashMinor);
+    db.prepare("INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'shift.open', 'cashier_shift', ?, ?)")
+      .run(randomUUID(), input.cashierUserId, id, JSON.stringify({ openingCashMinor: input.openingCashMinor }));
+    return { id, openingCashMinor: input.openingCashMinor, status: "open" as const };
   });
-  create();
-  return { id, openingCashMinor: input.openingCashMinor, status: "open" };
+  return create.immediate();
 }
 
 export function closeCashierShift(
@@ -48,22 +44,19 @@ export function closeCashierShift(
   if (!Number.isSafeInteger(input.closingCashMinor) || input.closingCashMinor < 0) {
     throw new Error("رصيد إغلاق الصندوق غير صحيح");
   }
-  const shift = db.prepare(
-    "SELECT id, cashier_user_id AS cashierUserId, status FROM cashier_shifts WHERE id = ?"
-  ).get(input.shiftId) as { id: string; cashierUserId: string; status: string } | undefined;
-  if (!shift || shift.cashierUserId !== input.actorUserId || shift.status !== "open") {
-    throw new Error("الوردية غير موجودة أو لا يمكن إغلاقها");
-  }
   const close = db.transaction(() => {
-    db.prepare(
-      "UPDATE cashier_shifts SET closing_cash_minor = ?, closed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), status = 'closed' WHERE id = ? AND status = 'open'"
-    ).run(input.closingCashMinor, input.shiftId);
-    db.prepare(
-      "INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'shift.close', 'cashier_shift', ?, ?)"
-    ).run(randomUUID(), input.actorUserId, input.shiftId, JSON.stringify({ closingCashMinor: input.closingCashMinor }));
+    const shift = db.prepare("SELECT id, cashier_user_id AS cashierUserId, status FROM cashier_shifts WHERE id = ?")
+      .get(input.shiftId) as { id: string; cashierUserId: string; status: string } | undefined;
+    if (!shift || shift.cashierUserId !== input.actorUserId || shift.status !== "open") {
+      throw new Error("الوردية غير موجودة أو لا يمكن إغلاقها");
+    }
+    db.prepare("UPDATE cashier_shifts SET closing_cash_minor = ?, closed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), status = 'closed' WHERE id = ? AND status = 'open'")
+      .run(input.closingCashMinor, input.shiftId);
+    db.prepare("INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'shift.close', 'cashier_shift', ?, ?)")
+      .run(randomUUID(), input.actorUserId, input.shiftId, JSON.stringify({ closingCashMinor: input.closingCashMinor }));
+    return { id: input.shiftId, closingCashMinor: input.closingCashMinor, status: "closed" as const };
   });
-  close();
-  return { id: input.shiftId, closingCashMinor: input.closingCashMinor, status: "closed" };
+  return close.immediate();
 }
 
 export function createSale(db: Database.Database, input: CreateSaleInput): SaleResult {
@@ -76,25 +69,6 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
   if (!input.idempotencyKey || input.idempotencyKey.length > 120) {
     throw new Error("مفتاح العملية غير صحيح");
   }
-
-  const existing = db.prepare(
-    "SELECT id, sale_number AS saleNumber, total_minor AS totalMinor, status FROM sales WHERE idempotency_key = ?"
-  ).get(input.idempotencyKey) as { id: string; saleNumber: string; totalMinor: number; status: "posted" } | undefined;
-  if (existing) {
-    const lines = db.prepare(
-      "SELECT product_id AS productId, p.sku, p.name_ar AS nameAr, quantity, unit_price_minor AS unitPriceMinor, line_total_minor AS lineTotalMinor FROM sale_lines sl JOIN products p ON p.id = sl.product_id WHERE sale_id = ?"
-    ).all(existing.id) as SaleResult["lines"];
-    return { ...existing, lines };
-  }
-
-  const shift = db.prepare(
-    "SELECT id FROM cashier_shifts WHERE cashier_user_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1"
-  ).get(input.actorUserId) as { id: string } | undefined;
-  if (!shift) throw new Error("افتح وردية الصندوق قبل تسجيل المبيعات");
-
-  const warehouse = db.prepare("SELECT id FROM warehouses WHERE code = 'MAIN'").get() as { id: string } | undefined;
-  if (!warehouse) throw new Error("المستودع الرئيسي غير مهيأ");
-
   const normalized = new Map<string, number>();
   for (const line of input.lines) {
     if (!line.productId || !Number.isSafeInteger(line.quantity) || line.quantity <= 0) {
@@ -103,49 +77,64 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
     normalized.set(line.productId, (normalized.get(line.productId) ?? 0) + line.quantity);
   }
 
-  const preparedLines = [...normalized.entries()].map(([productId, quantity]) => {
-    const product = db.prepare(
-      "SELECT id, sku, name_ar AS nameAr, price_minor AS priceMinor, is_active AS isActive FROM products WHERE id = ?"
-    ).get(productId) as { id: string; sku: string; nameAr: string; priceMinor: number; isActive: number } | undefined;
-    if (!product || product.isActive !== 1) throw new Error("أحد المنتجات غير متاح للبيع");
-    const stock = db.prepare(
-      "SELECT COALESCE(SUM(quantity_delta), 0) AS quantity FROM stock_movements WHERE product_id = ? AND warehouse_id = ?"
-    ).get(productId, warehouse.id) as { quantity: number };
-    if (stock.quantity < quantity) throw new Error(`المخزون غير كافٍ للمنتج: ${product.nameAr}`);
-    const lineTotalMinor = product.priceMinor * quantity;
-    if (!Number.isSafeInteger(lineTotalMinor)) throw new Error("قيمة أحد بنود الفاتورة تجاوزت الحد المسموح");
-    return { productId, sku: product.sku, nameAr: product.nameAr, quantity, unitPriceMinor: product.priceMinor, lineTotalMinor };
-  });
-
-  const totalMinor = preparedLines.reduce((sum, line) => sum + line.lineTotalMinor, 0);
-  if (!Number.isSafeInteger(totalMinor) || totalMinor <= 0) throw new Error("إجمالي الفاتورة غير صحيح");
-  const saleId = randomUUID();
-  const saleNumber = `NSR-${new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14)}-${saleId.slice(0, 6).toUpperCase()}`;
-
-  const post = db.transaction(() => {
-    db.prepare(`
-      INSERT INTO sales (id, sale_number, cashier_shift_id, status, subtotal_minor, discount_minor, tax_minor, total_minor, idempotency_key, created_by)
-      VALUES (?, ?, ?, 'posted', ?, 0, 0, ?, ?, ?)
-    `).run(saleId, saleNumber, shift.id, totalMinor, totalMinor, input.idempotencyKey, input.actorUserId);
-
-    for (const line of preparedLines) {
-      db.prepare(`
-        INSERT INTO sale_lines (id, sale_id, product_id, quantity, unit_price_minor, discount_minor, line_total_minor)
-        VALUES (?, ?, ?, ?, ?, 0, ?)
-      `).run(randomUUID(), saleId, line.productId, line.quantity, line.unitPriceMinor, line.lineTotalMinor);
-      db.prepare(`
-        INSERT INTO stock_movements (id, product_id, warehouse_id, movement_type, quantity_delta, unit_cost_minor, reference_type, reference_id, created_by)
-        VALUES (?, ?, ?, 'sale', ?, 0, 'sale', ?, ?)
-      `).run(randomUUID(), line.productId, warehouse.id, -line.quantity, saleId, input.actorUserId);
+  const post = db.transaction((): SaleResult => {
+    const existing = db.prepare("SELECT id, sale_number AS saleNumber, total_minor AS totalMinor, status FROM sales WHERE idempotency_key = ?")
+      .get(input.idempotencyKey) as { id: string; saleNumber: string; totalMinor: number; status: "posted" } | undefined;
+    if (existing) {
+      const lines = db.prepare("SELECT product_id AS productId, p.sku, p.name_ar AS nameAr, quantity, unit_price_minor AS unitPriceMinor, line_total_minor AS lineTotalMinor FROM sale_lines sl JOIN products p ON p.id = sl.product_id WHERE sale_id = ?")
+        .all(existing.id) as SaleResult["lines"];
+      return { ...existing, lines };
     }
 
-    db.prepare(
-      "INSERT INTO payments (id, sale_id, method, amount_minor) VALUES (?, ?, ?, ?)"
-    ).run(randomUUID(), saleId, input.paymentMethod, totalMinor);
-    db.prepare(
-      "INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'sale.post', 'sale', ?, ?)"
-    ).run(randomUUID(), input.actorUserId, saleId, JSON.stringify({ saleNumber, totalMinor, lineCount: preparedLines.length }));
+    const shift = db.prepare("SELECT id FROM cashier_shifts WHERE cashier_user_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1")
+      .get(input.actorUserId) as { id: string } | undefined;
+    if (!shift) throw new Error("افتح وردية الصندوق قبل تسجيل المبيعات");
+
+    const warehouse = db.prepare("SELECT id FROM warehouses WHERE code = 'MAIN'").get() as { id: string } | undefined;
+    if (!warehouse) throw new Error("المستودع الرئيسي غير مهيأ");
+
+    const preparedLines = [...normalized.entries()].map(([productId, quantity]) => {
+      const product = db.prepare("SELECT id, sku, name_ar AS nameAr, price_minor AS priceMinor, cost_minor AS costMinor, is_active AS isActive FROM products WHERE id = ?")
+        .get(productId) as { id: string; sku: string; nameAr: string; priceMinor: number; costMinor: number; isActive: number } | undefined;
+      if (!product || product.isActive !== 1) throw new Error("أحد المنتجات غير متاح للبيع");
+      const stock = db.prepare("SELECT COALESCE(SUM(quantity_delta), 0) AS quantity FROM stock_movements WHERE product_id = ? AND warehouse_id = ?")
+        .get(productId, warehouse.id) as { quantity: number };
+      if (stock.quantity < quantity) throw new Error("المخزون غير كافٍ للمنتج: " + product.nameAr);
+      const lineTotalMinor = product.priceMinor * quantity;
+      if (!Number.isSafeInteger(lineTotalMinor)) throw new Error("قيمة أحد بنود الفاتورة تجاوزت الحد المسموح");
+      return { productId, sku: product.sku, nameAr: product.nameAr, quantity, unitPriceMinor: product.priceMinor, unitCostMinor: product.costMinor, lineTotalMinor };
+    });
+
+    const totalMinor = preparedLines.reduce((sum, line) => sum + line.lineTotalMinor, 0);
+    if (!Number.isSafeInteger(totalMinor) || totalMinor <= 0) throw new Error("إجمالي الفاتورة غير صحيح");
+    const saleId = randomUUID();
+    const dateStamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+    const saleNumber = "NSR-" + dateStamp + "-" + saleId.slice(0, 6).toUpperCase();
+
+    db.prepare("INSERT INTO sales (id, sale_number, cashier_shift_id, status, subtotal_minor, discount_minor, tax_minor, total_minor, idempotency_key, created_by) VALUES (?, ?, ?, 'posted', ?, 0, 0, ?, ?, ?)")
+      .run(saleId, saleNumber, shift.id, totalMinor, totalMinor, input.idempotencyKey, input.actorUserId);
+
+    for (const line of preparedLines) {
+      db.prepare("INSERT INTO sale_lines (id, sale_id, product_id, quantity, unit_price_minor, discount_minor, line_total_minor) VALUES (?, ?, ?, ?, ?, 0, ?)")
+        .run(randomUUID(), saleId, line.productId, line.quantity, line.unitPriceMinor, line.lineTotalMinor);
+      db.prepare("INSERT INTO stock_movements (id, product_id, warehouse_id, movement_type, quantity_delta, unit_cost_minor, reference_type, reference_id, created_by) VALUES (?, ?, ?, 'sale', ?, ?, 'sale', ?, ?)")
+        .run(randomUUID(), line.productId, warehouse.id, -line.quantity, line.unitCostMinor, saleId, input.actorUserId);
+    }
+
+    db.prepare("INSERT INTO payments (id, sale_id, method, amount_minor) VALUES (?, ?, ?, ?)")
+      .run(randomUUID(), saleId, input.paymentMethod, totalMinor);
+    db.prepare("INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'sale.post', 'sale', ?, ?)")
+      .run(randomUUID(), input.actorUserId, saleId, JSON.stringify({ saleNumber, totalMinor, lineCount: preparedLines.length }));
+
+    return {
+      id: saleId,
+      saleNumber,
+      totalMinor,
+      status: "posted",
+      lines: preparedLines.map(({ productId, sku, nameAr, quantity, unitPriceMinor, lineTotalMinor }) => ({
+        productId, sku, nameAr, quantity, unitPriceMinor, lineTotalMinor
+      }))
+    };
   });
-  post();
-  return { id: saleId, saleNumber, totalMinor, status: "posted", lines: preparedLines };
+  return post.immediate();
 }
