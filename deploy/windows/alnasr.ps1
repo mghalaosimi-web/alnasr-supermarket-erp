@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("prepare", "setup", "build", "start", "stop", "restart", "status", "open", "init", "backup")]
+    [ValidateSet("prepare", "setup", "build", "start", "stop", "restart", "status", "open", "init", "backup", "export-cert")]
     [string]$Action
 )
 $ErrorActionPreference = "Stop"
@@ -36,7 +36,7 @@ function Ensure-LocalEnv {
         try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
         $secret = [Convert]::ToBase64String($bytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
         $newline = [Environment]::NewLine
-        $contents = "DB_PASSWORD=$secret" + $newline + "SITE_NAME=alnasr.local" + $newline + "BIND_ADDRESS=127.0.0.1" + $newline + "HTTP_PUBLISH_PORT=8080" + $newline
+        $contents = "DB_PASSWORD=$secret" + $newline + "SITE_NAME=alnasr.local" + $newline + "BIND_ADDRESS=127.0.0.1" + $newline + "HTTP_PUBLISH_PORT=8080" + $newline + "LAN_BIND_ADDRESS=127.0.0.1" + $newline
         [System.IO.File]::WriteAllText($EnvFile, $contents, (New-Object System.Text.UTF8Encoding($false)))
         $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
         $acl = New-Object System.Security.AccessControl.FileSecurity
@@ -95,6 +95,15 @@ switch ($Action) {
         if ($LASTEXITCODE -ne 0) { throw "Site creation failed. Inspect logs before retrying." }
         Invoke-Compose up -d
         Write-Host "Initial site created. Open http://127.0.0.1:8080; login user is Administrator."
+    }
+    "export-cert" {
+        Ensure-LocalEnv
+        Invoke-Compose up -d caddy
+        if ($LASTEXITCODE -ne 0) { throw "Caddy HTTPS gateway did not start." }
+        Start-Sleep -Seconds 5
+        Invoke-Compose cp "caddy:/data/caddy/pki/authorities/local/root.crt" (Join-Path $DataRoot "alnasr-local-root.crt")
+        if ($LASTEXITCODE -ne 0) { throw "Could not export the local CA certificate." }
+        Write-Host "Local CA exported to $DataRoot. Install it on the Android phone as a CA certificate."
     }
     "backup" {
         New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
