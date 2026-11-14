@@ -66,3 +66,28 @@ describe("AL-NASR SQLite core", () => {
     expect(db.pragma("synchronous", { simple: true })).toBe(2);
   });
 });
+
+describe("AL-NASR owner authentication", () => {
+  it("creates the first owner with a salted password hash and authenticates it", async () => {
+    const { authenticate, createInitialOwner, isOwnerSetupRequired } = await import("../src/main/auth");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    expect(isOwnerSetupRequired(db)).toBe(true);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    expect(owner.username).toBe("owner01");
+    expect(isOwnerSetupRequired(db)).toBe(false);
+    const stored = db.prepare("SELECT password_hash FROM users WHERE id = ?").get(owner.id) as { password_hash: string };
+    expect(stored.password_hash).toMatch(/^scrypt\\$/);
+    expect(stored.password_hash).not.toContain("StrongPass-2026!");
+    expect(authenticate(db, "OWNER01", "StrongPass-2026!")).toMatchObject({ id: owner.id, username: "owner01" });
+    expect(authenticate(db, "owner01", "wrong-password")).toBeNull();
+    expect(() => createInitialOwner(db!, { username: "owner02", displayName: "مالك آخر", password: "StrongPass-2026!" })).toThrow();
+  });
+
+  it("rejects weak initial owner passwords", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    expect(() => createInitialOwner(db!, { username: "owner01", displayName: "مالك النظام", password: "weak" })).toThrow();
+  });
+});
