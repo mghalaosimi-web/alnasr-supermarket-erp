@@ -13,6 +13,7 @@ class DashboardShellTests(unittest.TestCase):
         self.assertTrue((MODULE / "page" / "alnasr" / "alnasr.py").is_file())
         self.assertTrue((MODULE / "page" / "alnasr" / "alnasr.js").is_file())
         page = json.loads((MODULE / "page" / "alnasr" / "alnasr.json").read_text(encoding="utf-8"))
+        self.assertEqual(page["doctype"], "Page")
         self.assertEqual(page["name"], "alnasr")
         self.assertEqual(page["module"], "AL-NASR")
         self.assertEqual(page["standard"], "Yes")
@@ -27,6 +28,7 @@ class DashboardShellTests(unittest.TestCase):
         workspace_path = MODULE / "workspace" / "al_nasr" / "al_nasr.json"
         workspace = json.loads(workspace_path.read_text(encoding="utf-8"))
         self.assertEqual(workspace["name"], "AL-NASR")
+        self.assertEqual(workspace["doctype"], "Workspace")
         self.assertEqual(workspace["module"], "AL-NASR")
         self.assertEqual(workspace.get("standard"), 1)
         self.assertTrue(any(item.get("url") == "/app/alnasr" for item in workspace["shortcuts"]))

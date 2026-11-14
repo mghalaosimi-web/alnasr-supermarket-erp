@@ -1,4 +1,5 @@
 {
+  "doctype": "Workspace",
   "app": "alnasr",
   "charts": [],
   "content": "[{\"id\":\"alnasr_welcome\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">النصر | AL-NASR</span>\",\"col\":12}},{\"id\":\"alnasr_home\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"لوحة النصر\",\"col\":6}},{\"id\":\"alnasr_pos\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"نقطة البيع\",\"col\":6}},{\"id\":\"alnasr_core\",\"type\":\"card\",\"data\":{\"card_name\":\"إدارة المتجر\",\"col\":4}},{\"id\":\"alnasr_finance\",\"type\":\"card\",\"data\":{\"card_name\":\"المالية والتقارير\",\"col\":4}},{\"id\":\"alnasr_setup\",\"type\":\"card\",\"data\":{\"card_name\":\"إعدادات النظام\",\"col\":4}}]",
