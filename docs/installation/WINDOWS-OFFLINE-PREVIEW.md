@@ -13,7 +13,7 @@ The current preview includes:
 - A built-in SQLite online-backup action with a native Save dialog.
 - Barcode/SKU scanner input on the POS page.
 - Supplier and customer directories; sales can be associated with a customer.
-- Supplier-linked purchase documents with purchase lines, partial payment records, outstanding balance calculation, stock receipt movements and weighted-average cost updates in one SQLite transaction.
+- Supplier-linked multi-line purchase invoices, initial and subsequent supplier payments, outstanding-balance settlement, stock receipt movements and weighted-average cost updates with atomic posting and audit history.
 - Cashier shift opening and closing.
 - Basic point-of-sale checkout with cash/card/transfer method selection.
 - Atomic sale posting, stock decrement, payment record and audit event.
@@ -44,12 +44,10 @@ Use the **النسخ الاحتياطي** page in AL-NASR to create a consistent
 This is an engineering preview, not the completed AL-NASR ERP release.
 
 Not yet included:
-- Supplier-linked purchase orders and purchase invoices (manual stock receiving is available, but not yet linked to supplier documents).
 - Customer credit sales, receivables, statements and credit-limit enforcement.
 - Inter-warehouse transfers.
 - Returns, voids and refund workflows.
-- Split payments, discounts, taxes and customer credit.
-- Multi-line purchase entry in the current UI (the database service supports multiple lines, while the current form posts one line per document).
+- Split tender across multiple methods on a single purchase or sale, discounts, taxes and customer credit sales. Supplier invoices support successive payments, but a unified cash/bank ledger is not implemented.
 - Printable receipts and receipt-printer integration.
 - Full accounting, financial reports and period closing.
 - Android client and authenticated LAN pairing.
