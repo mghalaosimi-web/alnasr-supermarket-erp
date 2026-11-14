@@ -163,18 +163,16 @@ export function App() {
       setError("الكمية المطلوبة أكبر من المخزون المتاح");
       return;
     }
+    const existing = cart.find((item) => item.productId === product.id);
+    const nextQuantity = (existing?.quantity ?? 0) + quantity;
+    if (nextQuantity > product.stockOnHand) {
+      setError("إجمالي الكمية في السلة يتجاوز المخزون المتاح");
+      return;
+    }
     setError(null);
-    setCart((current) => {
-      const existing = current.find((item) => item.productId === product.id);
-      const nextQuantity = (existing?.quantity ?? 0) + quantity;
-      if (nextQuantity > product.stockOnHand) {
-        setError("إجمالي الكمية في السلة يتجاوز المخزون المتاح");
-        return current;
-      }
-      return existing
-        ? current.map((item) => item.productId === product.id ? { ...item, quantity: nextQuantity } : item)
-        : [...current, { productId: product.id, sku: product.sku, nameAr: product.nameAr, priceMinor: product.priceMinor, quantity }];
-    });
+    setCart(existing
+      ? cart.map((item) => item.productId === product.id ? { ...item, quantity: nextQuantity } : item)
+      : [...cart, { productId: product.id, sku: product.sku, nameAr: product.nameAr, priceMinor: product.priceMinor, quantity }]);
   }
 
   async function completeSale() {
