@@ -66,8 +66,12 @@ class TestALNasrRuntimeContracts(FrappeTestCase):
             "The AL-NASR module workspace must be synchronized from its module file",
         )
         workspace = frappe.get_doc("Workspace", "AL-NASR")
+        # In Frappe v16, label is the Workspace autoname field (internal name);
+        # title is the human-facing title rendered in the Desk.
+        self.assertEqual(workspace.name, "AL-NASR")
+        self.assertEqual(workspace.label, "AL-NASR")
+        self.assertEqual(workspace.title, "النصر | AL-NASR")
         self.assertEqual(workspace.module, "AL-NASR")
-        self.assertEqual(workspace.label, "النصر")
         shortcut_urls = {shortcut.url for shortcut in workspace.shortcuts}
         self.assertIn("/app/alnasr", shortcut_urls)
         self.assertIn("/xpos/pos", shortcut_urls)
