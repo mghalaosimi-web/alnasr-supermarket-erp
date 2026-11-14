@@ -6,6 +6,7 @@ import { createProduct, listProducts } from "./products";
 import { closeCashierShift, createSale, getOpenCashierShift, openCashierShift } from "./sales";
 import { adjustStockCount, listStockMovements, receiveStock } from "./inventory";
 import { createSupplier, listSuppliers } from "./suppliers";
+import { createCustomer, listCustomers } from "./customers";
 
 let mainWindow: BrowserWindow | null = null;
 let database: AlnasrDatabase | null = null;
@@ -111,6 +112,31 @@ app.whenReady().then(() => {
 
 
 
+
+
+  ipcMain.handle("alnasr:customers:list", () => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    return listCustomers(database);
+  });
+
+  ipcMain.handle("alnasr:customers:create", (_event, input: unknown) => {
+    if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
+    if (!input || typeof input !== "object") throw new Error("بيانات العميل غير صحيحة");
+    const value = input as Record<string, unknown>;
+    if (
+      typeof value.code !== "string" ||
+      typeof value.name !== "string" ||
+      (value.phone !== undefined && typeof value.phone !== "string") ||
+      (value.creditLimitMinor !== undefined && typeof value.creditLimitMinor !== "number")
+    ) throw new Error("أكمل بيانات العميل بصورة صحيحة");
+    return createCustomer(database, {
+      code: value.code,
+      name: value.name,
+      phone: value.phone as string | undefined,
+      creditLimitMinor: value.creditLimitMinor as number | undefined,
+      actorUserId: activeUserId
+    });
+  });
 
   ipcMain.handle("alnasr:suppliers:list", () => {
     if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
