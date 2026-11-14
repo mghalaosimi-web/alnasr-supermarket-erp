@@ -137,3 +137,5 @@ footer { padding: 20px 7%; color: #8994a3; font-size: 11px; direction: ltr; text
 .receivable-document-row { flex-wrap: wrap; }
 .receivable-settlement-form { flex: 1 0 100%; width: 100%; margin-top: 10px; }
 .receivable-settlement-form label { min-width: 0; }
+.backup-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.backup-workspace .secondary-button { color: #315a85; background: #eaf0f6; }
