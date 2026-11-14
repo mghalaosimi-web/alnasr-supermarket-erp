@@ -1,10 +1,16 @@
-"""Apply AL-NASR visual defaults to the X POS branding singleton.
+"""Apply AL-NASR visual defaults to X POS without erasing administrator choices.
 
-Existing non-empty administrator settings are preserved. This lets the
-AL-NASR identity be applied on first installation without overwriting a
-previously customized X POS branding configuration.
+A field that still equals its pinned X POS DocField default is considered
+unmodified upstream configuration and receives the AL-NASR default. Values
+that differ from both the upstream default and AL-NASR's target are preserved.
 """
 import frappe
+
+
+def _normalized(value):
+    if value is None:
+        return None
+    return str(value).strip().lower()
 
 
 def apply_xpos_branding_defaults():
@@ -54,9 +60,19 @@ def apply_xpos_branding_defaults():
         "radius": 0.625,
     }
 
+    meta = frappe.get_meta("XPOS Branding Settings")
     for fieldname, value in values.items():
         current = frappe.db.get_single_value("XPOS Branding Settings", fieldname)
-        if current in (None, ""):
+        field = meta.get_field(fieldname)
+        upstream_default = field.default if field else None
+
+        # Empty values and untouched X POS defaults are safe to brand.
+        # Preserve administrator values that differ from both defaults.
+        if (
+            current in (None, "")
+            or _normalized(current) == _normalized(upstream_default)
+            or _normalized(current) == _normalized(value)
+        ):
             frappe.db.set_single_value("XPOS Branding Settings", fieldname, value)
 
     frappe.clear_cache(doctype="XPOS Branding Settings")
