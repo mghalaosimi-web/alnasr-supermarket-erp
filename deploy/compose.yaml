@@ -34,7 +34,6 @@ services:
 
   backend:
     <<: *alnasr-image
-    command: ["bench", "serve", "--port", "8000"]
     environment:
       DB_HOST: db
       DB_PORT: "3306"
