@@ -38,9 +38,9 @@ The script does not silently enable Windows features, install Docker Desktop, or
 
 This is an engineering deployment scaffold, not the promised consumer installer. It has not yet been built or run on a real Windows PC. The following remain release blockers:
 
-- Build the custom image and verify the exact upstream image tag and Python package installation end to end.
+- Build the custom image and verify the upstream image tag, pinned X POS/AL-NASR Python packages, frontend build, and runtime version compatibility end to end.
 - Verify clean site creation, migrations, health, restart persistence, and complete backup/restore.
-- Implement a supported TLS gateway and explicit Android pairing before binding the service to a LAN interface. The default bind address is loopback only; do not change it to `0.0.0.0` for real user credentials.
+- Verify the Caddy TLS gateway, CA export/trust process, mDNS hostname resolution, and explicit Android pairing on the actual private LAN. The default bind address is loopback only; do not change it to `0.0.0.0` until firewall and certificate acceptance are complete.
 - Add a tested installer wizard (for example, NSIS/Inno Setup) that checks prerequisites and installs/updates the launcher without deleting database volumes.
 - Add signed Android packaging only after HTTPS, session, navigation, file handling, and device tests pass.
 - Validate receipt printing, barcode scanning, offline/retry behavior, and owner acceptance on actual devices.
