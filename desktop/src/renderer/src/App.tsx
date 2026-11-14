@@ -41,6 +41,7 @@ declare global {
       createPurchase: (input: PurchaseInput) => Promise<PurchaseRow>;
       addPurchasePayment: (input: PurchasePaymentInput) => Promise<PurchaseRow>;
       createBackup: () => Promise<{ canceled: boolean; filePath?: string }>;
+      restoreBackup: () => Promise<{ canceled: boolean; safetyBackupPath?: string }>;
       listStockMovements: () => Promise<StockMovementRow[]>;
       receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => Promise<{ movementId: string; quantityOnHand: number }>;
       adjustStock: (input: { productId: string; countedQuantity: number }) => Promise<{ movementId: string | null; previousQuantity: number; countedQuantity: number; difference: number }>;
@@ -474,6 +475,24 @@ export function App() {
     }
   }
 
+  async function restoreDatabaseBackup() {
+    if (!window.confirm("سيتم استبدال قاعدة البيانات الحالية. سيُنشئ النظام نسخة أمان تلقائية قبل الاستعادة. هل تريد المتابعة؟")) return;
+    setBackupBusy(true);
+    setBackupMessage(null);
+    setError(null);
+    try {
+      const result = await window.alnasr.restoreBackup();
+      if (!result.canceled && result.safetyBackupPath) {
+        window.alert("تمت استعادة قاعدة البيانات بنجاح. نسخة الأمان السابقة محفوظة في:\n" + result.safetyBackupPath + "\nسيتم إعادة تشغيل الواجهة وتسجيل خروجك.");
+        window.location.reload();
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذرت استعادة النسخة الاحتياطية");
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
   async function createDatabaseBackup() {
     setBackupBusy(true);
     setBackupMessage(null);
@@ -686,10 +705,13 @@ export function App() {
             <span className="eyebrow">حماية البيانات المحلية</span>
             <h2>النسخ الاحتياطي</h2>
             <p>أنشئ نسخة SQLite متسقة من قاعدة بيانات النظام باستخدام آلية SQLite Backup، حتى أثناء تشغيل التطبيق.</p>
-            <button type="button" onClick={() => void createDatabaseBackup()} disabled={backupBusy}>{backupBusy ? "جارٍ إنشاء النسخة..." : "إنشاء نسخة احتياطية"}</button>
+            <div className="backup-actions">
+              <button type="button" onClick={() => void createDatabaseBackup()} disabled={backupBusy}>{backupBusy ? "جارٍ إنشاء النسخة..." : "إنشاء نسخة احتياطية"}</button>
+              <button type="button" className="secondary-button" onClick={() => void restoreDatabaseBackup()} disabled={backupBusy}>{backupBusy ? "جارٍ تنفيذ العملية..." : "استعادة نسخة احتياطية"}</button>
+            </div>
             {backupMessage && <p className="backup-success">{backupMessage}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
-            <small className="form-hint">احفظ النسخة في قرص خارجي أو مكان آمن منفصل عن جهاز التشغيل. استعادة النسخ الاحتياطية لم تُضف بعد.</small>
+            <small className="form-hint">قبل الاستعادة يفحص النظام سلامة الملف وتوافق مخطط قاعدة البيانات، وينشئ نسخة أمان تلقائية من البيانات الحالية. بعد الاستعادة سيطلب منك تسجيل الدخول مجدداً.</small>
           </section>}
 
           {activePage === "purchases" && <section className="supplier-workspace">
