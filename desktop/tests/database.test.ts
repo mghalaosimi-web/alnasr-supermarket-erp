@@ -531,7 +531,6 @@ describe("AL-NASR safe database restore", () => {
     source.prepare("INSERT INTO app_settings (key, value) VALUES ('state', 'restored-value')").run();
     try {
       await source.backup(backupPath);
-      source.close();
       const result = await restoreDatabaseFile(db, backupPath, targetPath);
       db = result.database;
       expect(existsSync(result.safetyBackupPath)).toBe(true);
