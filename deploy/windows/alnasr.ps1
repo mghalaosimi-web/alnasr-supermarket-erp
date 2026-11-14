@@ -32,8 +32,7 @@ function Assert-Docker {
 }
 function Import-OfflineImages {
     if (-not (Test-Path $OfflineArchive)) {
-        Write-Warning "Offline runtime image bundle is missing: $OfflineArchive"
-        return $false
+        throw "Offline runtime image bundle is missing: $OfflineArchive. Reinstall from the complete offline installer; internet fallback is intentionally disabled."
     }
     Write-Host "Loading bundled AL-NASR, MariaDB, Redis and Caddy images. This may take several minutes..."
     docker load --input $OfflineArchive
@@ -43,7 +42,12 @@ function Import-OfflineImages {
         if ($LASTEXITCODE -ne 0) { throw "Required offline image is missing after import: $image" }
     }
     Write-Host "All required runtime images are available locally."
-    return $true
+}
+function Assert-OfflineImages {
+    foreach ($image in @("alnasr-local:16", "mariadb:11.8", "redis:8.6-alpine", "caddy:2.10-alpine")) {
+        docker image inspect $image *> $null
+        if ($LASTEXITCODE -ne 0) { throw "Required offline image is not installed: $image. Run First-time setup from the complete offline installer." }
+    }
 }
 function Ensure-LocalEnv {
     New-Item -ItemType Directory -Force -Path $DataRoot | Out-Null
@@ -82,8 +86,7 @@ switch ($Action) {
         Write-Host "AL-NASR runtime image built locally."
     }
     "start" {
-        $image = docker image inspect alnasr-local:16 2>$null
-        if ($LASTEXITCODE -ne 0) { throw "Runtime image is missing. Run this script with -Action build first." }
+        Assert-OfflineImages
         Invoke-Compose up -d
         Write-Host "Containers started. Initialize the site on first use with -Action init."
     }
@@ -97,11 +100,7 @@ switch ($Action) {
     "open" { Start-Process "http://127.0.0.1:8080" }
     "init" {
         Ensure-LocalEnv
-        $offlineReady = Import-OfflineImages
-        if (-not $offlineReady) {
-            docker build --file (Join-Path $Deploy "Dockerfile") --tag alnasr-local:16 $Root
-            if ($LASTEXITCODE -ne 0) { throw "AL-NASR image build failed and no offline runtime bundle was available." }
-        }
+        Import-OfflineImages
         Invoke-Compose run --rm configurator
         if ($LASTEXITCODE -ne 0) { throw "Runtime configurator failed." }
         $match = Select-String -Path $EnvFile -Pattern '^DB_PASSWORD=(.+)$'
