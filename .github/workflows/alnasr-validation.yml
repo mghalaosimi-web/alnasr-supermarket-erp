@@ -2,7 +2,7 @@ name: AL-NASR app validation
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "foundation/alnasr-commerce-acceptance"]
   push:
     branches:
       - main

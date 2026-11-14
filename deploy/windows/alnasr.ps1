@@ -1,4 +1,5 @@
 [CmdletBinding()]
+# Offline release: import the prebuilt runtime archive before site initialization.
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet("prepare", "setup", "build", "start", "stop", "restart", "status", "open", "init", "backup", "restore", "export-cert")]
@@ -11,6 +12,7 @@ $Compose = Join-Path $Deploy "compose.yaml"
 $DataRoot = Join-Path $env:LOCALAPPDATA "AL-NASR ERP"
 $EnvFile = Join-Path $DataRoot ".env"
 $BackupDir = Join-Path $DataRoot "Backups"
+$OfflineArchive = Join-Path $Root "offline\alnasr-runtime-images.tar.gz"
 $SiteName = "alnasr.local"
 $ProjectName = "alnasr"
 
@@ -27,6 +29,30 @@ function Assert-Docker {
     if ($LASTEXITCODE -ne 0) { throw "Docker Desktop Linux engine is not running." }
     docker compose version *> $null
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose v2 is required." }
+}
+function Import-OfflineImages {
+    if (-not (Test-Path $OfflineArchive)) {
+        throw "Offline runtime image bundle is missing: $OfflineArchive. Reinstall from the complete offline installer; internet fallback is intentionally disabled."
+    }
+    $checksumFile = Join-Path $Root "offline\SHA256SUMS.txt"
+    if (-not (Test-Path $checksumFile)) { throw "Offline runtime checksum file is missing: $checksumFile" }
+    $expectedHash = ((Get-Content $checksumFile -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
+    $actualHash = (Get-FileHash -Path $OfflineArchive -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualHash -ne $expectedHash) { throw "Offline runtime archive SHA-256 mismatch. Reinstall the original package." }
+    Write-Host "Verified runtime archive SHA-256. Loading bundled AL-NASR, MariaDB, Redis and Caddy images..."
+    docker load --input $OfflineArchive
+    if ($LASTEXITCODE -ne 0) { throw "Loading offline runtime images failed." }
+    foreach ($image in @("alnasr-local:16", "mariadb:11.8", "redis:8.6-alpine", "caddy:2.10-alpine")) {
+        docker image inspect $image *> $null
+        if ($LASTEXITCODE -ne 0) { throw "Required offline image is missing after import: $image" }
+    }
+    Write-Host "All required runtime images are available locally."
+}
+function Assert-OfflineImages {
+    foreach ($image in @("alnasr-local:16", "mariadb:11.8", "redis:8.6-alpine", "caddy:2.10-alpine")) {
+        docker image inspect $image *> $null
+        if ($LASTEXITCODE -ne 0) { throw "Required offline image is not installed: $image. Run First-time setup from the complete offline installer." }
+    }
 }
 function Ensure-LocalEnv {
     New-Item -ItemType Directory -Force -Path $DataRoot | Out-Null
@@ -65,8 +91,7 @@ switch ($Action) {
         Write-Host "AL-NASR runtime image built locally."
     }
     "start" {
-        $image = docker image inspect alnasr-local:16 2>$null
-        if ($LASTEXITCODE -ne 0) { throw "Runtime image is missing. Run this script with -Action build first." }
+        Assert-OfflineImages
         Invoke-Compose up -d
         Write-Host "Containers started. Initialize the site on first use with -Action init."
     }
@@ -80,21 +105,46 @@ switch ($Action) {
     "open" { Start-Process "http://127.0.0.1:8080" }
     "init" {
         Ensure-LocalEnv
-        docker build --file (Join-Path $Deploy "Dockerfile") --tag alnasr-local:16 $Root
-        if ($LASTEXITCODE -ne 0) { throw "AL-NASR image build failed." }
+        Import-OfflineImages
         Invoke-Compose run --rm configurator
         if ($LASTEXITCODE -ne 0) { throw "Runtime configurator failed." }
         $match = Select-String -Path $EnvFile -Pattern '^DB_PASSWORD=(.+)$'
         $dbPassword = if ($match) { $match.Matches[0].Groups[1].Value } else { "" }
         if (-not $dbPassword -or $dbPassword -eq "REPLACE_WITH_A_LONG_RANDOM_SECRET") { throw "Set a strong DB_PASSWORD in deploy/.env first." }
-        $secure = Read-Host "Create the AL-NASR Administrator password" -AsSecureString
-        $adminPassword = [System.Net.NetworkCredential]::new("", $secure).Password
-        if ($adminPassword.Length -lt 12) { throw "Administrator password must be at least 12 characters." }
-        $payload = $dbPassword + [Environment]::NewLine + $adminPassword + [Environment]::NewLine
-        $payload | docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose run --rm -T --no-deps --entrypoint bash backend -lc 'read -r DBROOT; read -r ADMIN; bench new-site alnasr.local --db-host db --mariadb-user-host-login-scope % --db-root-username root --db-root-password "$DBROOT" --admin-password "$ADMIN" --install-app erpnext --install-app xpos --install-app alnasr --set-default'
-        if ($LASTEXITCODE -ne 0) { throw "Site creation failed. Inspect logs before retrying." }
+        # Detect an interrupted or previously completed first run. This makes
+        # setup safe to retry without attempting to recreate an existing site.
+        $siteState = docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose run --rm --no-deps --entrypoint bash backend -lc 'if test -f sites/alnasr.local/site_config.json; then echo ALNASR_SITE_EXISTS; else echo ALNASR_SITE_MISSING; fi'
+        if ($LASTEXITCODE -ne 0) { throw "Could not inspect the local site state (exit code $LASTEXITCODE)." }
+        $siteStateText = $siteState -join [Environment]::NewLine
+
+        if ($siteStateText -match "ALNASR_SITE_EXISTS") {
+            Write-Host "Existing AL-NASR site found. Verifying required apps and applying pending migrations..."
+            $existingSiteScript = @'
+set -e
+APPS="$(bench --site alnasr.local list-apps)"
+for app in erpnext xpos alnasr; do
+    if ! printf '%s\n' "$APPS" | grep -Eq "^${app}[[:space:]]"; then
+        bench --site alnasr.local install-app "$app"
+    fi
+done
+bench --site alnasr.local migrate
+'@
+            docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose run --rm -T --no-deps --entrypoint bash backend -lc $existingSiteScript
+            if ($LASTEXITCODE -ne 0) { throw "Existing-site recovery failed. Inspect logs before retrying." }
+        }
+        elseif ($siteStateText -match "ALNASR_SITE_MISSING") {
+            $secure = Read-Host "Create the AL-NASR Administrator password" -AsSecureString
+            $adminPassword = [System.Net.NetworkCredential]::new("", $secure).Password
+            if ($adminPassword.Length -lt 12) { throw "Administrator password must be at least 12 characters." }
+            $payload = $dbPassword + [Environment]::NewLine + $adminPassword + [Environment]::NewLine
+            $payload | docker compose --project-name $ProjectName --env-file $EnvFile -f $Compose run --rm -T --no-deps --entrypoint bash backend -lc 'read -r DBROOT; read -r ADMIN; bench new-site alnasr.local --db-host db --mariadb-user-host-login-scope % --db-root-username root --db-root-password "$DBROOT" --admin-password "$ADMIN" --install-app erpnext --install-app xpos --install-app alnasr --set-default'
+            if ($LASTEXITCODE -ne 0) { throw "Site creation failed. Inspect logs before retrying." }
+        }
+        else {
+            throw "The local site state could not be determined safely. No site data was changed."
+        }
         Invoke-Compose up -d
-        Write-Host "Initial site created. Open http://127.0.0.1:8080; login user is Administrator."
+        Write-Host "AL-NASR site is ready. Open http://127.0.0.1:8080; login user is Administrator."
     }
     "export-cert" {
         Ensure-LocalEnv
