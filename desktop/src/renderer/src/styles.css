@@ -59,3 +59,6 @@ footer { padding: 20px 7%; color: #8994a3; font-size: 11px; direction: ltr; text
 .product-row > strong { font-size: 13px; font-variant-numeric: tabular-nums; }
 .empty-products { margin: 0; padding: 18px 4px; color: #7b8798; font-size: 13px; }
 @media (max-width: 1050px) { .product-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.product-metrics { display: flex; align-items: center; gap: 18px; }
+.product-metrics small { color: #65758b; font-size: 11px; white-space: nowrap; }
