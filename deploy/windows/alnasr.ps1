@@ -34,7 +34,12 @@ function Import-OfflineImages {
     if (-not (Test-Path $OfflineArchive)) {
         throw "Offline runtime image bundle is missing: $OfflineArchive. Reinstall from the complete offline installer; internet fallback is intentionally disabled."
     }
-    Write-Host "Loading bundled AL-NASR, MariaDB, Redis and Caddy images. This may take several minutes..."
+    $checksumFile = Join-Path $Root "offline\SHA256SUMS.txt"
+    if (-not (Test-Path $checksumFile)) { throw "Offline runtime checksum file is missing: $checksumFile" }
+    $expectedHash = ((Get-Content $checksumFile -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
+    $actualHash = (Get-FileHash -Path $OfflineArchive -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualHash -ne $expectedHash) { throw "Offline runtime archive SHA-256 mismatch. Reinstall the original package." }
+    Write-Host "Verified runtime archive SHA-256. Loading bundled AL-NASR, MariaDB, Redis and Caddy images..."
     docker load --input $OfflineArchive
     if ($LASTEXITCODE -ne 0) { throw "Loading offline runtime images failed." }
     foreach ($image in @("alnasr-local:16", "mariadb:11.8", "redis:8.6-alpine", "caddy:2.10-alpine")) {
