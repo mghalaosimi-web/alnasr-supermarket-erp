@@ -1,0 +1,53 @@
+name: AL-NASR WSL offline host rootfs
+
+on:
+  pull_request:
+    branches: ["foundation/offline-release-bundle"]
+    paths:
+      - "deploy/wsl/**"
+      - "scripts/build-wsl-rootfs.sh"
+      - ".github/workflows/alnasr-wsl-host-validation.yml"
+  push:
+    branches: ["feature/alnasr-wsl-offline-host"]
+    paths:
+      - "deploy/wsl/**"
+      - "scripts/build-wsl-rootfs.sh"
+      - ".github/workflows/alnasr-wsl-host-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-rootfs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and export WSL root filesystem
+        run: |
+          chmod +x scripts/build-wsl-rootfs.sh
+          scripts/build-wsl-rootfs.sh
+      - name: Validate rootfs runtime packages and systemd configuration
+        run: |
+          docker run --rm --entrypoint bash alnasr-wsl-rootfs:build -lc '
+            set -e
+            command -v dockerd
+            command -v docker
+            docker compose version
+            test -f /etc/wsl.conf
+            test -x /usr/lib/systemd/systemd
+            grep -q "^systemd=true$" /etc/wsl.conf
+            test -L /etc/systemd/system/multi-user.target.wants/docker.service
+            test -L /etc/systemd/system/multi-user.target.wants/containerd.service
+            dpkg-query -W systemd docker.io docker-compose-v2
+          '
+      - name: Upload WSL rootfs prototype
+        uses: actions/upload-artifact@v4
+        with:
+          name: AL-NASR-WSL-RootFS-Prototype
+          path: |
+            dist/wsl/alnasr-wsl-rootfs.tar
+            dist/wsl/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
