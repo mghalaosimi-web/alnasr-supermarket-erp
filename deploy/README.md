@@ -24,7 +24,7 @@ The script does not silently enable Windows features, install Docker Desktop, or
 2. Install the AL-NASR Windows installer preview and choose **First-time setup** from the Start Menu, or run the PowerShell setup action from the repository root.
 3. The setup action generates a unique database secret under `%LOCALAPPDATA%\\AL-NASR ERP\\.env`, builds the local image, initializes the site with ERPNext, X POS and AL-NASR, then starts the services.
 4. Create a unique Administrator password when prompted. The script passes it through standard input rather than writing it to the repository or command history.
-5. Use the Backup shortcut or the PowerShell backup action to create a Frappe backup.
+5. Use the Backup shortcut to create a Frappe backup. The Restore shortcut lists complete database/public/private backups, creates a safety backup first, requires typing RESTORE, then restores and checks HTTP health.
 6. For phone pairing, export the Caddy CA with the export-cert action, install it on Android, then change `LAN_BIND_ADDRESS=0.0.0.0` in the private local .env only on a trusted private Wi-Fi network. Configure Windows Firewall for TCP 443 on the Private profile. Do not expose the service publicly.
 
 ## Important limitations — not a release installer
