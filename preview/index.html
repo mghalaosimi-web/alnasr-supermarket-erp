@@ -11,6 +11,20 @@
 @media(max-width:900px){.app{grid-template-columns:205px minmax(0,1fr)}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content{padding:22px}.welcome img{width:90px;height:90px}}
 @media(max-width:640px){.app{display:block}aside{padding:12px 14px;gap:12px}.brand{padding:0 4px 10px;border:0}.brand img{width:42px;height:42px}.brand strong{font-size:18px}.nav-label,.side-foot{display:none}.nav{display:flex;overflow:auto;gap:5px;padding-bottom:3px}.nav button{white-space:nowrap;padding:9px 11px;font-size:12px}.nav button.active{border-right:0;border-bottom:2px solid var(--gold)}.topbar{height:54px;padding:0 16px}.content{padding:18px 14px}.heading{align-items:flex-start;flex-direction:column}.date{display:none}.welcome{padding:20px;min-height:140px}.welcome h2{font-size:20px}.welcome p{font-size:12px}.welcome img{width:72px;height:72px}.actions{grid-template-columns:1fr;gap:9px;margin:14px 0 22px}.action{padding:12px}.grid{grid-template-columns:1fr 1fr;gap:8px}.module{padding:11px;gap:9px;min-height:75px}.module-icon{width:34px;height:34px;font-size:16px}.module strong{font-size:12px}.module small{font-size:10px;line-height:1.5}.footer{font-size:10px;gap:10px;flex-wrap:wrap}}
 @media(max-width:380px){.grid{grid-template-columns:1fr}.welcome img{width:60px;height:60px}}
+
+/* Page-based navigation */
+.content{touch-action:pan-y}.section,.welcome,.actions{transition:opacity .18s ease,transform .18s ease}
+.section.page-hidden,.welcome.page-hidden,.actions.page-hidden{display:none!important}
+.heading .page-back{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:9px;padding:9px 13px;font:inherit;cursor:pointer}
+.detail-view{background:#fff;border:1px solid var(--line);border-radius:15px;min-height:390px;padding:26px;box-shadow:var(--shadow);animation:pageIn .22s ease}
+.detail-view[hidden]{display:none}
+.detail-top{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.detail-symbol{width:54px;height:54px;border-radius:13px;background:#f5efe3;color:var(--burgundy);display:grid;place-items:center;font-size:25px}
+.detail-view h2{margin:0 0 7px;font-size:22px}.detail-view p{color:var(--muted);line-height:1.9;font-size:14px}
+.detail-hint{margin-top:25px;padding:14px;border-radius:10px;background:#fff5dd;color:#694b14;font-size:12px;line-height:1.8}
+@keyframes pageIn{from{opacity:.55;transform:translateX(12px)}to{opacity:1;transform:none}}
+@media(max-width:640px){.detail-view{padding:19px;min-height:340px}.detail-view h2{font-size:19px}}
+
 </style>
 </head>
 <body>
@@ -25,7 +39,7 @@
 </aside>
 <main>
  <header class="topbar"><div class="crumb">النصر / <b>لوحة التحكم</b></div><div class="user"><span>معاينة النظام</span><span class="avatar">ن</span></div></header>
- <div class="content">
+ <div class="content" id="pageStage">
   <div class="heading"><div><h1>لوحة التحكم</h1><p>نظرة عامة على أقسام المتجر والوصول السريع إلى وظائف النظام</p></div><div class="date">وضع العرض التجريبي</div></div>
   <section class="welcome"><div><h2>مرحباً بك في النصر</h2><p>كل أعمال متجرك في مكان واحد، من نقطة البيع إلى المخزون والحسابات.<br>واجهة عربية موحدة بتصميم واضح وسهل الاستخدام.</p></div><img src="assets/alnasr-mark.svg" alt="رمز النصر"></section>
   <section class="actions">
@@ -33,36 +47,91 @@
    <button class="action" data-demo><span class="action-icon">▦</span><span><strong>إضافة منتج</strong><small>تسجيل صنف جديد</small></span></button>
    <button class="action" data-demo><span class="action-icon">▤</span><span><strong>فاتورة شراء</strong><small>تسجيل مشتريات المتجر</small></span></button>
   </section>
-  <section class="section" id="pos"><div class="section-head"><div><h3>نقطة البيع</h3><p>ابدأ عملية البيع وإدارة وردية الصندوق</p></div></div><div class="grid">
+  <section class="section" id="pos" data-page="pos"><div class="section-head"><div><h3>نقطة البيع</h3><p>ابدأ عملية البيع وإدارة وردية الصندوق</p></div></div><div class="grid">
    <button class="module" data-demo><span class="module-icon">🛒</span><span><strong>فتح نقطة البيع</strong><small>شاشة الكاشير</small></span><span class="arrow">←</span></button>
    <button class="module" data-demo><span class="module-icon">▤</span><span><strong>فواتير المبيعات</strong><small>عرض ومتابعة الفواتير</small></span><span class="arrow">←</span></button>
    <button class="module" data-demo><span class="module-icon">◷</span><span><strong>ورديات نقاط البيع</strong><small>الفتح والإغلاق والمراجعة</small></span><span class="arrow">←</span></button>
   </div></section>
-  <section class="section" id="store"><div class="section-head"><div><h3>إدارة المتجر</h3><p>المنتجات والمخزون والمشتريات والعملاء</p></div></div><div class="grid">
+  <section class="section" id="store" data-page="store"><div class="section-head"><div><h3>إدارة المتجر</h3><p>المنتجات والمخزون والمشتريات والعملاء</p></div></div><div class="grid">
    <button class="module" data-demo><span class="module-icon">▦</span><span><strong>المنتجات</strong><small>الأصناف والباركود والأسعار</small></span><span class="arrow">←</span></button>
    <button class="module" data-demo><span class="module-icon">▤</span><span><strong>المخزون</strong><small>الأرصدة وحركات المخزون</small></span><span class="arrow">←</span></button>
    <button class="module" data-demo><span class="module-icon">▣</span><span><strong>المشتريات</strong><small>طلبات وفواتير الشراء</small></span><span class="arrow">←</span></button>
    <button class="module" data-demo><span class="module-icon">♙</span><span><strong>العملاء</strong><small>ملفات العملاء وأرصدتهم</small></span><span class="arrow">←</span></button>
    <button class="module" data-demo><span class="module-icon">▱</span><span><strong>الموردون</strong><small>ملفات الموردين</small></span><span class="arrow">←</span></button>
   </div></section>
-  <section class="section" id="finance"><div class="section-head"><div><h3>المالية والتقارير</h3><p>الحسابات والمدفوعات ومراجعة الأداء</p></div></div><div class="grid">
+  <section class="section" id="finance" data-page="finance"><div class="section-head"><div><h3>المالية والتقارير</h3><p>الحسابات والمدفوعات ومراجعة الأداء</p></div></div><div class="grid">
    <button class="module" data-demo><span class="module-icon">＄</span><span><strong>المدفوعات</strong><small>سندات القبض والصرف</small></span><span class="arrow">←</span></button>
    <button class="module" data-demo><span class="module-icon">≡</span><span><strong>القيود المحاسبية</strong><small>دفتر الأستاذ والقيود</small></span><span class="arrow">←</span></button>
    <button class="module" data-demo><span class="module-icon">▥</span><span><strong>التقارير</strong><small>تقارير المبيعات والمخزون</small></span><span class="arrow">←</span></button>
   </div></section>
-  <section class="section" id="settings"><div class="section-head"><div><h3>إعدادات النظام</h3><p>تهيئة المتجر وإدارة الوصول</p></div></div><div class="grid">
+  <section class="section" id="settings" data-page="settings"><div class="section-head"><div><h3>إعدادات النظام</h3><p>تهيئة المتجر وإدارة الوصول</p></div></div><div class="grid">
    <button class="module" data-demo><span class="module-icon">⚙</span><span><strong>ملف نقطة البيع</strong><small>إعدادات البيع وطرق الدفع</small></span><span class="arrow">←</span></button>
    <button class="module" data-demo><span class="module-icon">♙</span><span><strong>المستخدمون</strong><small>الحسابات والأدوار والصلاحيات</small></span><span class="arrow">←</span></button>
   </div></section>
+  <section class="detail-view" id="detailView" hidden aria-live="polite"></section>
   <footer class="footer"><span>النصر | AL-NASR</span><span>نظام واحد لإدارة أعمال متجرك</span><span>واجهة تجريبية غير متصلة بالخادم</span></footer>
  </div>
 </main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite">هذه معاينة بصرية فقط. ربط الوظائف بالخادم لم يُفعّل في هذه النسخة.</div>
 <script>
-const toast=document.getElementById('toast');let timer;
-document.querySelectorAll('[data-demo]').forEach(el=>el.addEventListener('click',()=>{toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),3200)}));
-document.querySelectorAll('[data-section]').forEach(el=>el.addEventListener('click',()=>{document.querySelectorAll('[data-section]').forEach(x=>x.classList.remove('active'));el.classList.add('active');const id=el.dataset.section;if(id==='home'){window.scrollTo({top:0,behavior:'smooth'});return}document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'})}));
+(()=>{
+ const nav=[...document.querySelectorAll('[data-section]')];
+ const sections=[...document.querySelectorAll('.section[data-page]')];
+ const welcome=document.querySelector('.welcome'),actions=document.querySelector('.actions');
+ const heading=document.querySelector('.heading'),headingTitle=heading.querySelector('h1'),headingDesc=heading.querySelector('p');
+ const detail=document.getElementById('detailView'),stage=document.getElementById('pageStage');
+ const pages=[
+  {id:'home',title:'لوحة التحكم',desc:'نظرة عامة على أقسام المتجر والوصول السريع إلى وظائف النظام'},
+  {id:'pos',title:'نقطة البيع',desc:'عمليات البيع والفواتير وإدارة ورديات الصندوق'},
+  {id:'store',title:'إدارة المتجر',desc:'المنتجات والمخزون والمشتريات والعملاء والموردون'},
+  {id:'finance',title:'المالية والتقارير',desc:'المدفوعات والقيود المحاسبية ومؤشرات الأداء'},
+  {id:'settings',title:'الإعدادات',desc:'تهيئة النظام وإدارة المستخدمين والصلاحيات'}
+ ];
+ let current='home',detailOpen=false,startX=0,startY=0;
+ function setPage(id,push=true){
+  const page=pages.find(x=>x.id===id);if(!page)return;
+  current=id;detailOpen=false;detail.hidden=true;
+  welcome.classList.toggle('page-hidden',id!=='home');
+  actions.classList.toggle('page-hidden',id!=='home');
+  sections.forEach(s=>s.classList.toggle('page-hidden',s.dataset.page!==id));
+  headingTitle.textContent=page.title;headingDesc.textContent=page.desc;
+  heading.querySelector('.page-back')?.remove();
+  nav.forEach(n=>n.classList.toggle('active',n.dataset.section===id));
+  if(push)history.pushState({page:id},'', '#'+id);
+  stage.scrollIntoView({behavior:'smooth',block:'start'});
+ }
+ function openDetail(button){
+  const title=button.querySelector('strong')?.textContent||'تفاصيل القسم';
+  const desc=button.querySelector('small')?.textContent||'';
+  const symbol=button.querySelector('.module-icon,.action-icon')?.textContent||'';
+  detail.innerHTML='<div class="detail-top"><span class="detail-symbol">'+symbol+'</span><div><h2>'+title+'</h2><p>'+desc+'</p></div></div><p>هذه صفحة مستقلة مخصصة لقسم <strong>'+title+'</strong>. عند اكتمال ربط النظام التشغيلي ستظهر هنا أدوات هذا القسم وجداوله ونماذج العمل الخاصة به.</p><div class="detail-hint">أنت الآن داخل صفحة فرعية. استخدم زر الرجوع أو اسحب الشاشة للعودة إلى صفحة القسم. هذه المعاينة لا تنفذ عمليات فعلية ولا تتصل بقاعدة البيانات.</div>';
+  detail.hidden=false;detailOpen=true;
+  welcome.classList.add('page-hidden');actions.classList.add('page-hidden');sections.forEach(s=>s.classList.add('page-hidden'));
+  headingTitle.textContent=title;headingDesc.textContent=desc;
+  if(!heading.querySelector('.page-back')){
+   const back=document.createElement('button');back.className='page-back';back.textContent='← رجوع';back.onclick=goBack;heading.append(back);
+  }
+  history.pushState({page:current,detail:true},'','#'+current+'/'+encodeURIComponent(title));
+  stage.scrollIntoView({behavior:'smooth',block:'start'});
+ }
+ function goBack(){if(detailOpen){detailOpen=false;detail.hidden=true;setPage(current,false);history.replaceState({page:current},'','#'+current)}else setPage('home')}
+ nav.forEach(n=>n.addEventListener('click',()=>setPage(n.dataset.section)));
+ document.querySelectorAll('[data-demo],.module').forEach(b=>b.addEventListener('click',()=>openDetail(b)));
+ window.addEventListener('popstate',e=>{if(e.state?.detail){openDetailFromHistory();return}setPage(e.state?.page||'home',false)});
+ function openDetailFromHistory(){if(detailOpen)return;goBack()}
+ stage.addEventListener('touchstart',e=>{startX=e.changedTouches[0].clientX;startY=e.changedTouches[0].clientY},{passive:true});
+ stage.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-startX,dy=e.changedTouches[0].clientY-startY;
+  if(Math.abs(dx)<75||Math.abs(dx)<Math.abs(dy)*1.25)return;
+  if(detailOpen){goBack();return}
+  const idx=pages.findIndex(p=>p.id===current);
+  const next=idx+(dx<0?1:-1);if(next>=0&&next<pages.length)setPage(pages[next].id);
+ },{passive:true});
+ const toast=document.getElementById('toast');
+ document.querySelector('.footer').insertAdjacentText('beforeend',' · تنقل باللمس والسحب');
+ setPage('home',false);
+})();
 </script>
 </body>
 </html>
