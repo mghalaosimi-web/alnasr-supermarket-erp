@@ -1,5 +1,6 @@
 """Source contracts for the AL-NASR unified Desk landing page."""
 from pathlib import Path
+import json
 import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -16,6 +17,14 @@ class DashboardShellTests(unittest.TestCase):
         for route in ("/xpos/pos", '"Sales Invoice"', '"Item"', '"Purchase Invoice"', '"Stock Entry"', '"Customer"', '"Supplier"', '"Payment Entry"'):
             with self.subTest(route=route):
                 self.assertIn(route, source)
+
+    def test_workspace_fixture_exposes_the_unified_product_entry(self):
+        workspace_path = APP / "workspace" / "al_nasr" / "al_nasr.json"
+        workspace = json.loads(workspace_path.read_text(encoding="utf-8"))
+        self.assertEqual(workspace["name"], "AL-NASR")
+        self.assertEqual(workspace["module"], "AL-NASR")
+        self.assertTrue(any(item.get("url") == "/app/alnasr" for item in workspace["shortcuts"]))
+        self.assertTrue(any(item.get("url") == "/xpos/pos" for item in workspace["shortcuts"]))
 
     def test_dashboard_has_responsive_brand_styles(self):
         css = (APP / "public" / "css" / "alnasr.css").read_text(encoding="utf-8")
