@@ -87,7 +87,7 @@ Docker Desktop is not the same thing as the open-source Docker Engine. Docker's 
 
 ## Current status
 
-This ADR records the selected engineering direction; it does **not** mean WSL hosting, a self-contained rootfs, Windows feature bootstrap, or clean-machine offline installation have been implemented. The existing Docker Desktop-based preview remains unchanged until the WSL host passes its own CI and physical-machine acceptance gates.
+A first WSL rootfs build prototype now exists under `deploy/wsl/`, with `scripts/build-wsl-rootfs.sh` and a dedicated CI workflow. This only builds and inspects a Linux root filesystem; it does **not** yet import or boot that rootfs under WSL2, provision Windows features, install the WSL package, run Docker Engine as a WSL service, replace the current Docker Desktop-based lifecycle script, or prove clean-machine offline installation. The current Windows preview remains unchanged until the WSL host passes its own CI and physical-machine acceptance gates.
 
 ## References
 
