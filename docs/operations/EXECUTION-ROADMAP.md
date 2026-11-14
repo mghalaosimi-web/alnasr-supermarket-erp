@@ -153,3 +153,14 @@ Do not merge this foundation PR or deploy the system solely because GitHub repor
 - Non-blocking toolchain notices included Node.js 20 deprecation notices from older GitHub Actions versions, the Node `punycode` deprecation, Vite/Yarn peer-dependency notices, and MariaDB's `io_uring` fallback to `libaio`. These did not fail the run and should be reviewed during dependency maintenance.
 - This evidence is limited to disposable Linux CI. It does not establish browser-based visual acceptance, Windows installation, Android APK operation, LAN/device behavior, real printer/scanner compatibility, offline recovery, production configuration, or business-owner UAT.
 - PR #1 and PR #2 remain open Draft pull requests; no merge, production deployment, or production migration was performed.
+
+## Latest verified runtime acceptance — 2026-11-14 (expanded rerun)
+
+- Runtime workflow [#43612318630](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43612318630) completed successfully. Job `frappe-v16-install` completed all 17 substantive steps, including clean Bench initialization, pinned upstream checkout verification, X POS asset builds, disposable MariaDB site creation, isolated ERPNext Sales Invoice baseline, installation of ERPNext/X POS/AL-NASR, runtime contract tests, installed-app verification, and HTTP health.
+- App validation workflow [#43612318635](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43612318635) also completed successfully.
+- Runtime logs confirm **1,268 passing tests**: ERPNext upstream suites 779; X POS frontend 449 across 24 files; AL-NASR POS integration 4; AL-NASR runtime contracts 10; X POS invoice retry 1; X POS shift tests 25.
+- The ERPNext 779-test breakdown: Sales Invoice 163, Purchase Receipt 160, Purchase Invoice 111, Delivery Note 122, Stock Entry 148, Payment Entry 75.
+- The health endpoint returned `{"message":"pong"}`. All test data and MariaDB state were disposable CI resources.
+- Non-blocking warnings include MariaDB `io_uring` fallback to `libaio`; prior frontend resilience tests also intentionally exercise local recovery-queue cleanup failure. These warnings do not change the successful conclusion, but they must remain visible in acceptance records.
+- This run does not prove browser visual acceptance, Windows server installation/EXE, Android APK, LAN/TLS/session behavior, real printer/scanner support, offline recovery, backup/restore, or production readiness.
+- No production deployment, production migration, PR merge, or paid resource creation was performed.
