@@ -51,6 +51,8 @@ Name: "{autoprograms}\AL-NASR ERP\Start server"; Filename: "{sys}\WindowsPowerSh
 Name: "{autoprograms}\AL-NASR ERP\Stop server"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\deploy\windows\alnasr.ps1"" -Action stop"; WorkingDir: "{app}"
 Name: "{autoprograms}\AL-NASR ERP\Backup"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\deploy\windows\alnasr.ps1"" -Action backup"; WorkingDir: "{app}"
 
+Name: "{autoprograms}\AL-NASR ERP\Restore"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\deploy\windows\alnasr.ps1"" -Action restore"; WorkingDir: "{app}"
+
 [Run]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\deploy\windows\alnasr.ps1"" -Action prepare"; Description: "Prepare private local configuration (Docker Desktop is still required)"; Flags: postinstall runhidden
 
