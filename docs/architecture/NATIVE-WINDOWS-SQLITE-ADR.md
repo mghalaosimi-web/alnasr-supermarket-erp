@@ -69,7 +69,7 @@ The Windows application is the single source of truth. LAN access is explicitly 
 - Use append-only stock movements, payment events and accounting journal entries; correct mistakes with reversal/adjustment records, not silent mutation of history.
 - Use stable UUID/ULID identifiers for records that may be created on Android while temporarily disconnected.
 - Create backups using SQLite's online backup mechanism or a consistent checkpoint-and-copy procedure. Verify every backup by opening it and running PRAGMA integrity_check.
-- Keep database files, backups and logs outside the installation directory so upgrades and uninstall do not erase owner data.
+- Keep database files, backups and logs outside the installation directory in the current Windows user's application-data directory so upgrades and uninstall do not erase owner data.
 - Apply Windows ACLs to the data directory. Do not claim database-at-rest encryption unless a separately reviewed, tested encryption implementation is included.
 
 SQLite is suitable for the initial single-PC host and a modest number of LAN clients when writes are serialized. It is not a multi-writer distributed database. Load testing must establish practical client and transaction limits before release.
