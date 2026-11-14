@@ -32,7 +32,7 @@ The SQLite database is created under Electron's per-user application data direct
 
 The database is stored outside the installation directory. The NSIS configuration is set not to delete application data during uninstall.
 
-Back up the database file before reinstalling Windows or moving the system to another computer. A built-in backup/restore screen is not implemented yet.
+A built-in backup/restore screen is not implemented yet. Until it exists, close AL-NASR cleanly before copying the database file; do not copy the SQLite file while the application is running because WAL may contain uncheckpointed data. Back up before reinstalling Windows or moving the system to another computer.
 
 ## Important limitations
 
