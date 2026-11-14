@@ -1,0 +1,12 @@
+.git
+**/.git
+.github/
+docs/
+preview/
+scripts/
+apps/frappe/
+apps/erpnext/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
