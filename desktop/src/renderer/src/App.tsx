@@ -10,6 +10,8 @@ type SaleResult = { id: string; saleNumber: string; totalMinor: number; status: 
 type StockMovementRow = { id: string; sku: string; productName: string; warehouseName: string; movementType: string; quantityDelta: number; unitCostMinor: number; occurredAt: string };
 type SupplierRow = { id: string; code: string; name: string; phone: string | null; isActive: number };
 type CustomerRow = { id: string; code: string; name: string; phone: string | null; creditLimitMinor: number; isActive: number };
+type PurchaseRow = { id: string; documentNumber: string; supplierId: string; supplierName: string; subtotalMinor: number; paidMinor: number; outstandingMinor: number; occurredAt: string; lineCount: number };
+type PurchaseInput = { supplierId: string; documentNumber?: string; lines: Array<{ productId: string; quantity: number; unitCostMinor: number }>; paidMinor?: number; paymentMethod?: "cash" | "card" | "transfer" };
 type SaleInput = { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string; customerId?: string };
 
 declare global {
@@ -30,6 +32,8 @@ declare global {
       createCustomer: (input: { code: string; name: string; phone?: string; creditLimitMinor?: number }) => Promise<CustomerRow>;
       listSuppliers: () => Promise<SupplierRow[]>;
       createSupplier: (input: { code: string; name: string; phone?: string }) => Promise<SupplierRow>;
+      listPurchases: () => Promise<PurchaseRow[]>;
+      createPurchase: (input: PurchaseInput) => Promise<PurchaseRow>;
       createBackup: () => Promise<{ canceled: boolean; filePath?: string }>;
       listStockMovements: () => Promise<StockMovementRow[]>;
       receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => Promise<{ movementId: string; quantityOnHand: number }>;
@@ -42,7 +46,7 @@ export function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [ownerSetupRequired, setOwnerSetupRequired] = useState<boolean | null>(null);
   const [user, setUser] = useState<PublicUser | null>(null);
-  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products" | "inventory" | "backup" | "suppliers" | "customers">("dashboard");
+  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products" | "inventory" | "backup" | "suppliers" | "customers" | "purchases">("dashboard");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -88,6 +92,15 @@ export function App() {
   const [customerCreditLimit, setCustomerCreditLimit] = useState("0");
   const [customerBusy, setCustomerBusy] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
+  const [purchaseSupplierId, setPurchaseSupplierId] = useState("");
+  const [purchaseProductId, setPurchaseProductId] = useState("");
+  const [purchaseQuantity, setPurchaseQuantity] = useState("1");
+  const [purchaseUnitCost, setPurchaseUnitCost] = useState("0");
+  const [purchasePaid, setPurchasePaid] = useState("0");
+  const [purchasePaymentMethod, setPurchasePaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
+  const [purchaseDocumentNumber, setPurchaseDocumentNumber] = useState("");
+  const [purchaseBusy, setPurchaseBusy] = useState(false);
 
   useEffect(() => {
     Promise.all([window.alnasr.health(), window.alnasr.setupStatus()])
@@ -113,7 +126,10 @@ export function App() {
       setProducts(loadedProducts);
       setStockProductId(loadedProducts[0]?.id ?? "");
       setStockMovements(await window.alnasr.listStockMovements());
-      setSuppliers(await window.alnasr.listSuppliers());
+      const loadedSuppliers = await window.alnasr.listSuppliers();
+      setSuppliers(loadedSuppliers);
+      setPurchaseSupplierId(loadedSuppliers[0]?.id ?? "");
+      setPurchases(await window.alnasr.listPurchases());
       const loadedCustomers = await window.alnasr.listCustomers();
       setCustomers(loadedCustomers);
       setShift(await window.alnasr.currentShift());
@@ -344,6 +360,41 @@ export function App() {
     }
   }
 
+  async function submitPurchase(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPurchaseBusy(true);
+    setError(null);
+    try {
+      const paidMinor = Math.round(Number(purchasePaid) * 100);
+      const purchase = await window.alnasr.createPurchase({
+        supplierId: purchaseSupplierId,
+        documentNumber: purchaseDocumentNumber.trim() || undefined,
+        lines: [{
+          productId: purchaseProductId,
+          quantity: Number(purchaseQuantity),
+          unitCostMinor: Math.round(Number(purchaseUnitCost) * 100)
+        }],
+        paidMinor,
+        paymentMethod: paidMinor > 0 ? purchasePaymentMethod : undefined
+      });
+      setPurchases(await window.alnasr.listPurchases());
+      setProducts(await window.alnasr.listProducts());
+      setStockMovements(await window.alnasr.listStockMovements());
+      setPurchaseDocumentNumber("");
+      setPurchaseQuantity("1");
+      setPurchasePaid("0");
+      setBackupMessage(null);
+      setError(null);
+      setLastSale(null);
+      setPurchaseUnitCost(String((products.find((item) => item.id === purchaseProductId)?.costMinor ?? 0) / 100));
+      setBackupMessage("تم ترحيل مستند الشراء " + purchase.documentNumber + " · المتبقي للمورد: " + (purchase.outstandingMinor / 100).toFixed(2));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر ترحيل مستند الشراء");
+    } finally {
+      setPurchaseBusy(false);
+    }
+  }
+
   async function createDatabaseBackup() {
     setBackupBusy(true);
     setBackupMessage(null);
@@ -373,6 +424,7 @@ export function App() {
           <button type="button" className={activePage === "inventory" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("inventory")}>المخزون</button>
           <button type="button" className={activePage === "backup" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("backup")}>النسخ الاحتياطي</button>
           <button type="button" className={activePage === "suppliers" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("suppliers")}>الموردون</button>
+          <button type="button" className={activePage === "purchases" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("purchases")}>المشتريات</button>
           <button type="button" className={activePage === "customers" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("customers")}>العملاء</button>
         </nav>}
         <div className="topbar-spacer" />
@@ -556,6 +608,47 @@ export function App() {
             {backupMessage && <p className="backup-success">{backupMessage}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
             <small className="form-hint">احفظ النسخة في قرص خارجي أو مكان آمن منفصل عن جهاز التشغيل. استعادة النسخ الاحتياطية لم تُضف بعد.</small>
+          </section>}
+
+          {activePage === "purchases" && <section className="supplier-workspace">
+            <div className="product-heading">
+              <div><span className="eyebrow">التوريد والمخزون</span><h2>فواتير المشتريات</h2></div>
+              <span className="product-count">{purchases.length} مستند</span>
+            </div>
+            <form className="supplier-form" onSubmit={submitPurchase}>
+              <label>المورد
+                <select value={purchaseSupplierId} onChange={(event) => setPurchaseSupplierId(event.target.value)} required>
+                  <option value="">اختر المورد</option>
+                  {suppliers.filter((supplier) => supplier.isActive).map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name} · {supplier.code}</option>)}
+                </select>
+              </label>
+              <label>رقم فاتورة المورد (اختياري)<input value={purchaseDocumentNumber} onChange={(event) => setPurchaseDocumentNumber(event.target.value)} maxLength={64} placeholder="PUR-INV-001" /></label>
+              <label>الصنف
+                <select value={purchaseProductId} onChange={(event) => setPurchaseProductId(event.target.value)} required>
+                  <option value="">اختر الصنف</option>
+                  {products.filter((product) => product.isActive).map((product) => <option key={product.id} value={product.id}>{product.nameAr} · {product.sku}</option>)}
+                </select>
+              </label>
+              <label>الكمية<input type="number" min="1" step="1" value={purchaseQuantity} onChange={(event) => setPurchaseQuantity(event.target.value)} required /></label>
+              <label>تكلفة الوحدة<input type="number" min="0" step="0.01" value={purchaseUnitCost} onChange={(event) => setPurchaseUnitCost(event.target.value)} required /></label>
+              <label>المدفوع الآن<input type="number" min="0" step="0.01" value={purchasePaid} onChange={(event) => setPurchasePaid(event.target.value)} required /></label>
+              <label>طريقة الدفع
+                <select value={purchasePaymentMethod} onChange={(event) => setPurchasePaymentMethod(event.target.value as "cash" | "card" | "transfer")}>
+                  <option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option>
+                </select>
+              </label>
+              <button type="submit" disabled={purchaseBusy || !purchaseSupplierId || !purchaseProductId}>{purchaseBusy ? "جارٍ ترحيل المستند..." : "ترحيل فاتورة الشراء"}</button>
+            </form>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            {backupMessage && <p className="sale-success">{backupMessage}</p>}
+            <div className="product-list">
+              {purchases.length === 0 ? <p className="empty-products">لا توجد فواتير شراء مسجلة بعد.</p> : purchases.map((purchase) => (
+                <article className="product-row" key={purchase.id}>
+                  <div><strong>{purchase.documentNumber} · {purchase.supplierName}</strong><small>{purchase.lineCount} صنف · {new Date(purchase.occurredAt).toLocaleString("ar")}</small></div>
+                  <div className="product-metrics"><small>المدفوع {(purchase.paidMinor / 100).toFixed(2)} · المتبقي {(purchase.outstandingMinor / 100).toFixed(2)}</small><strong>{(purchase.subtotalMinor / 100).toFixed(2)}</strong></div>
+                </article>
+              ))}
+            </div>
           </section>}
 
           {activePage === "suppliers" && <section className="supplier-workspace">
