@@ -38,7 +38,7 @@ The SQLite database is created under Electron's per-user application data direct
 
 The database is stored outside the installation directory. The NSIS configuration is set not to delete application data during uninstall.
 
-Use the **النسخ الاحتياطي** page in AL-NASR to create a consistent SQLite backup while the application is running. Store the resulting file on an external drive or another safe location. A built-in restore workflow is not implemented yet; do not overwrite the live database manually while AL-NASR is running.
+Use the **النسخ الاحتياطي** page to create a consistent SQLite backup or restore a selected backup. Before restoring, the application validates the SQLite integrity, foreign-key consistency and schema version, upgrades compatible older backups, creates an automatic safety backup of the live database, and requires a fresh login after restoration. Keep both the selected backup and the automatic safety copy in a safe location.
 
 ## Important limitations
 
@@ -52,7 +52,7 @@ Not yet included:
 - Printable receipts and receipt-printer integration.
 - Full accounting, financial reports and period closing.
 - Android client and authenticated LAN pairing.
-- Database restore workflow and business acceptance testing.
+- Business acceptance testing on a clean Windows device.
 
 The current sales implementation supports whole-number quantities, one payment method per payment event, partial upfront collection and subsequent receivable settlement. It enforces customer credit limits, checks stock availability and posts sale, payment, stock movement and audit records in one SQLite transaction. It does not yet implement all supermarket pricing, weighing or accounting rules.
 
