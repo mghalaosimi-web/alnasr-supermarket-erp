@@ -6,6 +6,7 @@ export type CreateSaleInput = {
   lines: SaleLineInput[];
   paymentMethod: "cash" | "card" | "transfer";
   idempotencyKey: string;
+  customerId?: string;
   actorUserId: string;
 };
 export type SaleResult = {
@@ -95,6 +96,12 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
       return { ...existing, lines };
     }
 
+    const customerId = input.customerId ?? null;
+    if (customerId) {
+      const customer = db.prepare("SELECT id FROM customers WHERE id = ? AND is_active = 1").get(customerId);
+      if (!customer) throw new Error("العميل المحدد غير موجود أو غير نشط");
+    }
+
     const shift = db.prepare("SELECT id FROM cashier_shifts WHERE cashier_user_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1")
       .get(input.actorUserId) as { id: string } | undefined;
     if (!shift) throw new Error("افتح وردية الصندوق قبل تسجيل المبيعات");
@@ -120,8 +127,8 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
     const dateStamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
     const saleNumber = "NSR-" + dateStamp + "-" + saleId.slice(0, 6).toUpperCase();
 
-    db.prepare("INSERT INTO sales (id, sale_number, cashier_shift_id, status, subtotal_minor, discount_minor, tax_minor, total_minor, idempotency_key, created_by) VALUES (?, ?, ?, 'posted', ?, 0, 0, ?, ?, ?)")
-      .run(saleId, saleNumber, shift.id, totalMinor, totalMinor, input.idempotencyKey, input.actorUserId);
+    db.prepare("INSERT INTO sales (id, sale_number, customer_id, cashier_shift_id, status, subtotal_minor, discount_minor, tax_minor, total_minor, idempotency_key, created_by) VALUES (?, ?, ?, ?, 'posted', ?, 0, 0, ?, ?, ?)")
+      .run(saleId, saleNumber, customerId, shift.id, totalMinor, totalMinor, input.idempotencyKey, input.actorUserId);
 
     for (const line of preparedLines) {
       db.prepare("INSERT INTO sale_lines (id, sale_id, product_id, quantity, unit_price_minor, discount_minor, line_total_minor) VALUES (?, ?, ?, ?, ?, 0, ?)")
