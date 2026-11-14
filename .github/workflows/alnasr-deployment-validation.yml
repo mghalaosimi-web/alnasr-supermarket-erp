@@ -106,6 +106,23 @@ jobs:
           curl --insecure --fail --silent --show-error --resolve alnasr.local:443:127.0.0.1 https://alnasr.local/api/method/ping
           "${COMPOSE[@]}" cp caddy:/data/caddy/pki/authorities/local/root.crt "$RUNNER_TEMP/alnasr-root.crt"
           curl --fail --silent --show-error --cacert "$RUNNER_TEMP/alnasr-root.crt" --resolve alnasr.local:443:127.0.0.1 https://alnasr.local/api/method/ping
+      - name: Export complete runtime images for offline installation
+        run: |
+          mkdir -p dist/offline
+          docker pull mariadb:11.8
+          docker pull redis:8.6-alpine
+          docker pull caddy:2.10-alpine
+          docker image inspect alnasr-local:16 mariadb:11.8 redis:8.6-alpine caddy:2.10-alpine
+          docker save alnasr-local:16 mariadb:11.8 redis:8.6-alpine caddy:2.10-alpine | gzip -1 > dist/offline/alnasr-runtime-images.tar.gz
+          test -s dist/offline/alnasr-runtime-images.tar.gz
+          sha256sum dist/offline/alnasr-runtime-images.tar.gz > dist/offline/SHA256SUMS.txt
+      - name: Upload offline runtime image bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: AL-NASR-Offline-Runtime-Images
+          path: dist/offline/*
+          if-no-files-found: error
+          retention-days: 30
       - name: Stop disposable local stack and remove CI volumes
         if: always()
         run: docker compose --project-name alnasr-ci --env-file deploy/.env -f deploy/compose.yaml down --volumes --remove-orphans || true
@@ -116,12 +133,25 @@ jobs:
 
 
   windows-installer-build:
+    needs: container-image-build
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Download prebuilt offline runtime images
+        uses: actions/download-artifact@v4
+        with:
+          name: AL-NASR-Offline-Runtime-Images
+          path: dist/offline
+      - name: Verify offline image bundle
+        shell: pwsh
+        run: |
+          $archive = "dist/offline/alnasr-runtime-images.tar.gz"
+          if (-not (Test-Path $archive)) { throw "Offline runtime image archive is missing." }
+          if ((Get-Item $archive).Length -lt 100MB) { throw "Offline runtime image archive is unexpectedly small." }
+          Get-Content "dist/offline/SHA256SUMS.txt"
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
       - name: Compile AL-NASR Windows installer
