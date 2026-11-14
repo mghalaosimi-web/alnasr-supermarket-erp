@@ -245,3 +245,26 @@ describe("AL-NASR inventory receiving and stock counts", () => {
     expect(listProducts(db)[0].stockOnHand).toBe(2);
   });
 });
+
+
+describe("AL-NASR database backup", () => {
+  it("creates a consistent SQLite backup that can be reopened", async () => {
+    const { mkdtempSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const directory = mkdtempSync(join(tmpdir(), "alnasr-backup-"));
+    const backupPath = join(directory, "backup.sqlite");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    db.prepare("INSERT INTO units (id, code, name_ar) VALUES ('backup-unit','PCS','قطعة')").run();
+    try {
+      await db.backup(backupPath);
+      const restored = new Database(backupPath);
+      expect(restored.prepare("SELECT code, name_ar FROM units WHERE id='backup-unit'").get()).toEqual({ code: "PCS", name_ar: "قطعة" });
+      expect(restored.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+      restored.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
