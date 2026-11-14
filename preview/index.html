@@ -25,6 +25,22 @@
 @keyframes pageIn{from{opacity:.55;transform:translateX(12px)}to{opacity:1;transform:none}}
 @media(max-width:640px){.detail-view{padding:19px;min-height:340px}.detail-view h2{font-size:19px}}
 
+
+.detail-view{display:block}.detail-view[hidden]{display:none}
+.page-tools{display:flex;gap:9px;flex-wrap:wrap;margin:18px 0}
+.page-tools button,.page-tools a,.demo-form button{border:1px solid var(--line);background:#fff;color:var(--navy);padding:10px 14px;border-radius:9px;font:inherit;cursor:pointer;text-decoration:none}
+.page-tools .primary,.demo-form .primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.demo-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+.demo-stat,.demo-panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:15px}
+.demo-stat small{display:block;color:var(--muted);font-size:11px}.demo-stat strong{display:block;font-size:21px;margin-top:8px}
+.demo-panel{margin:15px 0;overflow:auto}.demo-panel h3{margin:0 0 13px;font-size:15px}
+.demo-table{width:100%;border-collapse:collapse;white-space:nowrap;font-size:12px}.demo-table th,.demo-table td{padding:12px;text-align:right;border-bottom:1px solid var(--line)}.demo-table th{background:#f7f8fa;color:#526273}
+.demo-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.demo-form label{display:grid;gap:7px;font-size:12px;color:var(--muted)}.demo-form input,.demo-form select{border:1px solid var(--line);border-radius:8px;padding:11px;font:inherit;color:var(--navy);background:white;min-width:0}
+.demo-notice{background:#fff5dd;color:#694b14;border-radius:9px;padding:12px;font-size:12px;line-height:1.8;margin:14px 0}
+.demo-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.demo-list button{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;text-align:right;font:inherit;cursor:pointer}
+.detail-top{display:flex;align-items:center;gap:12px}.detail-top p{margin:0}
+@media(max-width:640px){.demo-stats{grid-template-columns:1fr 1fr}.demo-form,.demo-list{grid-template-columns:1fr}.demo-stat strong{font-size:18px}}
+
 </style>
 </head>
 <body>
@@ -77,58 +93,126 @@
 <script>
 (()=>{
  const nav=[...document.querySelectorAll('[data-section]')];
- const sections=[...document.querySelectorAll('.section[data-page]')];
  const welcome=document.querySelector('.welcome'),actions=document.querySelector('.actions');
  const heading=document.querySelector('.heading'),headingTitle=heading.querySelector('h1'),headingDesc=heading.querySelector('p');
  const detail=document.getElementById('detailView'),stage=document.getElementById('pageStage');
- const pages=[
-  {id:'home',title:'لوحة التحكم',desc:'نظرة عامة على أقسام المتجر والوصول السريع إلى وظائف النظام'},
-  {id:'pos',title:'نقطة البيع',desc:'عمليات البيع والفواتير وإدارة ورديات الصندوق'},
-  {id:'store',title:'إدارة المتجر',desc:'المنتجات والمخزون والمشتريات والعملاء والموردون'},
-  {id:'finance',title:'المالية والتقارير',desc:'المدفوعات والقيود المحاسبية ومؤشرات الأداء'},
-  {id:'settings',title:'الإعدادات',desc:'تهيئة النظام وإدارة المستخدمين والصلاحيات'}
- ];
- let current='home',detailOpen=false,startX=0,startY=0;
- function setPage(id,push=true){
-  const page=pages.find(x=>x.id===id);if(!page)return;
-  current=id;detailOpen=false;detail.hidden=true;
-  welcome.classList.toggle('page-hidden',id!=='home');
-  actions.classList.toggle('page-hidden',id!=='home');
-  sections.forEach(s=>s.classList.toggle('page-hidden',s.dataset.page!==id));
-  headingTitle.textContent=page.title;headingDesc.textContent=page.desc;
-  heading.querySelector('.page-back')?.remove();
-  nav.forEach(n=>n.classList.toggle('active',n.dataset.section===id));
-  if(push)history.pushState({page:id},'', '#'+id);
-  stage.scrollIntoView({behavior:'smooth',block:'start'});
- }
- function openDetail(button){
-  const title=button.querySelector('strong')?.textContent||'تفاصيل القسم';
-  const desc=button.querySelector('small')?.textContent||'';
-  const symbol=button.querySelector('.module-icon,.action-icon')?.textContent||'';
-  detail.innerHTML='<div class="detail-top"><span class="detail-symbol">'+symbol+'</span><div><h2>'+title+'</h2><p>'+desc+'</p></div></div><p>هذه صفحة مستقلة مخصصة لقسم <strong>'+title+'</strong>. عند اكتمال ربط النظام التشغيلي ستظهر هنا أدوات هذا القسم وجداوله ونماذج العمل الخاصة به.</p><div class="detail-hint">أنت الآن داخل صفحة فرعية. استخدم زر الرجوع أو اسحب الشاشة للعودة إلى صفحة القسم. هذه المعاينة لا تنفذ عمليات فعلية ولا تتصل بقاعدة البيانات.</div>';
-  detail.hidden=false;detailOpen=true;
-  welcome.classList.add('page-hidden');actions.classList.add('page-hidden');sections.forEach(s=>s.classList.add('page-hidden'));
-  headingTitle.textContent=title;headingDesc.textContent=desc;
-  if(!heading.querySelector('.page-back')){
-   const back=document.createElement('button');back.className='page-back';back.textContent='← رجوع';back.onclick=goBack;heading.append(back);
-  }
-  history.pushState({page:current,detail:true},'','#'+current+'/'+encodeURIComponent(title));
-  stage.scrollIntoView({behavior:'smooth',block:'start'});
- }
- function goBack(){if(detailOpen){detailOpen=false;detail.hidden=true;setPage(current,false);history.replaceState({page:current},'','#'+current)}else setPage('home')}
- nav.forEach(n=>n.addEventListener('click',()=>setPage(n.dataset.section)));
- document.querySelectorAll('[data-demo],.module').forEach(b=>b.addEventListener('click',()=>openDetail(b)));
- window.addEventListener('popstate',e=>{if(e.state?.detail){openDetailFromHistory();return}setPage(e.state?.page||'home',false)});
- function openDetailFromHistory(){if(detailOpen)return;goBack()}
- stage.addEventListener('touchstart',e=>{startX=e.changedTouches[0].clientX;startY=e.changedTouches[0].clientY},{passive:true});
- stage.addEventListener('touchend',e=>{
-  const dx=e.changedTouches[0].clientX-startX,dy=e.changedTouches[0].clientY-startY;
-  if(Math.abs(dx)<75||Math.abs(dx)<Math.abs(dy)*1.25)return;
-  if(detailOpen){goBack();return}
-  const idx=pages.findIndex(p=>p.id===current);
-  const next=idx+(dx<0?1:-1);if(next>=0&&next<pages.length)setPage(pages[next].id);
- },{passive:true});
  const toast=document.getElementById('toast');
+ const groups=[
+  {id:'pos',title:'نقطة البيع',desc:'البيع والفواتير وورديات الصندوق',items:[
+   ['فتح نقطة البيع','شاشة الكاشير','🛒','POS'],
+   ['فواتير المبيعات','عرض ومتابعة الفواتير','▤','Sales Invoice'],
+   ['ورديات نقاط البيع','الفتح والإغلاق والمراجعة','◷','POS Opening Shift']
+  ]},
+  {id:'store',title:'إدارة المتجر',desc:'المنتجات والمخزون والمشتريات والعملاء والموردون',items:[
+   ['المنتجات','الأصناف والباركود والأسعار','▦','Item'],
+   ['المخزون','الأرصدة وحركات المخزون','▤','Stock Entry'],
+   ['المشتريات','طلبات وفواتير الشراء','▣','Purchase Invoice'],
+   ['العملاء','ملفات العملاء وأرصدتهم','♙','Customer'],
+   ['الموردون','ملفات الموردين','▱','Supplier']
+  ]},
+  {id:'finance',title:'المالية والتقارير',desc:'المدفوعات والقيود والتقارير المالية',items:[
+   ['المدفوعات','سندات القبض والصرف','＄','Payment Entry'],
+   ['القيود المحاسبية','دفتر الأستاذ والقيود','≡','Journal Entry'],
+   ['التقارير','تقارير المبيعات والمخزون','▥','Report']
+  ]},
+  {id:'settings',title:'إعدادات النظام',desc:'تهيئة نقطة البيع وإدارة الوصول',items:[
+   ['ملف نقطة البيع','إعدادات البيع وطرق الدفع','⚙','POS Profile'],
+   ['المستخدمون','الحسابات والأدوار والصلاحيات','♙','User']
+  ]}
+ ];
+ const pages=[{id:'home',title:'لوحة التحكم',desc:'نظرة عامة على أقسام المتجر'} ,...groups.map(g=>({id:g.id,title:g.title,desc:g.desc}))];
+ const rows={
+  'Sales Invoice':[['INV-DEMO-001','عميل نقدي','15,500 ر.ي','مدفوعة'],['INV-DEMO-002','عميل تجريبي','8,200 ر.ي','مسودة']],
+  'POS Opening Shift':[['SHIFT-DEMO-01','صندوق رئيسي','الكاشير التجريبي','مفتوحة']],
+  'Item':[['ITEM-DEMO-001','منتج تجريبي A','باركود 000001','نشط'],['ITEM-DEMO-002','منتج تجريبي B','باركود 000002','نشط']],
+  'Stock Entry':[['MOV-DEMO-001','استلام مخزون','المستودع الرئيسي','مسودة'],['MOV-DEMO-002','تحويل مخزون','المستودع الرئيسي','مسودة']],
+  'Purchase Invoice':[['PINV-DEMO-001','مورد تجريبي','25,000 ر.ي','مسودة']],
+  'Customer':[['CUST-DEMO-001','عميل نقدي','0 ر.ي','نشط'],['CUST-DEMO-002','عميل تجريبي','1,200 ر.ي','نشط']],
+  'Supplier':[['SUP-DEMO-001','مورد تجريبي','0 ر.ي','نشط']],
+  'Payment Entry':[['PAY-DEMO-001','سند قبض','5,000 ر.ي','مسودة']],
+  'Journal Entry':[['JV-DEMO-001','قيد افتتاحي تجريبي','متوازن','مسودة']],
+  'Report':[['تقرير المبيعات','ملخص المبيعات','اليوم','معاينة'],['تقرير المخزون','الأرصدة والحركات','هذا الشهر','معاينة']],
+  'POS Profile':[['POS-PROFILE-DEMO','نقطة البيع الرئيسية','المستودع الرئيسي','إعداد تجريبي']],
+  'User':[['demo.cashier','كاشير تجريبي','Cashier','نشط'],['demo.manager','مدير تجريبي','Manager','نشط']]
+ };
+ const configs={
+  'Sales Invoice':['رقم الفاتورة','العميل','الإجمالي','الحالة'],
+  'POS Opening Shift':['رقم الوردية','الصندوق','المستخدم','الحالة'],
+  'Item':['رمز الصنف','اسم الصنف','الباركود','الحالة'],
+  'Stock Entry':['رقم الحركة','نوع الحركة','المستودع','الحالة'],
+  'Purchase Invoice':['رقم الفاتورة','المورد','الإجمالي','الحالة'],
+  'Customer':['رمز العميل','اسم العميل','الرصيد','الحالة'],
+  'Supplier':['رمز المورد','اسم المورد','الرصيد','الحالة'],
+  'Payment Entry':['رقم السند','نوع السند','المبلغ','الحالة'],
+  'Journal Entry':['رقم القيد','الوصف','التوازن','الحالة'],
+  'Report':['التقرير','الوصف','الفترة','الحالة'],
+  'POS Profile':['الملف','الاسم','المستودع','الحالة'],
+  'User':['اسم المستخدم','الاسم','الدور','الحالة']
+ };
+ let current='home',activeDetail=null,startX=0,startY=0;
+ function notify(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(notify.t);notify.t=setTimeout(()=>toast.classList.remove('show'),3000)}
+ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+ function setNav(id){nav.forEach(n=>n.classList.toggle('active',n.dataset.section===id))}
+ function setPage(id,push=true){
+  const p=pages.find(x=>x.id===id);if(!p)return;
+  current=id;activeDetail=null;detail.hidden=true;
+  welcome.classList.toggle('page-hidden',id!=='home');actions.classList.toggle('page-hidden',id!=='home');
+  headingTitle.textContent=p.title;headingDesc.textContent=p.desc;
+  heading.querySelector('.page-back')?.remove();setNav(id);
+  document.querySelectorAll('.section[data-page]').forEach(x=>x.classList.add('page-hidden'));
+  if(id==='home'){
+   document.querySelectorAll('.section[data-page]').forEach(x=>x.classList.remove('page-hidden'));
+  }else{
+   const g=groups.find(x=>x.id===id);renderGroup(g);
+  }
+  if(push)history.pushState({page:id},'','#'+id);
+  stage.scrollIntoView({behavior:'smooth',block:'start'});
+ }
+ function renderGroup(group){
+  activeDetail=null;detail.hidden=false;
+  detail.innerHTML='<div class="detail-top"><span class="detail-symbol">▦</span><div><h2>'+escapeHtml(group.title)+'</h2><p>'+escapeHtml(group.desc)+'</p></div></div><div class="demo-notice">اختر أي وظيفة لفتح صفحتها التفصيلية. البيانات المعروضة تجريبية وليست سجلات متجر حقيقية.</div><div class="demo-list">'+group.items.map((it,i)=>'<button type="button" data-item="'+i+'"><strong>'+it[2]+'　'+escapeHtml(it[0])+'</strong><p>'+escapeHtml(it[1])+'</p></button>').join('')+'</div>';
+  detail.querySelectorAll('[data-item]').forEach(b=>b.addEventListener('click',()=>openModule(group.items[Number(b.dataset.item)])));
+ }
+ function tableFor(item){
+  const data=rows[item[3]]||[['DEMO-001','سجل تجريبي','قيمة تجريبية','معاينة']];
+  const headers=configs[item[3]]||['المعرف','الاسم','التفاصيل','الحالة'];
+  return '<div class="demo-panel"><h3>السجلات التجريبية</h3><table class="demo-table"><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+data.map(row=>'<tr>'+row.map(v=>'<td>'+escapeHtml(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+ }
+ function openModule(item,push=true){
+  activeDetail=item;
+  const isPOS=item[3]==='POS';
+  const title=item[0],desc=item[1];
+  let body='';
+  if(isPOS){
+   body='<div class="demo-stats"><div class="demo-stat"><small>عدد الأصناف في السلة</small><strong id="cartCount">0</strong></div><div class="demo-stat"><small>الإجمالي التجريبي</small><strong id="cartTotal">0 ر.ي</strong></div><div class="demo-stat"><small>حالة الاتصال</small><strong>معاينة محلية</strong></div></div><div class="demo-panel"><h3>الأصناف التجريبية</h3><div class="demo-list"><button data-add="2500">مياه معدنية — 2,500 ر.ي</button><button data-add="1800">خبز — 1,800 ر.ي</button><button data-add="4200">حليب — 4,200 ر.ي</button><button data-add="3200">أرز — 3,200 ر.ي</button></div></div><div class="page-tools"><button class="primary" id="fakeCheckout">إنهاء معاينة البيع</button><button id="clearCart">تفريغ السلة</button></div>';
+  }else{
+   body='<div class="demo-stats"><div class="demo-stat"><small>عدد السجلات الظاهرة</small><strong>'+(rows[item[3]]||[]).length+'</strong></div><div class="demo-stat"><small>حالة الصفحة</small><strong>تجريبية</strong></div><div class="demo-stat"><small>مصدر البيانات</small><strong>بيانات وهمية</strong></div></div>'+tableFor(item)+'<div class="demo-panel"><h3>معاينة نموذج '+escapeHtml(title)+'</h3><form class="demo-form" id="demoForm"><label>الاسم / الوصف<input placeholder="اكتب قيمة تجريبية"></label><label>التصنيف<select><option>اختر تصنيفاً</option><option>عام</option><option>تجريبي</option></select></label><label>التاريخ<input type="date"></label><label>الحالة<select><option>مسودة</option><option>نشط</option></select></label><div><button class="primary" type="submit">تجربة حفظ النموذج</button></div></form></div>';
+  }
+  detail.hidden=false;
+  detail.innerHTML='<div class="detail-top"><span class="detail-symbol">'+item[2]+'</span><div><h2>'+escapeHtml(title)+'</h2><p>'+escapeHtml(desc)+'</p></div></div><div class="page-tools"><button id="moduleBack">← رجوع إلى القسم</button><button id="moduleHome">الرئيسية</button></div><div class="demo-notice">هذه واجهة معاينة كاملة للتنقل والتفاعل الشكلي فقط. لا تُنشئ فواتير أو قيوداً ولا تحفظ بيانات ولا تتصل بالخادم.</div>'+body;
+  welcome.classList.add('page-hidden');actions.classList.add('page-hidden');
+  document.querySelectorAll('.section[data-page]').forEach(x=>x.classList.add('page-hidden'));
+  headingTitle.textContent=title;headingDesc.textContent=desc;
+  if(!heading.querySelector('.page-back')){const b=document.createElement('button');b.className='page-back';b.textContent='← رجوع';b.onclick=back;heading.append(b)}
+  detail.querySelector('#moduleBack').onclick=()=>{renderGroup(groups.find(g=>g.id===current));headingTitle.textContent=groups.find(g=>g.id===current).title;headingDesc.textContent=groups.find(g=>g.id===current).desc;heading.querySelector('.page-back')?.remove();activeDetail=null};
+  detail.querySelector('#moduleHome').onclick=()=>setPage('home');
+  detail.querySelector('#demoForm')?.addEventListener('submit',e=>{e.preventDefault();notify('تم اختبار تفاعل النموذج فقط — لم يتم حفظ أي بيانات')});
+  if(isPOS){
+   let count=0,total=0;
+   detail.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{count++;total+=Number(b.dataset.add);detail.querySelector('#cartCount').textContent=count;detail.querySelector('#cartTotal').textContent=total.toLocaleString('en-US')+' ر.ي'});
+   detail.querySelector('#clearCart').onclick=()=>{count=0;total=0;detail.querySelector('#cartCount').textContent='0';detail.querySelector('#cartTotal').textContent='0 ر.ي'};
+   detail.querySelector('#fakeCheckout').onclick=()=>notify('هذه محاكاة فقط: لا توجد عملية بيع فعلية أو فاتورة محفوظة');
+  }
+  if(push)history.pushState({page:current,detail:item[0]},'','#'+current+'/'+encodeURIComponent(item[0]));
+  stage.scrollIntoView({behavior:'smooth',block:'start'});
+ }
+ function back(){if(activeDetail){const g=groups.find(x=>x.id===current);renderGroup(g);headingTitle.textContent=g.title;headingDesc.textContent=g.desc;heading.querySelector('.page-back')?.remove();activeDetail=null}else setPage('home')}
+ nav.forEach(n=>n.addEventListener('click',()=>setPage(n.dataset.section)));
+ document.querySelectorAll('.action').forEach((b,i)=>b.addEventListener('click',()=>openModule(i===0?groups[0].items[0]:i===1?groups[1].items[0]:groups[1].items[2])));
+ document.querySelectorAll('.module').forEach(b=>b.addEventListener('click',()=>notify('اختر القسم من شريط التنقل للوصول إلى الوظائف')));
+ window.addEventListener('popstate',e=>{if(e.state?.detail){const g=groups.find(x=>x.id===e.state.page);if(g){setPage(g.id,false);const item=g.items.find(x=>x[0]===e.state.detail);if(item)openModule(item,false)}}else setPage(e.state?.page||'home',false)});
+ stage.addEventListener('touchstart',e=>{startX=e.changedTouches[0].clientX;startY=e.changedTouches[0].clientY},{passive:true});
+ stage.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-startX,dy=e.changedTouches[0].clientY-startY;if(Math.abs(dx)<75||Math.abs(dx)<Math.abs(dy)*1.25)return;if(activeDetail){back();return}const idx=pages.findIndex(p=>p.id===current),next=idx+(dx<0?1:-1);if(next>=0&&next<pages.length)setPage(pages[next].id)},{passive:true});
  document.querySelector('.footer').insertAdjacentText('beforeend',' · تنقل باللمس والسحب');
  setPage('home',false);
 })();
