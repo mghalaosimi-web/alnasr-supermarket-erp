@@ -24,7 +24,7 @@ declare global {
       currentShift: () => Promise<CashierShift | null>;
       openShift: (openingCashMinor: number) => Promise<CashierShift>;
       closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>;
-      createSale: (input: { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string }) => Promise<SaleResult>;
+      createSale: (input: { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string; customerId?: string }) => Promise<SaleResult>;
       listCustomers: () => Promise<CustomerRow[]>;
       createCustomer: (input: { code: string; name: string; phone?: string; creditLimitMinor?: number }) => Promise<CustomerRow>;
       listSuppliers: () => Promise<SupplierRow[]>;
