@@ -19,6 +19,7 @@ app_color = "#0F2537"  # Royal Navy; approved AL-NASR primary brand token.
 # return-credit-note behavior. Reconcile it after every migration.
 after_migrate = [
     "alnasr.patches.compatibility.remove_xpos_return_self_outstanding_override",
+    "alnasr.patches.branding.apply_xpos_branding_defaults",
 ]
 
 # AL-NASR unified Desk landing page and shared brand styles.
