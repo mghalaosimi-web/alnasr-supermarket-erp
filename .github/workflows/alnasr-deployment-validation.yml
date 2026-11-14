@@ -134,6 +134,32 @@ jobs:
           $installer = "dist/installer/AL-NASR-Setup.exe"
           if (-not (Test-Path $installer)) { throw "Installer output was not created." }
           Get-FileHash $installer -Algorithm SHA256 | Format-List | Out-File "dist/installer/SHA256SUMS.txt"
+      - name: Install and uninstall preview in isolated Windows profile
+        shell: pwsh
+        run: |
+          $installer = Resolve-Path "dist/installer/AL-NASR-Setup.exe"
+          $process = Start-Process -FilePath $installer -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer returned exit code $($process.ExitCode)." }
+          $installRoot = Join-Path $env:LOCALAPPDATA "Programs/AL-NASR ERP"
+          $required = @(
+            "deploy/windows/alnasr.ps1",
+            "deploy/compose.yaml",
+            "deploy/Caddyfile",
+            "apps/alnasr/alnasr/__init__.py",
+            "apps/xpos/pyproject.toml",
+            "licenses/X-POS-MIT-LICENSE.txt"
+          )
+          foreach ($relative in $required) {
+            if (-not (Test-Path (Join-Path $installRoot $relative))) { throw "Installed file is missing: $relative" }
+          }
+          $dataRoot = Join-Path $env:LOCALAPPDATA "AL-NASR ERP"
+          New-Item -ItemType Directory -Force -Path $dataRoot | Out-Null
+          Set-Content -Path (Join-Path $dataRoot "preserve-on-uninstall.txt") -Value "owner data sentinel"
+          $uninstaller = Join-Path $installRoot "unins000.exe"
+          if (-not (Test-Path $uninstaller)) { throw "Uninstaller was not installed." }
+          $remove = Start-Process -FilePath $uninstaller -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait -PassThru
+          if ($remove.ExitCode -ne 0) { throw "Uninstaller returned exit code $($remove.ExitCode)." }
+          if (-not (Test-Path (Join-Path $dataRoot "preserve-on-uninstall.txt"))) { throw "Uninstall removed owner data; this is not allowed." }
       - name: Upload unsigned installer artifact
         uses: actions/upload-artifact@v4
         with:
