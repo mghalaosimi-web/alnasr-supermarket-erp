@@ -23,10 +23,6 @@ after_migrate = [
 
 # AL-NASR unified Desk landing page and shared brand styles.
 app_include_css = "/assets/alnasr/css/alnasr.css"
-page_js = {
-    "alnasr": "public/js/alnasr-page.js",
-}
-
 fixtures = [
     {"dt": "Workspace", "filters": [["name", "=", "AL-NASR"]]},
 ]
