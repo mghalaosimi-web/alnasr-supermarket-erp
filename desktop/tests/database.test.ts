@@ -116,10 +116,14 @@ describe("AL-NASR default catalog and products", () => {
       barcode: "6281000000001",
       costMinor: 1200,
       priceMinor: 1500,
+      openingQuantity: 18,
       actorUserId: owner.id
     });
-    expect(created).toMatchObject({ sku: "P-001", nameAr: "حليب كامل الدسم", barcode: "6281000000001", costMinor: 1200, priceMinor: 1500 });
+    expect(created).toMatchObject({ sku: "P-001", nameAr: "حليب كامل الدسم", barcode: "6281000000001", costMinor: 1200, priceMinor: 1500, stockOnHand: 18 });
     expect(listProducts(db)).toHaveLength(1);
+    expect(db.prepare("SELECT movement_type, quantity_delta, warehouse_id FROM stock_movements WHERE product_id=?").get(created.id)).toMatchObject({
+      movement_type: "opening", quantity_delta: 18, warehouse_id: "warehouse-main"
+    });
     expect(db.prepare("SELECT action, entity_type, entity_id FROM audit_events WHERE entity_id=?").get(created.id)).toMatchObject({
       action: "product.create", entity_type: "product", entity_id: created.id
     });
