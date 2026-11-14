@@ -36,6 +36,7 @@ jobs:
             command -v docker
             docker compose version
             test -f /etc/wsl.conf
+            test -x /usr/lib/systemd/systemd
             grep -q "^systemd=true$" /etc/wsl.conf
             test -L /etc/systemd/system/multi-user.target.wants/docker.service
             test -L /etc/systemd/system/multi-user.target.wants/containerd.service
