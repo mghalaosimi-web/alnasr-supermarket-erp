@@ -6,10 +6,14 @@ import { initializeDatabase } from "./database-core";
 
 export type AlnasrDatabase = Database.Database;
 
-export function openDatabase(): AlnasrDatabase {
+export function getDatabasePath(): string {
   const dataDirectory = join(app.getPath("userData"), "data");
   mkdirSync(dataDirectory, { recursive: true });
-  const databasePath = join(dataDirectory, "alnasr.sqlite");
+  return join(dataDirectory, "alnasr.sqlite");
+}
+
+export function openDatabase(): AlnasrDatabase {
+  const databasePath = getDatabasePath();
   const database = new Database(databasePath);
   try {
     initializeDatabase(database);
