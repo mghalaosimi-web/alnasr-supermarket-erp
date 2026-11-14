@@ -7,6 +7,7 @@ type ProductInput = { sku: string; nameAr: string; nameEn?: string; barcode?: st
 type ProductRow = { id: string; sku: string; nameAr: string; nameEn: string | null; barcode: string | null; costMinor: number; priceMinor: number; isActive: number; stockOnHand: number };
 type CashierShift = { id: string; openingCashMinor: number; openedAt?: string; status?: "open" };
 type SaleResult = { id: string; saleNumber: string; totalMinor: number; status: "posted"; lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> };
+type StockMovementRow = { id: string; sku: string; productName: string; warehouseName: string; movementType: string; quantityDelta: number; unitCostMinor: number; occurredAt: string };
 
 declare global {
   interface Window {
@@ -22,6 +23,9 @@ declare global {
       openShift: (openingCashMinor: number) => Promise<CashierShift>;
       closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>;
       createSale: (input: { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string }) => Promise<SaleResult>;
+      listStockMovements: () => Promise<StockMovementRow[]>;
+      receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => Promise<{ movementId: string; quantityOnHand: number }>;
+      adjustStock: (input: { productId: string; countedQuantity: number }) => Promise<{ movementId: string | null; previousQuantity: number; countedQuantity: number; difference: number }>;
     };
   }
 }
@@ -30,7 +34,7 @@ export function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [ownerSetupRequired, setOwnerSetupRequired] = useState<boolean | null>(null);
   const [user, setUser] = useState<PublicUser | null>(null);
-  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products">("dashboard");
+  const [activePage, setActivePage] = useState<"dashboard" | "pos" | "products" | "inventory">("dashboard");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -55,6 +59,12 @@ export function App() {
   const [saleBusy, setSaleBusy] = useState(false);
   const [lastSale, setLastSale] = useState<SaleResult | null>(null);
   const [saleKey, setSaleKey] = useState(() => window.crypto.randomUUID());
+  const [stockMovements, setStockMovements] = useState<StockMovementRow[]>([]);
+  const [stockProductId, setStockProductId] = useState("");
+  const [receiveQuantity, setReceiveQuantity] = useState("1");
+  const [receiveUnitCost, setReceiveUnitCost] = useState("0");
+  const [countedQuantity, setCountedQuantity] = useState("0");
+  const [inventoryBusy, setInventoryBusy] = useState(false);
 
   useEffect(() => {
     Promise.all([window.alnasr.health(), window.alnasr.setupStatus()])
@@ -76,7 +86,10 @@ export function App() {
       setUser(result);
       setActivePage("dashboard");
       setOwnerSetupRequired(false);
-      setProducts(await window.alnasr.listProducts());
+      const loadedProducts = await window.alnasr.listProducts();
+      setProducts(loadedProducts);
+      setStockProductId(loadedProducts[0]?.id ?? "");
+      setStockMovements(await window.alnasr.listStockMovements());
       setShift(await window.alnasr.currentShift());
       setPassword("");
     } catch (reason) {
@@ -100,7 +113,10 @@ export function App() {
         priceMinor: Math.round(Number(productPrice) * 100),
         openingQuantity: Math.max(0, Math.trunc(Number(openingQuantity)))
       });
-      setProducts(await window.alnasr.listProducts());
+      const updatedProducts = await window.alnasr.listProducts();
+      setProducts(updatedProducts);
+      setStockMovements(await window.alnasr.listStockMovements());
+      if (!stockProductId) setStockProductId(updatedProducts[0]?.id ?? "");
       setProductSku("");
       setProductName("");
       setProductBarcode("");
@@ -119,6 +135,8 @@ export function App() {
     setUser(null);
     setActivePage("dashboard");
     setProducts([]);
+    setStockMovements([]);
+    setStockProductId("");
     setShift(null);
     setCart([]);
     setLastSale(null);
@@ -191,11 +209,51 @@ export function App() {
       setLastSale(result);
       setCart([]);
       setProducts(await window.alnasr.listProducts());
+      setStockMovements(await window.alnasr.listStockMovements());
       setSaleKey(window.crypto.randomUUID());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر إتمام البيع");
     } finally {
       setSaleBusy(false);
+    }
+  }
+
+
+  async function submitStockReceipt(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setInventoryBusy(true);
+    setError(null);
+    try {
+      await window.alnasr.receiveStock({
+        productId: stockProductId,
+        quantity: Number(receiveQuantity),
+        unitCostMinor: Math.round(Number(receiveUnitCost) * 100)
+      });
+      setProducts(await window.alnasr.listProducts());
+      setStockMovements(await window.alnasr.listStockMovements());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر استلام المخزون");
+    } finally {
+      setInventoryBusy(false);
+    }
+  }
+
+  async function submitStockCount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setInventoryBusy(true);
+    setError(null);
+    try {
+      const result = await window.alnasr.adjustStock({
+        productId: stockProductId,
+        countedQuantity: Number(countedQuantity)
+      });
+      setProducts(await window.alnasr.listProducts());
+      setStockMovements(await window.alnasr.listStockMovements());
+      setError(result.difference === 0 ? "الجرد مطابق للرصيد المسجل، لم تُنشأ حركة تعديل." : null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر اعتماد الجرد");
+    } finally {
+      setInventoryBusy(false);
     }
   }
 
@@ -211,6 +269,7 @@ export function App() {
           <button type="button" className={activePage === "dashboard" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("dashboard")}>الرئيسية</button>
           <button type="button" className={activePage === "pos" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("pos")}>نقطة البيع</button>
           <button type="button" className={activePage === "products" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("products")}>المنتجات</button>
+          <button type="button" className={activePage === "inventory" ? "nav-link active" : "nav-link"} onClick={() => setActivePage("inventory")}>المخزون</button>
         </nav>}
         <div className="topbar-spacer" />
         <span className="version">نسخة التطوير 0.1.0</span>
@@ -329,6 +388,43 @@ export function App() {
                 <article className="product-row" key={product.id}>
                   <div><strong>{product.nameAr}</strong><small>{product.sku}{product.barcode ? ` · ${product.barcode}` : ""}</small></div>
                   <div className="product-metrics"><small>المتوفر: {product.stockOnHand}</small><strong>{(product.priceMinor / 100).toFixed(2)}</strong></div>
+                </article>
+              ))}
+            </div>
+
+          </section>}
+          {activePage === "inventory" && <section className="inventory-workspace">
+            <div className="product-heading">
+              <div><span className="eyebrow">المستودع الرئيسي</span><h2>استلام المخزون والجرد</h2></div>
+              <span className="product-count">{stockMovements.length} حركة حديثة</span>
+            </div>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <label className="inventory-product-select">المنتج
+              <select value={stockProductId} onChange={(event) => setStockProductId(event.target.value)} required>
+                <option value="">اختر منتجاً</option>
+                {products.map((product) => <option key={product.id} value={product.id}>{product.nameAr} · المتوفر {product.stockOnHand}</option>)}
+              </select>
+            </label>
+            <div className="inventory-forms">
+              <form className="inventory-form" onSubmit={submitStockReceipt}>
+                <h3>استلام كمية جديدة</h3>
+                <label>الكمية المستلمة<input type="number" min="1" step="1" value={receiveQuantity} onChange={(event) => setReceiveQuantity(event.target.value)} required /></label>
+                <label>تكلفة الوحدة<input type="number" min="0" step="0.01" value={receiveUnitCost} onChange={(event) => setReceiveUnitCost(event.target.value)} required /></label>
+                <button type="submit" disabled={inventoryBusy || !stockProductId}>{inventoryBusy ? "جارٍ الحفظ..." : "تسجيل الاستلام"}</button>
+              </form>
+              <form className="inventory-form" onSubmit={submitStockCount}>
+                <h3>تسوية الجرد الفعلي</h3>
+                <label>الكمية الموجودة فعلياً<input type="number" min="0" step="1" value={countedQuantity} onChange={(event) => setCountedQuantity(event.target.value)} required /></label>
+                <p className="form-hint">سيُسجل فرق الجرد كحركة تعديل، دون حذف الحركات السابقة.</p>
+                <button type="submit" disabled={inventoryBusy || !stockProductId}>{inventoryBusy ? "جارٍ الحفظ..." : "اعتماد نتيجة الجرد"}</button>
+              </form>
+            </div>
+            <h3 className="movement-title">سجل حركات المخزون</h3>
+            <div className="product-list">
+              {stockMovements.length === 0 ? <p className="empty-products">لا توجد حركات مخزون مسجلة.</p> : stockMovements.map((movement) => (
+                <article className="product-row" key={movement.id}>
+                  <div><strong>{movement.productName}</strong><small>{movement.sku} · {movement.warehouseName} · {movement.movementType}</small></div>
+                  <strong className={movement.quantityDelta < 0 ? "movement-negative" : "movement-positive"}>{movement.quantityDelta > 0 ? "+" : ""}{movement.quantityDelta}</strong>
                 </article>
               ))}
             </div>
