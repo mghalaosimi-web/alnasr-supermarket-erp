@@ -53,7 +53,7 @@ jobs:
           node-version: "24"
 
       - name: Validate AL-NASR Desk dashboard JavaScript syntax
-        run: node --check apps/alnasr/alnasr/public/js/alnasr-page.js
+        run: node --check apps/alnasr/alnasr/page/alnasr/alnasr.js
 
       - name: Compile Python sources
         run: python -m compileall -q apps/alnasr/alnasr
