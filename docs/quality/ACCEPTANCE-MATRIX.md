@@ -1,9 +1,9 @@
 # AL-NASR acceptance matrix
 
-**Tested revision:** `cc925b22f72b6c6d072926db7700b71d6dfa8718`
+**Tested revision:** `b8911fc4d07416d9bd405633ce35e39e664b148d`
 **Runtime environment:** disposable GitHub Actions Bench + MariaDB 11.8; no production database or live business data.
-**Latest runtime evidence:** [run #43547235002](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43547235002)
-**Latest source-validation evidence:** [run #43547234992](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43547234992)
+**Latest runtime evidence:** [run #43588327281](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43588327281)
+**Latest source-validation evidence:** [run #43588327377](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43588327377)
 
 ## Verified test totals on the tested revision
 
@@ -17,15 +17,15 @@
 | X POS frontend unit tests (24 files) | 449 | 0 |
 | **Total in latest runtime job** | **1,268** | **0** |
 
-The 779 ERPNext tests are 163 + 160 + 111 + 122 + 148 + 75. The 819 Python tests and 449 frontend tests were observed in the logs of the same successful runtime job #43547235002. These are test-case executions, not a count of CI jobs.
+The 779 ERPNext tests are 163 + 160 + 111 + 122 + 148 + 75. The 819 Python tests and 449 frontend tests were observed in the logs of the same successful runtime job #43588327281. These are test-case executions, not a count of CI jobs.
 
 ## Acceptance status
 
 | Area | Required evidence | Status |
 |---|---|---|
-| Source/package validation | Metadata, dashboard JS syntax, module document paths, Python compilation, brand asset contracts, source/wheel builds, whitespace | Passed in validation run #43547234992 |
-| Clean install | Reproducible pinned Frappe/ERPNext/X POS install, disposable site creation, migrations, installed-app verification and HTTP ping | Passed in runtime run #43547235002 |
-| ERPNext regression baseline | Sales Invoice, Purchase Receipt, Purchase Invoice, Delivery Note, Stock Entry, Payment Entry | Passed: 779 tests in runtime run #43547235002 |
+| Source/package validation | Metadata, dashboard JS syntax, module document paths, Python compilation, brand asset contracts, source/wheel builds, whitespace | Passed in validation run #43588327377 |
+| Clean install | Reproducible pinned Frappe/ERPNext/X POS install, disposable site creation, migrations, installed-app verification and HTTP ping | Passed in runtime run #43588327281 |
+| ERPNext regression baseline | Sales Invoice, Purchase Receipt, Purchase Invoice, Delivery Note, Stock Entry, Payment Entry | Passed: 779 tests in runtime run #43588327281 |
 | POS sale | Server-posted sale, stock decrement, retry/idempotency | Passed: invoice submission, stock decrement and duplicate retry without a second stock issue |
 | POS tax | Tax-inclusive and tax-exclusive checkout, invoice totals and GL balance | Passed in AL-NASR POS integration suite |
 | POS returns | Partial return followed by final return, stock restoration, source invoice linkage, balanced GL, over-return rejection | Passed in AL-NASR POS integration suite |
