@@ -13,6 +13,7 @@ The current preview includes:
 - A built-in SQLite online-backup action with a native Save dialog.
 - Barcode/SKU scanner input on the POS page.
 - Supplier and customer directories; sales can be associated with a customer.
+- Supplier-linked purchase documents with purchase lines, partial payment records, outstanding balance calculation, stock receipt movements and weighted-average cost updates in one SQLite transaction.
 - Cashier shift opening and closing.
 - Basic point-of-sale checkout with cash/card/transfer method selection.
 - Atomic sale posting, stock decrement, payment record and audit event.
@@ -48,6 +49,7 @@ Not yet included:
 - Inter-warehouse transfers.
 - Returns, voids and refund workflows.
 - Split payments, discounts, taxes and customer credit.
+- Multi-line purchase entry in the current UI (the database service supports multiple lines, while the current form posts one line per document).
 - Printable receipts and receipt-printer integration.
 - Full accounting, financial reports and period closing.
 - Android client and authenticated LAN pairing.
