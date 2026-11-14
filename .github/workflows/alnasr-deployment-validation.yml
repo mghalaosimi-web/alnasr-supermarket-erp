@@ -68,6 +68,36 @@ jobs:
           docker run --rm --entrypoint bash alnasr-local:ci -lc 'bench version'
           docker run --rm --entrypoint bash alnasr-local:ci -lc 'python -c "import frappe, xpos, alnasr; print(\"Frappe\", frappe.__version__); print(\"X POS\", xpos.__version__); print(\"AL-NASR\", alnasr.__version__)"'
 
+
+  windows-installer-build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+      - name: Compile AL-NASR Windows installer
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6/ISCC.exe"
+          if (-not (Test-Path $compiler)) { throw "Inno Setup compiler was not found." }
+          & $compiler "deploy/windows/installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
+          $installer = "dist/installer/AL-NASR-Setup.exe"
+          if (-not (Test-Path $installer)) { throw "Installer output was not created." }
+          Get-FileHash $installer -Algorithm SHA256 | Format-List | Out-File "dist/installer/SHA256SUMS.txt"
+      - name: Upload unsigned installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AL-NASR-Windows-Installer-Preview
+          path: |
+            dist/installer/AL-NASR-Setup.exe
+            dist/installer/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
   windows-script-parse:
     runs-on: windows-latest
     steps:
