@@ -30,6 +30,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: TypeScript validation
         run: npm run typecheck
+      - name: SQLite database tests
+        run: npm test
       - name: Build Electron application
         run: npm run build
       - name: Build offline Windows installer
