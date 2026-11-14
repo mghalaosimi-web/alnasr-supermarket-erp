@@ -264,6 +264,7 @@ export function App() {
               <div><span className="eyebrow">نقطة البيع</span><h2>الوردية والفواتير</h2></div>
               <span className="product-count">{shift ? "الوردية مفتوحة" : "لا توجد وردية مفتوحة"}</span>
             </div>
+            {error && <p className="form-error" role="alert">{error}</p>}
             {!shift ? (
               <form className="shift-form" onSubmit={startShift}>
                 <label>رصيد افتتاح الصندوق<input type="number" min="0" step="0.01" value={shiftOpeningCash} onChange={(event) => setShiftOpeningCash(event.target.value)} required /></label>
