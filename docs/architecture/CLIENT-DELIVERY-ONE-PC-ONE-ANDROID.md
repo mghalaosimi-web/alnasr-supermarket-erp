@@ -11,6 +11,33 @@ Deliver one AL-NASR product with one identity, one navigation model, one permiss
 
 The EXE is an installer/desktop launcher deliverable, not a claim that the complete Frappe, database, Redis, and application stack can be embedded in one portable executable. The installation method must be selected and proven before promising a one-click offline installer.
 
+
+## Windows host decision
+
+Frappe's official installation guide requires a Unix-like environment and explicitly directs Windows users to Ubuntu in WSL; the documented v16 stack requires MariaDB 11.8, Python 3.14 and Node.js 24. The official Frappe deployment guidance recommends Docker images for production rather than a bare-metal Bench install.
+
+Therefore the Windows computer will host the server through the supported Linux/container layer (Docker Desktop with its WSL2 backend, using the official Frappe Docker deployment model), subject to a clean-machine proof before final packaging. Native Windows Bench installation is not the target.
+
+The requested EXE is the branded AL-NASR Windows installer/launcher. It must:
+- check that the supported Windows/WSL2 and Docker runtime prerequisites are available;
+- guide the owner through missing prerequisites rather than silently installing privileged system components;
+- start/stop and health-check the local AL-NASR server;
+- open the AL-NASR Desk/POS client;
+- preserve database volumes across app upgrades and provide backup/restore actions.
+
+It is **not** a claim that the complete ERPNext runtime is a small self-contained portable EXE. Docker Desktop/WSL2 remain host prerequisites unless a separately tested distribution strategy proves otherwise.
+
+## Android connection security
+
+The Android client must not silently downgrade to plain HTTP for login and financial operations. Android 9+ disables cleartext traffic by default for apps targeting modern API levels. The local-LAN pairing design must therefore provide authenticated HTTPS (for example, a local certificate authority and a deliberate trust/pairing flow) before production credentials are entered. Do not work around certificate errors with unconditional WebView SSL bypasses.
+
+## Official implementation references
+
+- Frappe v16 installation requirements and Windows/WSL guidance: https://docs.frappe.io/framework/user/en/installation
+- Frappe deployment guidance: https://frappe.io/framework/deployment
+- Official Frappe Docker project: https://github.com/frappe/frappe_docker
+- Android network security and cleartext behavior: https://developer.android.com/privacy-and-security/security-config
+
 ## Runtime topology
 
 The Windows computer has two roles:
