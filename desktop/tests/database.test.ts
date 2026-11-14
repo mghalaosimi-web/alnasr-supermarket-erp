@@ -47,7 +47,7 @@ describe("AL-NASR SQLite core", () => {
     expect(db!.prepare("SELECT price_minor FROM products WHERE id='p1'").get()).toEqual({ price_minor: 1250 });
   });
 
-  it("persists data and passes SQLite integrity_check after reopening", () => {
+  it("stores records and passes SQLite integrity_check", () => {
     const path = `:memory:`;
     db = new Database(path);
     initializeDatabase(db);
