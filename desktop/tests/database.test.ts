@@ -142,3 +142,69 @@ describe("AL-NASR default catalog and products", () => {
     expect(db.prepare("SELECT COUNT(*) AS count FROM audit_events WHERE action='product.create'").get()).toEqual({ count: 1 });
   });
 });
+
+
+describe("AL-NASR point of sale transactions", () => {
+  it("posts a paid sale atomically, reduces stock and is idempotent", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct, listProducts } = await import("../src/main/products");
+    const { createSale, openCashierShift, closeCashierShift } = await import("../src/main/sales");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const product = createProduct(db, {
+      sku: "POS-001", nameAr: "ماء شرب", costMinor: 500, priceMinor: 1500,
+      openingQuantity: 5, actorUserId: owner.id
+    });
+    const shift = openCashierShift(db, { openingCashMinor: 10000, cashierUserId: owner.id });
+    const input = {
+      lines: [{ productId: product.id, quantity: 2 }],
+      paymentMethod: "cash" as const,
+      idempotencyKey: "pos-test-sale-0001",
+      actorUserId: owner.id
+    };
+    const sale = createSale(db, input);
+    expect(sale).toMatchObject({ totalMinor: 3000, status: "posted", lines: [{ quantity: 2, lineTotalMinor: 3000 }] });
+    expect(listProducts(db)[0].stockOnHand).toBe(3);
+    expect(db.prepare("SELECT COUNT(*) AS count FROM payments WHERE sale_id=?").get(sale.id)).toEqual({ count: 1 });
+    expect(db.prepare("SELECT amount_minor, method FROM payments WHERE sale_id=?").get(sale.id)).toEqual({ amount_minor: 3000, method: "cash" });
+    const retry = createSale(db, input);
+    expect(retry.id).toBe(sale.id);
+    expect(db.prepare("SELECT COUNT(*) AS count FROM sales").get()).toEqual({ count: 1 });
+    expect(listProducts(db)[0].stockOnHand).toBe(3);
+    expect(closeCashierShift(db, { shiftId: shift.id, closingCashMinor: 13000, actorUserId: owner.id })).toMatchObject({ status: "closed" });
+  });
+
+  it("rejects insufficient stock without writing a partial sale or payment", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { createProduct, listProducts } = await import("../src/main/products");
+    const { createSale, openCashierShift } = await import("../src/main/sales");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    const product = createProduct(db, {
+      sku: "POS-002", nameAr: "عصير", costMinor: 400, priceMinor: 900,
+      openingQuantity: 1, actorUserId: owner.id
+    });
+    openCashierShift(db, { openingCashMinor: 0, cashierUserId: owner.id });
+    expect(() => createSale(db!, {
+      lines: [{ productId: product.id, quantity: 2 }],
+      paymentMethod: "cash",
+      idempotencyKey: "pos-test-insufficient-0001",
+      actorUserId: owner.id
+    })).toThrow("المخزون غير كافٍ");
+    expect(db.prepare("SELECT COUNT(*) AS count FROM sales").get()).toEqual({ count: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM payments").get()).toEqual({ count: 0 });
+    expect(listProducts(db)[0].stockOnHand).toBe(1);
+  });
+
+  it("prevents opening a second cashier shift while the first is open", async () => {
+    const { createInitialOwner } = await import("../src/main/auth");
+    const { openCashierShift } = await import("../src/main/sales");
+    db = new Database(":memory:");
+    initializeDatabase(db);
+    const owner = createInitialOwner(db, { username: "owner01", displayName: "مالك النظام", password: "StrongPass-2026!" });
+    openCashierShift(db, { openingCashMinor: 0, cashierUserId: owner.id });
+    expect(() => openCashierShift(db!, { openingCashMinor: 0, cashierUserId: owner.id })).toThrow("يوجد وردية مفتوحة");
+  });
+});
