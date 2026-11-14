@@ -20,29 +20,22 @@ The script does not silently enable Windows features, install Docker Desktop, or
 
 ## First local setup (engineering preview)
 
-1. Copy `.env.example` to `.env` in this directory.
-2. Replace `DB_PASSWORD` with a strong unique random value. Keep `.env` private; Git ignores it.
-3. From PowerShell at the repository root, run:
-
-   ```powershell
-   .\deploy\windows\alnasr.ps1 -Action build
-   .\deploy\windows\alnasr.ps1 -Action init
-   .\deploy\windows\alnasr.ps1 -Action status
-   .\deploy\windows\alnasr.ps1 -Action open
-   ```
-
-4. Create a unique Administrator password when prompted. The setup script passes it to the one-time site-creation process through standard input rather than writing it to the repository.
-5. Use `-Action backup` to create a Frappe backup.
+1. Install Docker Desktop with the WSL2 Linux engine and start it.
+2. Install the AL-NASR Windows installer preview and choose **First-time setup** from the Start Menu, or run the PowerShell setup action from the repository root.
+3. The setup action generates a unique database secret under `%LOCALAPPDATA%\\AL-NASR ERP\\.env`, builds the local image, initializes the site with ERPNext, X POS and AL-NASR, then starts the services.
+4. Create a unique Administrator password when prompted. The script passes it through standard input rather than writing it to the repository or command history.
+5. Use the Backup shortcut or the PowerShell backup action to create a Frappe backup.
+6. For phone pairing, export the Caddy CA with the export-cert action, install it on Android, then change `LAN_BIND_ADDRESS=0.0.0.0` in the private local .env only on a trusted private Wi-Fi network. Configure Windows Firewall for TCP 443 on the Private profile. Do not expose the service publicly.
 
 ## Important limitations — not a release installer
 
-This is an engineering deployment scaffold, not the promised consumer installer. It has not yet been built or run on a real Windows PC. The following remain release blockers:
+This is an engineering deployment scaffold plus an unsigned installer preview, not an accepted consumer release. It has not yet been built or run on a real Windows PC. The following remain release blockers:
 
 - Build the custom image and verify the upstream image tag, pinned X POS/AL-NASR Python packages, frontend build, and runtime version compatibility end to end.
 - Verify clean site creation, migrations, health, restart persistence, and complete backup/restore.
 - Verify the Caddy TLS gateway, CA export/trust process, mDNS hostname resolution, and explicit Android pairing on the actual private LAN. The default bind address is loopback only; do not change it to `0.0.0.0` until firewall and certificate acceptance are complete.
-- Add a tested installer wizard (for example, NSIS/Inno Setup) that checks prerequisites and installs/updates the launcher without deleting database volumes.
-- Add signed Android packaging only after HTTPS, session, navigation, file handling, and device tests pass.
+- Validate the Inno Setup installer on a clean Windows PC, including prerequisites, upgrades, uninstall preservation, and the unsigned SmartScreen experience. The current installer is a CI preview, not a signed release.
+- Build a signed Android release only after the debug APK, HTTPS pairing, session, navigation, file handling, and physical-device tests pass.
 - Validate receipt printing, barcode scanning, offline/retry behavior, and owner acceptance on actual devices.
 
 Do not use production data or real store credentials in this preview. Do not run `docker compose down -v`; that deletes persistent database/site volumes.
