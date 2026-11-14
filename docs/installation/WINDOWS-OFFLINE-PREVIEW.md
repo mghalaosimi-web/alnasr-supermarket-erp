@@ -14,6 +14,7 @@ The current preview includes:
 - Barcode/SKU scanner input on the POS page.
 - Supplier and customer directories; sales can be associated with a customer.
 - Supplier-linked multi-line purchase invoices, initial and subsequent supplier payments, outstanding-balance settlement, stock receipt movements and weighted-average cost updates with atomic posting and audit history.
+- Customer credit sales with partial upfront collection, customer credit-limit enforcement, receivables listing and subsequent payment collection.
 - Cashier shift opening and closing.
 - Basic point-of-sale checkout with cash/card/transfer method selection.
 - Atomic sale posting, stock decrement, payment record and audit event.
@@ -47,13 +48,13 @@ Not yet included:
 - Customer credit sales, receivables, statements and credit-limit enforcement.
 - Inter-warehouse transfers.
 - Returns, voids and refund workflows.
-- Split tender across multiple methods on a single purchase or sale, discounts, taxes and customer credit sales. Supplier invoices support successive payments, but a unified cash/bank ledger is not implemented.
+- Split tender across multiple payment methods within one transaction, discounts, taxes, and full customer account statements. Purchases and sales support successive payments, but a unified cash/bank ledger is not implemented.
 - Printable receipts and receipt-printer integration.
 - Full accounting, financial reports and period closing.
 - Android client and authenticated LAN pairing.
 - Database restore workflow and business acceptance testing.
 
-The current sales implementation supports whole-number quantities and one payment method per sale. It checks stock availability and posts sale, payment, stock movement and audit records in one SQLite transaction. It does not yet implement all supermarket pricing, weighing or accounting rules.
+The current sales implementation supports whole-number quantities, one payment method per payment event, partial upfront collection and subsequent receivable settlement. It enforces customer credit limits, checks stock availability and posts sale, payment, stock movement and audit records in one SQLite transaction. It does not yet implement all supermarket pricing, weighing or accounting rules.
 
 ## Trust and installation notes
 
