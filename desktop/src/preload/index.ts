@@ -2,8 +2,8 @@ import { contextBridge, ipcRenderer } from "electron";
 
 export type PublicUser = { id: string; username: string; displayName: string };
 export type OwnerSetupInput = { username: string; displayName: string; password: string };
-export type ProductInput = { sku: string; nameAr: string; nameEn?: string; barcode?: string; costMinor: number; priceMinor: number };
-export type ProductRow = { id: string; sku: string; nameAr: string; nameEn: string | null; barcode: string | null; costMinor: number; priceMinor: number; isActive: number };
+export type ProductInput = { sku: string; nameAr: string; nameEn?: string; barcode?: string; costMinor: number; priceMinor: number; openingQuantity?: number };
+export type ProductRow = { id: string; sku: string; nameAr: string; nameEn: string | null; barcode: string | null; costMinor: number; priceMinor: number; isActive: number; stockOnHand: number };
 
 contextBridge.exposeInMainWorld("alnasr", {
   health: () => ipcRenderer.invoke("alnasr:health"),
