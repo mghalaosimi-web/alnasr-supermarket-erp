@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { openDatabase, type AlnasrDatabase } from "./database";
 import { authenticate, createInitialOwner, isOwnerSetupRequired } from "./auth";
 import { createProduct, listProducts } from "./products";
@@ -120,6 +120,7 @@ app.whenReady().then(() => {
       filters: [{ name: "SQLite Database", extensions: ["sqlite", "db"] }]
     });
     if (result.canceled || !result.filePath) return { canceled: true };
+    if (resolve(result.filePath) === resolve(database.name)) throw new Error("اختر مساراً مختلفاً عن ملف قاعدة البيانات الأصلي");
     await database.backup(result.filePath);
     return { canceled: false, filePath: result.filePath };
   });
