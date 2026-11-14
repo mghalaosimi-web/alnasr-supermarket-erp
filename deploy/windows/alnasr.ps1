@@ -58,7 +58,7 @@ switch ($Action) {
         $adminPassword = [System.Net.NetworkCredential]::new("", $secure).Password
         if ($adminPassword.Length -lt 12) { throw "Administrator password must be at least 12 characters." }
         $payload = $dbPassword + [Environment]::NewLine + $adminPassword + [Environment]::NewLine
-        $payload | docker compose --env-file $EnvFile -f $Compose run --rm -T --no-deps --entrypoint bash backend -lc 'read -r DBROOT; read -r ADMIN; bench new-site alnasr.local --db-host db --mariadb-user-host-login-scope % --db-root-username root --db-root-password "$DBROOT" --admin-password "$ADMIN" --install-app erpnext --install-app alnasr --set-default'
+        $payload | docker compose --env-file $EnvFile -f $Compose run --rm -T --no-deps --entrypoint bash backend -lc 'read -r DBROOT; read -r ADMIN; bench new-site alnasr.local --db-host db --mariadb-user-host-login-scope % --db-root-username root --db-root-password "$DBROOT" --admin-password "$ADMIN" --install-app erpnext --install-app xpos --install-app alnasr --set-default'
         if ($LASTEXITCODE -ne 0) { throw "Site creation failed. Inspect logs before retrying." }
         Invoke-Compose up -d
         Write-Host "Initial site created. Open http://127.0.0.1:8080; login user is Administrator."
