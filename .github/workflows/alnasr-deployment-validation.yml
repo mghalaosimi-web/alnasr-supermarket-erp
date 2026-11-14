@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - "deploy/**"
+      - ".dockerignore"
+      - ".gitmodules"
+      - "apps/alnasr/**"
+      - "apps/xpos"
       - ".github/workflows/alnasr-deployment-validation.yml"
   push:
     branches:
@@ -42,6 +46,23 @@ jobs:
         run: |
           git check-ignore deploy/.env
           git check-ignore deploy/backups/example.sql.gz
+
+
+  container-image-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Verify immutable upstream revisions
+        run: bash scripts/bootstrap-upstream.sh
+      - name: Build the local AL-NASR runtime image
+        run: docker build --pull --file deploy/Dockerfile --tag alnasr-local:ci .
+      - name: Verify app versions are importable in the image
+        run: |
+          docker run --rm --entrypoint bash alnasr-local:ci -lc 'bench version'
+          docker run --rm --entrypoint bash alnasr-local:ci -lc 'python -c "import frappe, xpos, alnasr; print(\"Frappe\", frappe.__version__); print(\"X POS\", xpos.__version__); print(\"AL-NASR\", alnasr.__version__)"'
 
   windows-script-parse:
     runs-on: windows-latest
