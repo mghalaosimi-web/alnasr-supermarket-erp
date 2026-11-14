@@ -183,6 +183,44 @@ export const MIGRATIONS = [
       VALUES ('warehouse-main', 'MAIN', 'المخزن الرئيسي', 'Main Warehouse');
     `
   }
+
+  {
+    id: "0003_supplier_purchases",
+    sql: `
+      CREATE TABLE IF NOT EXISTS purchase_documents (
+        id TEXT PRIMARY KEY,
+        document_number TEXT NOT NULL UNIQUE,
+        supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
+        status TEXT NOT NULL CHECK (status IN ('posted','voided')),
+        subtotal_minor INTEGER NOT NULL CHECK (subtotal_minor > 0),
+        paid_minor INTEGER NOT NULL DEFAULT 0 CHECK (paid_minor >= 0 AND paid_minor <= subtotal_minor),
+        occurred_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+        created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_lines (
+        id TEXT PRIMARY KEY,
+        purchase_id TEXT NOT NULL REFERENCES purchase_documents(id) ON DELETE RESTRICT,
+        product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+        quantity INTEGER NOT NULL CHECK (quantity > 0),
+        unit_cost_minor INTEGER NOT NULL CHECK (unit_cost_minor >= 0),
+        line_total_minor INTEGER NOT NULL CHECK (line_total_minor > 0)
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_payments (
+        id TEXT PRIMARY KEY,
+        purchase_id TEXT NOT NULL REFERENCES purchase_documents(id) ON DELETE RESTRICT,
+        method TEXT NOT NULL CHECK (method IN ('cash','card','transfer')),
+        amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+        occurred_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_purchase_supplier_time
+        ON purchase_documents(supplier_id, occurred_at);
+      CREATE INDEX IF NOT EXISTS idx_purchase_lines_purchase
+        ON purchase_lines(purchase_id);
+    `
+  }
 ] as const;
 
 
