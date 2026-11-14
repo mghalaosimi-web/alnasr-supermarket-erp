@@ -5,6 +5,8 @@ type PublicUser = { id: string; username: string; displayName: string };
 type OwnerSetupInput = { username: string; displayName: string; password: string };
 type ProductInput = { sku: string; nameAr: string; nameEn?: string; barcode?: string; costMinor: number; priceMinor: number; openingQuantity?: number };
 type ProductRow = { id: string; sku: string; nameAr: string; nameEn: string | null; barcode: string | null; costMinor: number; priceMinor: number; isActive: number; stockOnHand: number };
+type CashierShift = { id: string; openingCashMinor: number; openedAt?: string; status?: "open" };
+type SaleResult = { id: string; saleNumber: string; totalMinor: number; status: "posted"; lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> };
 
 declare global {
   interface Window {
@@ -16,6 +18,10 @@ declare global {
       logout: () => Promise<{ success: boolean }>;
       listProducts: () => Promise<ProductRow[]>;
       createProduct: (input: ProductInput) => Promise<ProductRow>;
+      currentShift: () => Promise<CashierShift | null>;
+      openShift: (openingCashMinor: number) => Promise<CashierShift>;
+      closeShift: (input: { shiftId: string; closingCashMinor: number }) => Promise<{ id: string; closingCashMinor: number; status: "closed" }>;
+      createSale: (input: { lines: Array<{ productId: string; quantity: number }>; paymentMethod: "cash" | "card" | "transfer"; idempotencyKey: string }) => Promise<SaleResult>;
     };
   }
 }
@@ -37,6 +43,17 @@ export function App() {
   const [productPrice, setProductPrice] = useState("0");
   const [openingQuantity, setOpeningQuantity] = useState("0");
   const [productBusy, setProductBusy] = useState(false);
+  const [shift, setShift] = useState<CashierShift | null>(null);
+  const [shiftOpeningCash, setShiftOpeningCash] = useState("0");
+  const [shiftClosingCash, setShiftClosingCash] = useState("0");
+  const [shiftBusy, setShiftBusy] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [saleQuantity, setSaleQuantity] = useState("1");
+  const [cart, setCart] = useState<Array<{ productId: string; sku: string; nameAr: string; priceMinor: number; quantity: number }>>([]);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
+  const [saleBusy, setSaleBusy] = useState(false);
+  const [lastSale, setLastSale] = useState<SaleResult | null>(null);
+  const [saleKey, setSaleKey] = useState(() => window.crypto.randomUUID());
 
   useEffect(() => {
     Promise.all([window.alnasr.health(), window.alnasr.setupStatus()])
@@ -58,6 +75,7 @@ export function App() {
       setUser(result);
       setOwnerSetupRequired(false);
       setProducts(await window.alnasr.listProducts());
+      setShift(await window.alnasr.currentShift());
       setPassword("");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر إتمام العملية");
@@ -98,6 +116,86 @@ export function App() {
     await window.alnasr.logout();
     setUser(null);
     setProducts([]);
+    setShift(null);
+    setCart([]);
+    setLastSale(null);
+  }
+
+
+  async function startShift(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setShiftBusy(true);
+    setError(null);
+    try {
+      const opened = await window.alnasr.openShift(Math.round(Number(shiftOpeningCash) * 100));
+      setShift(opened);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر فتح الوردية");
+    } finally {
+      setShiftBusy(false);
+    }
+  }
+
+  async function finishShift(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!shift) return;
+    setShiftBusy(true);
+    setError(null);
+    try {
+      await window.alnasr.closeShift({ shiftId: shift.id, closingCashMinor: Math.round(Number(shiftClosingCash) * 100) });
+      setShift(null);
+      setCart([]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر إغلاق الوردية");
+    } finally {
+      setShiftBusy(false);
+    }
+  }
+
+  function addToCart() {
+    const product = products.find((item) => item.id === selectedProductId);
+    const quantity = Number(saleQuantity);
+    if (!product || !Number.isSafeInteger(quantity) || quantity <= 0) {
+      setError("اختر منتجاً وأدخل كمية صحيحة");
+      return;
+    }
+    if (product.stockOnHand < quantity) {
+      setError("الكمية المطلوبة أكبر من المخزون المتاح");
+      return;
+    }
+    setError(null);
+    setCart((current) => {
+      const existing = current.find((item) => item.productId === product.id);
+      const nextQuantity = (existing?.quantity ?? 0) + quantity;
+      if (nextQuantity > product.stockOnHand) {
+        setError("إجمالي الكمية في السلة يتجاوز المخزون المتاح");
+        return current;
+      }
+      return existing
+        ? current.map((item) => item.productId === product.id ? { ...item, quantity: nextQuantity } : item)
+        : [...current, { productId: product.id, sku: product.sku, nameAr: product.nameAr, priceMinor: product.priceMinor, quantity }];
+    });
+  }
+
+  async function completeSale() {
+    if (!cart.length) return;
+    setSaleBusy(true);
+    setError(null);
+    try {
+      const result = await window.alnasr.createSale({
+        lines: cart.map(({ productId, quantity }) => ({ productId, quantity })),
+        paymentMethod,
+        idempotencyKey: saleKey
+      });
+      setLastSale(result);
+      setCart([]);
+      setProducts(await window.alnasr.listProducts());
+      setSaleKey(window.crypto.randomUUID());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تعذر إتمام البيع");
+    } finally {
+      setSaleBusy(false);
+    }
   }
 
   return (
@@ -154,6 +252,56 @@ export function App() {
             <button className="secondary-button" onClick={() => void logout()}>تسجيل الخروج</button>
           </div>
 
+
+          <section className="pos-workspace">
+            <div className="product-heading">
+              <div><span className="eyebrow">نقطة البيع</span><h2>الوردية والفواتير</h2></div>
+              <span className="product-count">{shift ? "الوردية مفتوحة" : "لا توجد وردية مفتوحة"}</span>
+            </div>
+            {!shift ? (
+              <form className="shift-form" onSubmit={startShift}>
+                <label>رصيد افتتاح الصندوق<input type="number" min="0" step="0.01" value={shiftOpeningCash} onChange={(event) => setShiftOpeningCash(event.target.value)} required /></label>
+                <button type="submit" disabled={shiftBusy}>{shiftBusy ? "جارٍ الفتح..." : "فتح وردية جديدة"}</button>
+              </form>
+            ) : (
+              <>
+                <div className="pos-entry">
+                  <label>المنتج
+                    <select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>
+                      <option value="">اختر منتجاً</option>
+                      {products.filter((product) => product.stockOnHand > 0).map((product) => (
+                        <option key={product.id} value={product.id}>{product.nameAr} — متاح {product.stockOnHand}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>الكمية<input type="number" min="1" step="1" value={saleQuantity} onChange={(event) => setSaleQuantity(event.target.value)} /></label>
+                  <button type="button" onClick={addToCart}>إضافة للسلة</button>
+                </div>
+                <div className="cart-list">
+                  {cart.length === 0 ? <p className="empty-products">السلة فارغة. اختر المنتجات لإضافتها إلى الفاتورة.</p> : cart.map((item) => (
+                    <article className="product-row" key={item.productId}>
+                      <div><strong>{item.nameAr}</strong><small>{item.sku} · الكمية {item.quantity}</small></div>
+                      <strong>{((item.priceMinor * item.quantity) / 100).toFixed(2)}</strong>
+                    </article>
+                  ))}
+                </div>
+                <div className="checkout-row">
+                  <label>طريقة الدفع
+                    <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as "cash" | "card" | "transfer")}>
+                      <option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option>
+                    </select>
+                  </label>
+                  <div className="cart-total"><small>الإجمالي</small><strong>{(cart.reduce((sum, item) => sum + item.priceMinor * item.quantity, 0) / 100).toFixed(2)}</strong></div>
+                  <button type="button" onClick={() => void completeSale()} disabled={saleBusy || cart.length === 0}>{saleBusy ? "جارٍ اعتماد الفاتورة..." : "اعتماد البيع"}</button>
+                </div>
+                {lastSale && <p className="sale-success">تم اعتماد الفاتورة {lastSale.saleNumber} · الإجمالي {(lastSale.totalMinor / 100).toFixed(2)}</p>}
+                <form className="shift-form shift-close" onSubmit={finishShift}>
+                  <label>الرصيد الفعلي عند الإغلاق<input type="number" min="0" step="0.01" value={shiftClosingCash} onChange={(event) => setShiftClosingCash(event.target.value)} required /></label>
+                  <button type="submit" disabled={shiftBusy}>إغلاق الوردية</button>
+                </form>
+              </>
+            )}
+          </section>
           <section className="product-workspace">
             <div className="product-heading">
               <div><span className="eyebrow">الكتالوج الأساسي</span><h2>إدارة المنتجات</h2></div>
