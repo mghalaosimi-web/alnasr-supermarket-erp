@@ -219,6 +219,13 @@ export const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_purchase_lines_purchase
         ON purchase_lines(purchase_id);
     `
+  },
+  {
+    id: "0004_supplier_payment_history",
+    sql: `
+      CREATE INDEX IF NOT EXISTS idx_purchase_payments_purchase_time
+        ON purchase_payments(purchase_id, occurred_at);
+    `
   }
 ] as const;
 
