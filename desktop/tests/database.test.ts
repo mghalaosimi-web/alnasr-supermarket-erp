@@ -222,6 +222,7 @@ describe("AL-NASR inventory receiving and stock counts", () => {
     const received = receiveStock(db, { productId: product.id, quantity: 7, unitCostMinor: 320, actorUserId: owner.id });
     expect(received.quantityOnHand).toBe(12);
     expect(listProducts(db)[0].stockOnHand).toBe(12);
+    expect(listProducts(db)[0].costMinor).toBe(312);
     const adjusted = adjustStockCount(db, { productId: product.id, countedQuantity: 9, actorUserId: owner.id });
     expect(adjusted).toMatchObject({ previousQuantity: 12, countedQuantity: 9, difference: -3 });
     expect(listProducts(db)[0].stockOnHand).toBe(9);
