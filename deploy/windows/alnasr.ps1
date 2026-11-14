@@ -123,7 +123,7 @@ switch ($Action) {
 set -e
 APPS="$(bench --site alnasr.local list-apps)"
 for app in erpnext xpos alnasr; do
-    if ! printf '%s\n' "$APPS" | grep -Eq "^\${app}[[:space:]]"; then
+    if ! printf '%s\n' "$APPS" | grep -Eq "^${app}[[:space:]]"; then
         bench --site alnasr.local install-app "$app"
     fi
 done
