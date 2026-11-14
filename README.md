@@ -30,35 +30,34 @@ AL-NASR is an independently branded supermarket and retail-management product fo
 - Local-network operation with a controlled offline workflow and later synchronization
 - Desktop, tablet, and phone access
 
-## Intended technical foundation
+## Target technical foundation (new direction)
 
-- **ERPNext / Frappe v16** for ERP, inventory, purchasing, accounting, users, permissions, and APIs.
-- **X POS v16** as the selected POS candidate for evaluation.
-- **AL-NASR custom Frappe app** for supermarket-specific workflows, configuration, integrations, Arabic product experience, and original branding.
+The target runtime is a native Windows desktop application:
 
-The upstream source revisions are pinned in [UPSTREAM-LOCK.md](docs/architecture/UPSTREAM-LOCK.md). This is an engineering baseline under verification, not a declaration that every feature is already implemented or production-ready.
+- **Electron + bundled Chromium** for the Windows desktop shell and offline installer.
+- **React + TypeScript** for the Arabic RTL / English LTR user interface.
+- **Node.js LTS** for local business services and the authenticated LAN API.
+- **SQLite** as the sole local operational database.
+- **Electron Builder / NSIS** for a conventional single-file Windows installer.
+- **Android companion** connects to the Windows host API over the local network; it never opens the SQLite file directly.
 
-### Get the pinned source tree
+ERPNext, Frappe and X POS are no longer runtime dependencies in the target architecture. Their source and existing acceptance scenarios may be consulted as functional references only, subject to license obligations. SQLite cannot be substituted underneath ERPNext/Frappe by changing a connection setting.
 
-Clone with submodules enabled so Frappe, ERPNext, and X POS are checked out at the exact commits recorded by this repository:
+Read [the native Windows + SQLite architecture decision](docs/architecture/NATIVE-WINDOWS-SQLITE-ADR.md). The new desktop scaffold is under `desktop/`. It is an early implementation, not a production-ready system or a completed installer.
 
-```bash
-git clone --recurse-submodules https://github.com/mghalaosimi-web/alnasr-supermarket-erp.git
-cd alnasr-supermarket-erp
-bash scripts/bootstrap-upstream.sh
-```
+## Historical upstream prototype
 
-If the repository was cloned without submodules, the bootstrap script initializes them and verifies all three immutable revisions. The upstream projects remain separate Git repositories; AL-NASR-specific code stays in `apps/alnasr`.
+The repository retains the earlier Frappe / ERPNext / X POS integration baseline and pinned upstream revisions for reference and audit. Those components are not part of the new target runtime. Existing Docker and WSL installer prototypes are historical, unmerged drafts and must not be represented as the final offline product.
 
 ## Architecture principles
 
-1. Keep ERPNext core unmodified; implement AL-NASR-specific behavior in custom Frappe apps and supported extension points.
-2. Keep upstream components identifiable and their original license/copyright notices intact.
-3. Separate the AL-NASR commercial identity from upstream project names, logos, and trademarks.
-4. Do not treat browser offline caching as equivalent to multi-terminal LAN synchronization.
-5. Never silently discard queued offline sales; use idempotent synchronization, conflict review, and audit trails.
-6. No production secrets, customer data, credentials, or database dumps belong in this repository.
-7. Do not claim complete rebranding until every owned surface in the brand implementation matrix has passed visual and functional review.
+1. SQLite is opened only by the Windows host process; Android and other clients communicate through an authenticated API.
+2. Core business operations must work without internet access.
+3. Use transactions, immutable stock/accounting ledgers, idempotency keys and auditable corrections.
+4. Preserve owner data across upgrades and ordinary uninstall; backups must be verified.
+5. Keep LAN access disabled or loopback-only until explicitly enabled and paired by the owner.
+6. No production secrets, customer data, credentials, signing keys or database dumps belong in this repository.
+7. Do not claim release readiness until clean-machine offline installation, real business workflows, LAN/Android and recovery acceptance all pass.
 
 ## Repository status
 
