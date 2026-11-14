@@ -1,6 +1,7 @@
 x-image: &alnasr-image
   image: alnasr-local:16
   pull_policy: never
+  pull_policy: never
   restart: unless-stopped
   platform: linux/amd64
 
@@ -102,6 +103,7 @@ services:
 
   db:
     image: mariadb:11.8
+    pull_policy: never
     restart: unless-stopped
     command:
       - --character-set-server=utf8mb4
@@ -123,16 +125,19 @@ services:
 
   redis-cache:
     image: redis:8.6-alpine
+    pull_policy: never
     restart: unless-stopped
 
   redis-queue:
     image: redis:8.6-alpine
+    pull_policy: never
     restart: unless-stopped
     volumes:
       - redis-queue-data:/data
 
   caddy:
     image: caddy:2.10-alpine
+    pull_policy: never
     restart: unless-stopped
     ports:
       - "${LAN_BIND_ADDRESS:-127.0.0.1}:443:443"
