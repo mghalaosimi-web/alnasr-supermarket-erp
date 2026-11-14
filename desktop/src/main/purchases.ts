@@ -126,3 +126,55 @@ export function createPurchase(db: Database.Database, input: CreatePurchaseInput
   });
   return post.immediate();
 }
+
+export type AddPurchasePaymentInput = {
+  purchaseId: string;
+  amountMinor: number;
+  method: "cash" | "card" | "transfer";
+  actorUserId: string;
+};
+
+export function addPurchasePayment(db: Database.Database, input: AddPurchasePaymentInput): PurchaseRow {
+  if (!input.purchaseId || !input.actorUserId) throw new Error("بيانات تسوية المورد غير مكتملة");
+  if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) {
+    throw new Error("يجب أن يكون مبلغ الدفعة أكبر من صفر");
+  }
+  if (!["cash", "card", "transfer"].includes(input.method)) throw new Error("طريقة الدفع غير مدعومة");
+
+  const settle = db.transaction((): PurchaseRow => {
+    const purchase = db.prepare(`
+      SELECT id, document_number AS documentNumber, supplier_id AS supplierId,
+        subtotal_minor AS subtotalMinor, paid_minor AS paidMinor
+      FROM purchase_documents WHERE id = ? AND status = 'posted'
+    `).get(input.purchaseId) as {
+      id: string; documentNumber: string; supplierId: string; subtotalMinor: number; paidMinor: number;
+    } | undefined;
+    if (!purchase) throw new Error("فاتورة الشراء غير موجودة أو غير قابلة للتسوية");
+    const outstandingMinor = purchase.subtotalMinor - purchase.paidMinor;
+    if (outstandingMinor <= 0) throw new Error("فاتورة الشراء مسددة بالكامل");
+    if (input.amountMinor > outstandingMinor) throw new Error("مبلغ الدفعة يتجاوز المبلغ المستحق للمورد");
+
+    db.prepare("INSERT INTO purchase_payments (id, purchase_id, method, amount_minor) VALUES (?, ?, ?, ?)")
+      .run(randomUUID(), purchase.id, input.method, input.amountMinor);
+    db.prepare("UPDATE purchase_documents SET paid_minor = paid_minor + ? WHERE id = ?")
+      .run(input.amountMinor, purchase.id);
+    db.prepare("INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'purchase.payment', 'purchase', ?, ?)")
+      .run(randomUUID(), input.actorUserId, purchase.id, JSON.stringify({
+        documentNumber: purchase.documentNumber,
+        amountMinor: input.amountMinor,
+        method: input.method,
+        previousOutstandingMinor: outstandingMinor,
+        outstandingMinor: outstandingMinor - input.amountMinor
+      }));
+
+    return db.prepare(`
+      SELECT pd.id, pd.document_number AS documentNumber, pd.supplier_id AS supplierId,
+        s.name AS supplierName, pd.subtotal_minor AS subtotalMinor, pd.paid_minor AS paidMinor,
+        (pd.subtotal_minor - pd.paid_minor) AS outstandingMinor, pd.occurred_at AS occurredAt,
+        (SELECT COUNT(*) FROM purchase_lines pl WHERE pl.purchase_id = pd.id) AS lineCount
+      FROM purchase_documents pd JOIN suppliers s ON s.id = pd.supplier_id
+      WHERE pd.id = ?
+    `).get(purchase.id) as PurchaseRow;
+  });
+  return settle.immediate();
+}
