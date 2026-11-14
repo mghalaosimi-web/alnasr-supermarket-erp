@@ -47,7 +47,7 @@ function Ensure-LocalEnv {
         Write-Host "Created a private local database secret at $EnvFile"
     }
 }
-Assert-Docker
+if ($Action -ne "prepare") { Assert-Docker }
 switch ($Action) {
     "prepare" {
         Ensure-LocalEnv
