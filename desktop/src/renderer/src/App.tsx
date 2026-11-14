@@ -98,6 +98,7 @@ export function App() {
   const [receivablePaymentAmount, setReceivablePaymentAmount] = useState("0");
   const [receivablePaymentMethod, setReceivablePaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
   const [receivablePaymentBusy, setReceivablePaymentBusy] = useState(false);
+  const [receivableMessage, setReceivableMessage] = useState<string | null>(null);
   const [customerCode, setCustomerCode] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -314,7 +315,7 @@ export function App() {
       setReceivables(await window.alnasr.listReceivables());
       setReceivableSaleId("");
       setReceivablePaymentAmount("0");
-      setPurchaseMessage("تم تحصيل دفعة من العميل " + updated.customerName + " · المتبقي: " + (updated.outstandingMinor / 100).toFixed(2));
+      setReceivableMessage("تم تحصيل دفعة من العميل " + updated.customerName + " · المتبقي: " + (updated.outstandingMinor / 100).toFixed(2));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "تعذر تحصيل المبلغ من العميل");
     } finally {
@@ -792,6 +793,7 @@ export function App() {
               <button type="submit" disabled={customerBusy}>{customerBusy ? "جارٍ الحفظ..." : "إضافة العميل"}</button>
             </form>
             {error && <p className="form-error" role="alert">{error}</p>}
+            {receivableMessage && <p className="sale-success">{receivableMessage}</p>}
             <div className="product-heading">
               <div><span className="eyebrow">الذمم المدينة</span><h3>فواتير العملاء المستحقة</h3></div>
               <span className="product-count">{receivables.length} فاتورة</span>
