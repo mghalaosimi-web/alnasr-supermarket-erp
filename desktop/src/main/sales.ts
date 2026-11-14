@@ -4,7 +4,8 @@ import type Database from "better-sqlite3";
 export type SaleLineInput = { productId: string; quantity: number };
 export type CreateSaleInput = {
   lines: SaleLineInput[];
-  paymentMethod: "cash" | "card" | "transfer";
+  paymentMethod?: "cash" | "card" | "transfer";
+  paidMinor?: number;
   idempotencyKey: string;
   customerId?: string;
   actorUserId: string;
@@ -13,9 +14,91 @@ export type SaleResult = {
   id: string;
   saleNumber: string;
   totalMinor: number;
+  paidMinor: number;
+  outstandingMinor: number;
   status: "posted";
   lines: Array<{ productId: string; sku: string; nameAr: string; quantity: number; unitPriceMinor: number; lineTotalMinor: number }>;
 };
+
+export type ReceivableRow = {
+  id: string;
+  saleNumber: string;
+  customerId: string;
+  customerName: string;
+  totalMinor: number;
+  paidMinor: number;
+  outstandingMinor: number;
+  occurredAt: string;
+};
+
+export type AddSalePaymentInput = {
+  saleId: string;
+  amountMinor: number;
+  method: "cash" | "card" | "transfer";
+  actorUserId: string;
+};
+
+export function listReceivables(db: Database.Database, limit = 200): ReceivableRow[] {
+  const safeLimit = Math.min(500, Math.max(1, Math.trunc(limit)));
+  return db.prepare(`
+    SELECT s.id, s.sale_number AS saleNumber, s.customer_id AS customerId,
+      c.name AS customerName, s.total_minor AS totalMinor, s.paid_minor AS paidMinor,
+      (s.total_minor - s.paid_minor) AS outstandingMinor, s.occurred_at AS occurredAt
+    FROM sales s JOIN customers c ON c.id = s.customer_id
+    WHERE s.status = 'posted' AND s.paid_minor < s.total_minor
+    ORDER BY s.occurred_at DESC, s.rowid DESC
+    LIMIT ?
+  `).all(safeLimit) as ReceivableRow[];
+}
+
+export function addSalePayment(db: Database.Database, input: AddSalePaymentInput): ReceivableRow {
+  if (!input.saleId || !input.actorUserId) throw new Error("بيانات تحصيل العميل غير مكتملة");
+  if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) {
+    throw new Error("يجب أن يكون مبلغ التحصيل أكبر من صفر");
+  }
+  if (!["cash", "card", "transfer"].includes(input.method)) throw new Error("طريقة الدفع غير مدعومة");
+
+  const settle = db.transaction((): ReceivableRow => {
+    const sale = db.prepare(`
+      SELECT s.id, s.sale_number AS saleNumber, s.customer_id AS customerId,
+        c.name AS customerName, s.total_minor AS totalMinor, s.paid_minor AS paidMinor
+      FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
+      WHERE s.id = ? AND s.status = 'posted'
+    `).get(input.saleId) as {
+      id: string; saleNumber: string; customerId: string | null; customerName: string | null;
+      totalMinor: number; paidMinor: number;
+    } | undefined;
+    if (!sale || !sale.customerId || !sale.customerName) throw new Error("فاتورة العميل غير موجودة أو غير مؤهلة للتحصيل");
+    const outstandingMinor = sale.totalMinor - sale.paidMinor;
+    if (outstandingMinor <= 0) throw new Error("فاتورة العميل مسددة بالكامل");
+    if (input.amountMinor > outstandingMinor) throw new Error("مبلغ التحصيل يتجاوز المبلغ المستحق من العميل");
+
+    db.prepare("INSERT INTO payments (id, sale_id, method, amount_minor) VALUES (?, ?, ?, ?)")
+      .run(randomUUID(), sale.id, input.method, input.amountMinor);
+    db.prepare("UPDATE sales SET paid_minor = paid_minor + ? WHERE id = ?")
+      .run(input.amountMinor, sale.id);
+    db.prepare("INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'sale.payment', 'sale', ?, ?)")
+      .run(randomUUID(), input.actorUserId, sale.id, JSON.stringify({
+        saleNumber: sale.saleNumber,
+        amountMinor: input.amountMinor,
+        method: input.method,
+        previousOutstandingMinor: outstandingMinor,
+        outstandingMinor: outstandingMinor - input.amountMinor
+      }));
+
+    return {
+      id: sale.id,
+      saleNumber: sale.saleNumber,
+      customerId: sale.customerId,
+      customerName: sale.customerName,
+      totalMinor: sale.totalMinor,
+      paidMinor: sale.paidMinor + input.amountMinor,
+      outstandingMinor: outstandingMinor - input.amountMinor,
+      occurredAt: (db.prepare("SELECT occurred_at AS occurredAt FROM sales WHERE id = ?").get(sale.id) as { occurredAt: string }).occurredAt
+    };
+  });
+  return settle.immediate();
+}
 
 export function openCashierShift(
   db: Database.Database,
@@ -73,8 +156,11 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
   if (!Array.isArray(input.lines) || input.lines.length < 1 || input.lines.length > 100) {
     throw new Error("أضف منتجاً واحداً على الأقل إلى الفاتورة");
   }
-  if (!["cash", "card", "transfer"].includes(input.paymentMethod)) {
+  if (input.paymentMethod !== undefined && !["cash", "card", "transfer"].includes(input.paymentMethod)) {
     throw new Error("طريقة الدفع غير مدعومة");
+  }
+  if (input.paidMinor !== undefined && (!Number.isSafeInteger(input.paidMinor) || input.paidMinor < 0)) {
+    throw new Error("قيمة المدفوع غير صحيحة");
   }
   if (typeof input.idempotencyKey !== "string" || input.idempotencyKey.length < 8 || input.idempotencyKey.length > 120) {
     throw new Error("مفتاح العملية غير صحيح");
@@ -88,17 +174,18 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
   }
 
   const post = db.transaction((): SaleResult => {
-    const existing = db.prepare("SELECT id, sale_number AS saleNumber, total_minor AS totalMinor, status FROM sales WHERE idempotency_key = ? AND created_by = ?")
-      .get(input.idempotencyKey, input.actorUserId) as { id: string; saleNumber: string; totalMinor: number; status: "posted" } | undefined;
+    const existing = db.prepare("SELECT id, sale_number AS saleNumber, total_minor AS totalMinor, paid_minor AS paidMinor, status FROM sales WHERE idempotency_key = ? AND created_by = ?")
+      .get(input.idempotencyKey, input.actorUserId) as { id: string; saleNumber: string; totalMinor: number; paidMinor: number; status: "posted" } | undefined;
     if (existing) {
       const lines = db.prepare("SELECT product_id AS productId, p.sku, p.name_ar AS nameAr, quantity, unit_price_minor AS unitPriceMinor, line_total_minor AS lineTotalMinor FROM sale_lines sl JOIN products p ON p.id = sl.product_id WHERE sale_id = ?")
         .all(existing.id) as SaleResult["lines"];
-      return { ...existing, lines };
+      return { ...existing, outstandingMinor: existing.totalMinor - existing.paidMinor, lines };
     }
 
     const customerId = input.customerId ?? null;
     if (customerId) {
-      const customer = db.prepare("SELECT id FROM customers WHERE id = ? AND is_active = 1").get(customerId);
+      const customer = db.prepare("SELECT id, credit_limit_minor AS creditLimitMinor FROM customers WHERE id = ? AND is_active = 1")
+        .get(customerId) as { id: string; creditLimitMinor: number } | undefined;
       if (!customer) throw new Error("العميل المحدد غير موجود أو غير نشط");
     }
 
@@ -123,12 +210,28 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
 
     const totalMinor = preparedLines.reduce((sum, line) => sum + line.lineTotalMinor, 0);
     if (!Number.isSafeInteger(totalMinor) || totalMinor <= 0) throw new Error("إجمالي الفاتورة غير صحيح");
+    const paidMinor = input.paidMinor ?? totalMinor;
+    if (paidMinor > totalMinor) throw new Error("المبلغ المدفوع يتجاوز إجمالي الفاتورة");
+    if (paidMinor > 0 && !input.paymentMethod) throw new Error("حدد طريقة الدفع للمبلغ المحصل");
+    const outstandingMinor = totalMinor - paidMinor;
+    if (outstandingMinor > 0) {
+      if (!customerId) throw new Error("اختر عميلاً لتسجيل البيع الآجل");
+      const customer = db.prepare("SELECT credit_limit_minor AS creditLimitMinor FROM customers WHERE id = ? AND is_active = 1")
+        .get(customerId) as { creditLimitMinor: number } | undefined;
+      if (!customer) throw new Error("العميل المحدد غير موجود أو غير نشط");
+      const balance = db.prepare("SELECT COALESCE(SUM(total_minor - paid_minor), 0) AS outstandingMinor FROM sales WHERE customer_id = ? AND status = 'posted'")
+        .get(customerId) as { outstandingMinor: number };
+      if (balance.outstandingMinor + outstandingMinor > customer.creditLimitMinor) {
+        throw new Error("تجاوز البيع الآجل حد ائتمان العميل");
+      }
+    }
+
     const saleId = randomUUID();
     const dateStamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
     const saleNumber = "NSR-" + dateStamp + "-" + saleId.slice(0, 6).toUpperCase();
 
-    db.prepare("INSERT INTO sales (id, sale_number, customer_id, cashier_shift_id, status, subtotal_minor, discount_minor, tax_minor, total_minor, idempotency_key, created_by) VALUES (?, ?, ?, ?, 'posted', ?, 0, 0, ?, ?, ?)")
-      .run(saleId, saleNumber, customerId, shift.id, totalMinor, totalMinor, input.idempotencyKey, input.actorUserId);
+    db.prepare("INSERT INTO sales (id, sale_number, customer_id, cashier_shift_id, status, subtotal_minor, discount_minor, tax_minor, total_minor, paid_minor, idempotency_key, created_by) VALUES (?, ?, ?, ?, 'posted', ?, 0, 0, ?, ?, ?, ?)")
+      .run(saleId, saleNumber, customerId, shift.id, totalMinor, totalMinor, paidMinor, input.idempotencyKey, input.actorUserId);
 
     for (const line of preparedLines) {
       db.prepare("INSERT INTO sale_lines (id, sale_id, product_id, quantity, unit_price_minor, discount_minor, line_total_minor) VALUES (?, ?, ?, ?, ?, 0, ?)")
@@ -137,15 +240,19 @@ export function createSale(db: Database.Database, input: CreateSaleInput): SaleR
         .run(randomUUID(), line.productId, warehouse.id, -line.quantity, line.unitCostMinor, saleId, input.actorUserId);
     }
 
-    db.prepare("INSERT INTO payments (id, sale_id, method, amount_minor) VALUES (?, ?, ?, ?)")
-      .run(randomUUID(), saleId, input.paymentMethod, totalMinor);
+    if (paidMinor > 0) {
+      db.prepare("INSERT INTO payments (id, sale_id, method, amount_minor) VALUES (?, ?, ?, ?)")
+        .run(randomUUID(), saleId, input.paymentMethod, paidMinor);
+    }
     db.prepare("INSERT INTO audit_events (id, actor_user_id, action, entity_type, entity_id, details_json) VALUES (?, ?, 'sale.post', 'sale', ?, ?)")
-      .run(randomUUID(), input.actorUserId, saleId, JSON.stringify({ saleNumber, totalMinor, lineCount: preparedLines.length }));
+      .run(randomUUID(), input.actorUserId, saleId, JSON.stringify({ saleNumber, totalMinor, paidMinor, outstandingMinor, lineCount: preparedLines.length }));
 
     return {
       id: saleId,
       saleNumber,
       totalMinor,
+      paidMinor,
+      outstandingMinor,
       status: "posted",
       lines: preparedLines.map(({ productId, sku, nameAr, quantity, unitPriceMinor, lineTotalMinor }) => ({
         productId, sku, nameAr, quantity, unitPriceMinor, lineTotalMinor
