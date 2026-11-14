@@ -16,7 +16,7 @@
 | ERPNext login and setup pages | AL-NASR-owned login/landing presentation | Not implemented | Screenshot and RTL/LTR acceptance |
 | AL-NASR Desk landing page | One branded entry point with Arabic RTL navigation to POS and core ERP workflows | Implemented in custom app source; runtime verification pending | Install on clean Bench, open `/app/alnasr`, test role access and all destinations |
 | POS main screen | AL-NASR logo, accessible palette, Arabic RTL, cashier workflow hierarchy | Not implemented; dashboard links to pinned X POS route | Checkout UAT on target devices |
-| POS Electron shell | AL-NASR app icon, window title, installer identity | Not implemented | Build and inspect packaged client |
+| POS Electron shell | AL-NASR app icon, window title, installer identity | Upstream X POS Electron client exists in the pinned submodule; AL-NASR branding/build pipeline and runtime acceptance not implemented | Build and inspect packaged client |
 | Sales and purchase forms | AL-NASR document labels and layout where extensible | Not implemented | Form-by-form visual review |
 | Receipts and invoices | Logo, legal business details, Arabic layout, print sizing | Not implemented | Thermal/A4 printer tests |
 | Reports and dashboards | AL-NASR headings, colors, Arabic formatting | Not implemented | Role-based report screenshots |
