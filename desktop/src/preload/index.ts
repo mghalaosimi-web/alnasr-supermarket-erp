@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld("alnasr", {
   createPurchase: (input: PurchaseInput) => ipcRenderer.invoke("alnasr:purchases:create", input) as Promise<PurchaseRow>,
   addPurchasePayment: (input: PurchasePaymentInput) => ipcRenderer.invoke("alnasr:purchases:add-payment", input) as Promise<PurchaseRow>,
   createBackup: () => ipcRenderer.invoke("alnasr:backup:create") as Promise<{ canceled: boolean; filePath?: string }>,
+  restoreBackup: () => ipcRenderer.invoke("alnasr:backup:restore") as Promise<{ canceled: boolean; safetyBackupPath?: string }>,
   listStockMovements: () => ipcRenderer.invoke("alnasr:inventory:movements") as Promise<StockMovementRow[]>,
   receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => ipcRenderer.invoke("alnasr:inventory:receive", input) as Promise<{ movementId: string; quantityOnHand: number }>,
   adjustStock: (input: { productId: string; countedQuantity: number }) => ipcRenderer.invoke("alnasr:inventory:adjust", input) as Promise<{ movementId: string | null; previousQuantity: number; countedQuantity: number; difference: number }>
@@ -65,6 +66,7 @@ export type AlnasrBridge = {
   createPurchase: (input: PurchaseInput) => Promise<PurchaseRow>,
   addPurchasePayment: (input: PurchasePaymentInput) => Promise<PurchaseRow>,
   createBackup: () => Promise<{ canceled: boolean; filePath?: string }>,
+  restoreBackup: () => Promise<{ canceled: boolean; safetyBackupPath?: string }>,
   listStockMovements: () => Promise<StockMovementRow[]>,
   receiveStock: (input: { productId: string; quantity: number; unitCostMinor: number }) => Promise<{ movementId: string; quantityOnHand: number }>,
   adjustStock: (input: { productId: string; countedQuantity: number }) => Promise<{ movementId: string | null; previousQuantity: number; countedQuantity: number; difference: number }>
