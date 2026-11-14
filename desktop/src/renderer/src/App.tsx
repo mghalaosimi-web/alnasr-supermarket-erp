@@ -410,7 +410,7 @@ export function App() {
                     </select>
                   </label>
                   <label>الكمية<input type="number" min="1" step="1" value={saleQuantity} onChange={(event) => setSaleQuantity(event.target.value)} /></label>
-                  <button type="button" onClick={addToCart}>إضافة للسلة</button>
+                  <button type="button" onClick={() => addToCart()}>إضافة للسلة</button>
                 </div>
                 <div className="cart-list">
                   {cart.length === 0 ? <p className="empty-products">السلة فارغة. اختر المنتجات لإضافتها إلى الفاتورة.</p> : cart.map((item) => (
