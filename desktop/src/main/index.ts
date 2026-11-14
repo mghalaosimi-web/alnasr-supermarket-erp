@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { join } from "node:path";
 import { openDatabase, type AlnasrDatabase } from "./database";
 import { authenticate, createInitialOwner, isOwnerSetupRequired } from "./auth";
@@ -108,6 +108,21 @@ app.whenReady().then(() => {
   });
 
 
+
+
+  ipcMain.handle("alnasr:backup:create", async () => {
+    if (!database?.open || !activeUserId || !mainWindow) throw new Error("سجّل الدخول أولاً");
+    const stamp = new Date().toISOString().slice(0, 10);
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "حفظ نسخة احتياطية من قاعدة بيانات النصر",
+      defaultPath: "AL-NASR-Backup-" + stamp + ".sqlite",
+      buttonLabel: "حفظ النسخة",
+      filters: [{ name: "SQLite Database", extensions: ["sqlite", "db"] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await database.backup(result.filePath);
+    return { canceled: false, filePath: result.filePath };
+  });
 
   ipcMain.handle("alnasr:inventory:movements", () => {
     if (!database?.open || !activeUserId) throw new Error("سجّل الدخول أولاً");
