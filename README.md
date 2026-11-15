@@ -37,9 +37,11 @@ The former ERPNext/Frappe + MariaDB + Redis + Docker design is superseded by ADR
 
 The current `local-app/` is a TypeScript/Fastify backend foundation. It includes SQLite schema migrations v1–v3; database durability/integrity settings; one-time owner setup; scrypt password hashing; hashed bearer sessions, expiration/revocation and seeded RBAC; product create/list; stock balance and adjustment ledger; sale draft/post; purchase draft/receipt; and verified online database backup creation.
 
-The latest inspected local-runtime workflow is [run #94](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43742819584) on source commit `54c8a5d53f6d5fc2363d6157c04a5b3706d6d2dc`. It passed `npm ci`, TypeScript typecheck, `npm test` (8 test files / 28 tests), and TypeScript build. This run validates only `local-app/`; it is not whole-product acceptance.
+The latest inspected local-runtime workflow is [run #108](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43747507029) on current PR head `c780b58c5a5f79a000cb33823858012e96cf07f2`. It passed dependency installation, TypeScript typecheck, unit tests, and TypeScript build. Earlier run #94 recorded 8 test files / 28 tests. These runs validate only `local-app/`; they are not whole-product acceptance.
 
-An Android Kotlin/Gradle WebView preview project exists, but it is not yet a secure Fastify API companion: it lacks the required pairing protocol, certificate/public-key pinning, device registration/revocation, API session integration, and synchronization workflows.
+The Android Gradle validation workflow [run #48](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43747506964) passed on the same PR head and uploaded the debug-preview artifact `AL-NASR-Android-Debug-Preview` for controlled device testing. This is not a production release or device-acceptance result.
+
+An Android Kotlin/Gradle WebView preview project exists, but it is not yet a secure Fastify API companion: it lacks the required pairing protocol, certificate/public-key pinning, device registration/revocation, API session integration, and synchronization workflows. The old `deploy/windows` Inno Setup/PowerShell scaffold still packages the superseded Docker/ERPNext stack; it is not a SQLite Windows installer.
 
 ## Major Phase 1 work still outstanding
 
