@@ -1,9 +1,8 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { z } from "zod";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { openDatabase } from "./db/database.js";
-import { randomUUID } from "node:crypto";
 import { authenticateSession, bootstrapOwner, hasPermission, login, logout } from "./auth/auth.js";
 import { createProduct, listProducts } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
@@ -80,7 +79,7 @@ export function buildServer() {
   const db = openDatabase();
   const app = Fastify({ logger: true, bodyLimit: 1_048_576 });
 
-  function authorize(request: Parameters<typeof app.addHook>[1] extends never ? never : any, reply: any, permission: string) {
+  function authorize(request: FastifyRequest, reply: FastifyReply, permission: string) {
     const token = bearerToken(request.headers.authorization);
     if (!token) {
       reply.code(401).send({ error: "unauthorized" });
