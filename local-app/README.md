@@ -1,33 +1,47 @@
 # AL-NASR Local Runtime — SQLite foundation
 
-This is the replacement local-first runtime defined in [ADR-0002](../docs/architecture/ADR-0002-sqlite-local-first-no-docker.md). It is intentionally independent of the historical ERPNext/Frappe runtime.
+This is the replacement local-first runtime defined in [ADR-0002](../docs/architecture/ADR-0002-sqlite-local-first-no-docker.md). It is independent of the historical ERPNext/Frappe runtime.
 
 ## Implemented
 
-- SQLite database outside the installation directory, with foreign keys, WAL, FULL synchronous writes, busy timeout, and versioned migrations (schema v3).
-- Core tables for stores, users, roles, permissions, audit events, warehouses, products/barcodes, customers, suppliers, stock ledger, sales, sale lines, and payments.
-- First-run owner bootstrap, scrypt password hashing, hashed bearer-token sessions, role/permission resolution, logout, and a per-account failed-login lockout.
-- Fastify local endpoints for health, first-run setup, login, current session, and logout.
-- Transactional stock ledger posting with non-negative stock enforcement, audit events, and idempotent retries.
-- POS sale drafts and atomic posting that deducts stock; purchase drafts and receipt posting that adds stock; both support idempotent retries and transactional rollback.
-- Unit tests for schema migrations, authentication, owner bootstrap, session lifecycle, RBAC, lockout, stock ledger, sale posting, and purchase receiving.
+- SQLite schema migrations v1–v3, stored outside the application installation directory.
+- Foreign keys, WAL mode, FULL synchronous writes, busy timeout, WAL auto-checkpoint, startup integrity check, and graceful WAL checkpoint at shutdown.
+- Refusal to open a database created by a newer unsupported application schema.
+- First-run owner bootstrap creates the owner account, default store, and main warehouse atomically.
+- Scrypt password hashing, hashed bearer-token sessions, session expiry/revocation, role/permission resolution, and per-account failed-login lockout.
+- Permission-checked Fastify API for setup, authentication, product catalog, stock balances, inventory adjustments, sales, purchases, and verified database backup creation.
+- Product creation/search/deactivation with validation and audit records.
+- Transactional stock ledger with non-negative stock enforcement and idempotent retries.
+- POS sale drafts and atomic posting that deducts stock.
+- Purchase drafts and receiving that adds stock.
+- SQLite backup creation through the online backup API, integrity verification, temporary-file creation, and atomic finalization.
+- Automated tests for schema, persistent reopen, forward-schema protection, authentication, owner setup, RBAC, catalog, stock ledger, sales, purchasing, backup, and API integration.
 
 ## API
 
-The service binds to 127.0.0.1:4317 by default. LAN binding is deliberately disabled until authenticated HTTPS pairing and device authorization are implemented.
+The service binds to `127.0.0.1:4317` by default. It is intentionally not exposed to the LAN until secure pairing, TLS, and device authorization are implemented.
 
 - `GET /api/v1/health`
 - `GET /api/v1/setup/status`
-- `POST /api/v1/setup/owner` — only succeeds while the users table is empty; create a strong owner password.
+- `POST /api/v1/setup/owner`
 - `POST /api/v1/auth/login`
-- `GET /api/v1/auth/me` — requires `Authorization: Bearer <token>`.
-- `POST /api/v1/auth/logout` — requires the same bearer header.
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/products`
+- `POST /api/v1/products`
+- `GET /api/v1/inventory/balance`
+- `POST /api/v1/inventory/adjustments`
+- `POST /api/v1/sales`
+- `POST /api/v1/sales/:saleId/post`
+- `POST /api/v1/purchases`
+- `POST /api/v1/purchases/:purchaseId/post`
+- `POST /api/v1/backups`
 
-The owner bootstrap endpoint is intended for first-run setup on the local machine. Do not expose the API to a LAN or public network.
+All business endpoints require a valid bearer session and the relevant permission. The first-run setup endpoint is one-time only and must remain local.
 
 ## Development and validation
 
-Requires Node.js 24 and a supported native build toolchain for better-sqlite3.
+Requires Node.js 24 and a supported native build toolchain for `better-sqlite3`.
 
 ```bash
 npm ci
@@ -37,10 +51,10 @@ npm run build
 npm run dev
 ```
 
-The committed package-lock.json pins the dependency graph for reproducible installs.
+The committed `package-lock.json` pins the dependency graph.
 
-By default, Windows data is stored under %ProgramData%\\AL-NASR\\data\\alnasr.sqlite; other operating systems use ~/.local/share/al-nasr/data/alnasr.sqlite. Set AL_NASR_DATABASE_PATH to override it for tests or development.
+By default, Windows data is stored under `%ProgramData%\\AL-NASR\\data\\alnasr.sqlite`; other operating systems use `~/.local/share/al-nasr/data/alnasr.sqlite`. Set `AL_NASR_DATABASE_PATH` to override it for tests or development.
 
 ## Not yet implemented
 
-This remains a backend foundation, not the complete ERP. POS user interface and payment capture, returns/refunds, accounting journals and reconciliation, shifts/cash management, full product/customer/supplier APIs, React renderer, Electron lifecycle, Android app, secure LAN pairing/TLS, backup/restore, Windows installer, and clean-machine/hardware acceptance are still outstanding.
+This is a verified backend foundation, not the finished desktop product. Still outstanding: React user interface, Electron desktop lifecycle and single-instance protection, Windows installer and startup behavior, Android client and secure LAN pairing/TLS, backup restore and retention policy, payment capture, returns/refunds, accounting journals and reconciliation, shifts/cash management, supplier/customer management screens and APIs, and clean Windows/hardware acceptance.
