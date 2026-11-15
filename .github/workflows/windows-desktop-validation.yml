@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: alnasr-windows-desktop-${{ github.ref }}
+  group: alnasr-windows-desktop-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
