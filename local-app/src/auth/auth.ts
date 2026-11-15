@@ -81,7 +81,18 @@ export function bootstrapOwner(
   const bootstrap = db.transaction(() => {
     const existing = db.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number };
     if (existing.count !== 0) throw new Error("Initial owner setup has already been completed.");
-    return createUser(db, { ...input, roleCode: "owner" });
+    const userId = createUser(db, { ...input, roleCode: "owner" });
+    const storeId = randomUUID();
+    const warehouseId = randomUUID();
+    db.prepare("INSERT INTO stores(id, name, currency_code) VALUES (?, ?, 'YER')")
+      .run(storeId, "المتجر الرئيسي");
+    db.prepare("INSERT INTO warehouses(id, store_id, code, name) VALUES (?, ?, 'MAIN', 'المستودع الرئيسي')")
+      .run(warehouseId, storeId);
+    db.prepare(`
+      INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json)
+      VALUES (?, ?, 'system.initialized', 'store', ?, ?)
+    `).run(randomUUID(), userId, storeId, JSON.stringify({ warehouseId, currencyCode: "YER" }));
+    return userId;
   });
   return bootstrap();
 }
