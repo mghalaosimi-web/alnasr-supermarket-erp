@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const migrationV1 = `
 CREATE TABLE IF NOT EXISTS app_meta (
@@ -160,4 +160,97 @@ INSERT OR IGNORE INTO app_meta(key, value) VALUES
 
 export function applySchemaV1(db: Database.Database): void {
   db.exec(migrationV1);
+}
+
+
+const migrationV2 = `
+CREATE TABLE IF NOT EXISTS permissions (
+  code TEXT PRIMARY KEY,
+  description TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+  role_id TEXT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  permission_code TEXT NOT NULL REFERENCES permissions(code) ON DELETE CASCADE,
+  PRIMARY KEY (role_id, permission_code)
+);
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT,
+  last_seen_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_expiry
+  ON user_sessions(user_id, expires_at);
+
+CREATE TABLE IF NOT EXISTS auth_attempts (
+  username_key TEXT PRIMARY KEY,
+  failed_attempts INTEGER NOT NULL DEFAULT 0 CHECK (failed_attempts >= 0),
+  window_started_at TEXT NOT NULL,
+  locked_until TEXT,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+INSERT OR IGNORE INTO permissions(code, description) VALUES
+  ('dashboard:read', 'View dashboard'),
+  ('products:read', 'View products'),
+  ('products:write', 'Create and update products'),
+  ('inventory:read', 'View stock and warehouses'),
+  ('inventory:adjust', 'Post inventory adjustments'),
+  ('sales:read', 'View sales'),
+  ('sales:create', 'Create sales'),
+  ('sales:post', 'Post sales'),
+  ('sales:void', 'Void sales'),
+  ('customers:read', 'View customers'),
+  ('customers:write', 'Manage customers'),
+  ('suppliers:read', 'View suppliers'),
+  ('suppliers:write', 'Manage suppliers'),
+  ('purchases:read', 'View purchases'),
+  ('purchases:write', 'Manage purchases'),
+  ('accounting:read', 'View accounting records'),
+  ('accounting:post', 'Post accounting entries'),
+  ('reports:read', 'View reports'),
+  ('users:read', 'View users'),
+  ('users:write', 'Manage users'),
+  ('settings:write', 'Manage store settings'),
+  ('audit:read', 'View audit log');
+
+INSERT OR IGNORE INTO role_permissions(role_id, permission_code)
+SELECT 'role-owner', code FROM permissions;
+
+INSERT OR IGNORE INTO role_permissions(role_id, permission_code)
+SELECT 'role-admin', code FROM permissions
+WHERE code NOT IN ('users:write', 'settings:write');
+
+INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
+  ('role-cashier', 'dashboard:read'),
+  ('role-cashier', 'products:read'),
+  ('role-cashier', 'sales:read'),
+  ('role-cashier', 'sales:create'),
+  ('role-cashier', 'sales:post'),
+  ('role-cashier', 'customers:read'),
+  ('role-cashier', 'customers:write'),
+  ('role-inventory', 'dashboard:read'),
+  ('role-inventory', 'products:read'),
+  ('role-inventory', 'products:write'),
+  ('role-inventory', 'inventory:read'),
+  ('role-inventory', 'inventory:adjust'),
+  ('role-inventory', 'suppliers:read'),
+  ('role-inventory', 'purchases:read'),
+  ('role-inventory', 'purchases:write'),
+  ('role-accountant', 'dashboard:read'),
+  ('role-accountant', 'sales:read'),
+  ('role-accountant', 'purchases:read'),
+  ('role-accountant', 'accounting:read'),
+  ('role-accountant', 'accounting:post'),
+  ('role-accountant', 'reports:read');
+`;
+
+export function applySchemaV2(db: Database.Database): void {
+  db.exec(migrationV2);
 }
