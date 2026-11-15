@@ -133,3 +133,38 @@ Do not bypass this resource boundary by claiming tests or builds were executed. 
 9. Update conflicting legacy documentation and obtain complete evidence before closing Phase 1.
 
 **Current decision:** Phase 1 remains open. The SQLite backend foundation is CI-verified, but the required ERP application, desktop installer, secure Android companion, financial workflows, restore, reports, and external acceptance are not complete.
+
+
+---
+
+## 9. Reinspection addendum — latest PR head and CI evidence (2026-11-15)
+
+This addendum supersedes stale snapshot statements above where the repository or CI state has changed. The current inspected PR head is `c780b58c5a5f79a000cb33823858012e96cf07f2`; PR #7 remains open, Draft, and unmerged.
+
+### New CI evidence on the current PR head
+
+- **Local runtime workflow #108:** [run 43747507029](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43747507029) — completed successfully on the current PR head. Its `SQLite runtime typecheck and tests` job passed dependency installation, TypeScript typecheck, unit tests, and build. This is still validation of `local-app/` only; no release artifact was produced.
+- **Android workflow #48:** [run 43747506964](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43747506964) — completed successfully on the current PR head. The `android-debug-apk` job passed all steps, including `gradle assembleDebug` and artifact upload.
+- Android artifact: `AL-NASR-Android-Debug-Preview`, artifact ID `14174672879`, size 811,825 bytes, SHA-256 `6ad029589269a7277bd977688bb1c7aa5a6965ef710bd6d83c8b2295b82a15fc`, created 2026-11-15, expires 2026-12-15. This is a debug preview APK for controlled device testing, not a signed production release and not proof of device acceptance.
+- The earlier statement that no successful Android build/artifact was verified is superseded by run #48 and this artifact record. The absence of physical-device, LAN, pairing, and peripheral acceptance remains unchanged.
+
+### Latest source-tree inspection — architecture and packaging blockers
+
+The current branch tree was inspected recursively at `c780b58...`:
+
+- No Electron main process, preload, React renderer, Electron Builder, or NSIS packaging project exists for the SQLite application. The only path matching “desktop” is a legacy Frappe Python configuration file.
+- `local-app/` is a standalone Fastify/SQLite backend package; it has no React or Electron dependencies.
+- `android/` contains one Kotlin `MainActivity.kt` WebView preview. It validates the configured HTTPS hostname `alnasr.local`, blocks cleartext and cancels TLS errors, but it does not implement REST authentication, certificate/public-key fingerprint pinning, pairing codes/QR, device enrollment/revocation, offline operation queue, or native ERP workflows.
+- The Android README itself describes a WebView preview and a manual CA-installation procedure. It explicitly lists physical-device, LAN/mDNS, barcode-camera, thermal-printer, and file-transfer tests as not accepted.
+- The root tree still contains legacy ERPNext/Frappe/X-POS git submodules, Docker files (`.dockerignore`, `deploy/Dockerfile`, `deploy/compose.yaml`), and the old Windows Inno Setup/PowerShell deployment scaffold. The current `deploy/windows/installer.iss` explicitly includes Docker deployment files and says Docker Desktop is required; `deploy/windows/alnasr.ps1` invokes Docker Compose and initializes ERPNext/MariaDB. This is **not** an installer for the accepted SQLite architecture and must not be used or represented as the deliverable.
+- ADR-0002 and the current root README correctly identify ERPNext/Frappe + MariaDB/Redis + Docker as superseded historical work. The legacy files remain in the repository tree and should be isolated/marked historical or retired through a reviewed change before release; they are not runtime evidence for the SQLite product.
+
+### Corrected documentation state
+
+- The current root `README.md` no longer says the SQLite implementation has not been created. It describes the accepted SQLite target, the backend foundation, the successful historical local-runtime run #94, and the remaining Phase 1 work. The prior claim in section 5 that the current README still contradicts the implementation is stale and superseded.
+- The current README's snapshot section still references run #94 / source `54c8a5d...`; the newer run #108 on `c780b58...` is the latest current-head evidence and should be reflected in the next README refresh.
+- The older packaging/acceptance docs and the legacy Windows deployment scaffold still need reconciliation against ADR-0002.
+
+### Current verified conclusion
+
+**Phase 1 remains open and is not release-ready.** The SQLite backend foundation passes its current GitHub Actions validation, and an Android debug-preview APK has been built. The required React/Electron desktop application, SQLite-native Windows installer, complete ERP financial and operational workflows, backup restore/retention, secure Android REST pairing and device management, and clean-machine/device/hardware acceptance remain unimplemented or unverified. No PR merge, production deployment, or real business-data mutation was performed.
