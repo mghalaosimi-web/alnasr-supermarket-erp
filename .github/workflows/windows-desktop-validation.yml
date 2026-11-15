@@ -94,7 +94,7 @@ jobs:
         run: |
           $installer = (Get-ChildItem "release" -Filter "*.exe" | Select-Object -First 1).FullName
           if (-not $installer) { throw "NSIS installer EXE was not produced." }
-          $installDir = "C:\\AL-NASR-ERP-Install-Test"
+          $installDir = "C:\AL-NASR-ERP-Install-Test"
           if (Test-Path $installDir) { Remove-Item $installDir -Recurse -Force }
           $install = Start-Process -FilePath $installer -ArgumentList @("/S", "/D=$installDir") -Wait -PassThru
           if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit code $($install.ExitCode)." }
