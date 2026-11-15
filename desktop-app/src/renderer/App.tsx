@@ -360,7 +360,7 @@ export default function App() {
           {error && <div className="error page-error" role="alert">{error}</div>}
         </> : <>
           <div className="list-toolbar"><div><h2>{title}</h2><p>بيانات محفوظة في قاعدة SQLite المحلية{activeView === "inventory" && warehouses[0] ? " · " + (warehouses.find(item => item.id === selectedWarehouseId)?.name ?? warehouses[0].name) : ""}.</p></div>
-            {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm(current => ({ ...emptyForm, productId: productOptions[0]?.id ?? "" })); setError(""); }}>
+            {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm({ ...emptyForm, productId: productOptions[0]?.id ?? "" }); setError(""); }}>
               {formOpen ? "إغلاق النموذج" : "إضافة سجل جديد"}
             </button>}
           </div>
