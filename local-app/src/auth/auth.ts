@@ -99,25 +99,26 @@ function recordFailedLogin(db: Database.Database, username: string, now: Date): 
   const key = username.trim().toLowerCase();
   const nowIso = now.toISOString();
   const windowStart = new Date(now.getTime() - LOCK_MINUTES * 60_000).toISOString();
+  const previous = db.prepare(
+    "SELECT failed_attempts, window_started_at FROM auth_attempts WHERE username_key = ?"
+  ).get(key) as { failed_attempts: number; window_started_at: string } | undefined;
+
+  const withinWindow = previous !== undefined && previous.window_started_at >= windowStart;
+  const failedAttempts = withinWindow ? previous.failed_attempts + 1 : 1;
+  const startedAt = withinWindow ? previous.window_started_at : nowIso;
+  const lockedUntil = failedAttempts >= MAX_FAILED_LOGINS
+    ? new Date(now.getTime() + LOCK_MINUTES * 60_000).toISOString()
+    : null;
+
   db.prepare(`
-    INSERT INTO auth_attempts(username_key, failed_attempts, window_started_at, updated_at)
-    VALUES (?, 1, ?, ?)
+    INSERT INTO auth_attempts(username_key, failed_attempts, window_started_at, locked_until, updated_at)
+    VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(username_key) DO UPDATE SET
-      failed_attempts = CASE
-        WHEN auth_attempts.window_started_at < ? THEN 1
-        ELSE auth_attempts.failed_attempts + 1
-      END,
-      window_started_at = CASE
-        WHEN auth_attempts.window_started_at < ? THEN excluded.window_started_at
-        ELSE auth_attempts.window_started_at
-      END,
-      locked_until = CASE
-        WHEN (CASE WHEN auth_attempts.window_started_at < ? THEN 1 ELSE auth_attempts.failed_attempts + 1 END) >= ?
-        THEN datetime('now', '+15 minutes')
-        ELSE auth_attempts.locked_until
-      END,
+      failed_attempts = excluded.failed_attempts,
+      window_started_at = excluded.window_started_at,
+      locked_until = excluded.locked_until,
       updated_at = excluded.updated_at
-  `).run(key, nowIso, nowIso, windowStart, windowStart, windowStart, MAX_FAILED_LOGINS);
+  `).run(key, failedAttempts, startedAt, lockedUntil, nowIso);
 }
 
 export function login(
