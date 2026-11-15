@@ -140,6 +140,44 @@ export function buildServer() {
   });
 
 
+  app.get("/api/v1/locations", async (request, reply) => {
+    if (!authorize(request, reply, "inventory:read")) return;
+    const stores = db.prepare(`
+      SELECT id, name, currency_code
+      FROM stores WHERE is_active = 1 ORDER BY name COLLATE NOCASE
+    `).all();
+    const warehouses = db.prepare(`
+      SELECT id, store_id, code, name
+      FROM warehouses WHERE is_active = 1 ORDER BY name COLLATE NOCASE
+    `).all();
+    return { stores, warehouses };
+  });
+
+  app.get("/api/v1/inventory/balances", async (request, reply) => {
+    if (!authorize(request, reply, "inventory:read")) return;
+    const query = z.object({
+      warehouseId: z.string().uuid(),
+      search: z.string().max(80).optional()
+    }).safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: "invalid_query" });
+    const term = `%${(query.data.search ?? "").trim()}%`;
+    const items = db.prepare(`
+      SELECT
+        p.id AS product_id,
+        p.sku,
+        p.name_ar,
+        p.base_unit,
+        COALESCE(SUM(sl.quantity_delta), 0) AS quantity
+      FROM products p
+      LEFT JOIN stock_ledger sl
+        ON sl.product_id = p.id AND sl.warehouse_id = ?
+      WHERE p.is_active = 1 AND (p.sku LIKE ? OR p.name_ar LIKE ?)
+      GROUP BY p.id
+      ORDER BY p.name_ar COLLATE NOCASE, p.sku
+    `).all(query.data.warehouseId, term, term);
+    return { warehouseId: query.data.warehouseId, items };
+  });
+
   app.get("/api/v1/setup/status", async () => {
     const row = db.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number };
     return { setupRequired: row.count === 0 };
