@@ -19,6 +19,27 @@ describe("local authentication and RBAC", () => {
     db = undefined;
   });
 
+
+  it("bootstraps the owner, default store and warehouse exactly once", () => {
+    const database = setup();
+    const ownerId = bootstrapOwner(database, {
+      username: "owner01",
+      displayName: "Store Owner",
+      password: "A-Strong-Password-2026"
+    });
+    const result = login(database, "owner01", "A-Strong-Password-2026");
+    expect(result?.user.id).toBe(ownerId);
+    expect(result?.user.roles).toContain("owner");
+    expect(hasPermission(result!.user, "users:write")).toBe(true);
+    expect(database.prepare("SELECT name FROM stores").all()).toEqual([{ name: "المتجر الرئيسي" }]);
+    expect(database.prepare("SELECT name FROM warehouses").all()).toEqual([{ name: "المستودع الرئيسي" }]);
+    expect(() => bootstrapOwner(database, {
+      username: "owner02",
+      displayName: "Second Owner",
+      password: "Another-Strong-Password-2026"
+    })).toThrow(/already been completed/);
+  });
+
   it("hashes passwords with scrypt and verifies without storing plaintext", () => {
     const database = setup();
     const userId = createUser(database, {
