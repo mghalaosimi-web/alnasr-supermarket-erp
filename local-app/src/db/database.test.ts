@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { closeDatabase, openDatabase } from "./database.js";
-import { applySchemaV1, SCHEMA_VERSION } from "./schema.js";
+import { applySchemaV1, applySchemaV2, applySchemaV3, SCHEMA_VERSION } from "./schema.js";
 
 describe("AL-NASR SQLite schema v1", () => {
   let db: Database.Database | undefined;
@@ -75,6 +75,36 @@ describe("AL-NASR SQLite schema v1", () => {
       newer.pragma("user_version = 999");
       newer.close();
       expect(() => openDatabase(file)).toThrow(/newer than this application supports/);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("upgrades an existing schema v3 database and grants sale payment permission", () => {
+    const directory = mkdtempSync(join(tmpdir(), "alnasr-schema-v4-"));
+    const file = join(directory, "legacy-v3.sqlite");
+    try {
+      const legacy = new Database(file);
+      legacy.pragma("foreign_keys = ON");
+      applySchemaV1(legacy);
+      applySchemaV2(legacy);
+      applySchemaV3(legacy);
+      legacy.pragma("user_version = 3");
+      legacy.close();
+
+      const migrated = openDatabase(file);
+      try {
+        expect(migrated.pragma("user_version", { simple: true })).toBe(4);
+        expect(migrated.prepare(
+          "SELECT code FROM permissions WHERE code = 'sales:pay'"
+        ).get()).toEqual({ code: "sales:pay" });
+        const grantedRoles = migrated.prepare(
+          "SELECT r.code FROM role_permissions rp JOIN roles r ON r.id = rp.role_id WHERE rp.permission_code = 'sales:pay' ORDER BY r.code"
+        ).all().map((row) => (row as { code: string }).code);
+        expect(grantedRoles).toEqual(["admin", "cashier", "owner"]);
+      } finally {
+        closeDatabase(migrated);
+      }
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
