@@ -95,7 +95,7 @@ Latest inspected run for source HEAD `54c8a5d...`:
 - Root `README.md` still says the SQLite workspace/schema/API have not yet been created, contradicting the implementation and CI run #94.
 - `docs/architecture/CLIENT-PACKAGING-STATUS.md` and `docs/DEVICE-PACKAGING-READINESS.md` say no Android Gradle project exists; a Kotlin/WebView preview project is now present.
 - `docs/architecture/BASELINE.md` and older client-delivery notes still describe the superseded ERPNext/Frappe + MariaDB/Redis + Docker approach. ADR-0002 is the accepted source of truth; those documents must be clearly marked historical/superseded where they conflict.
-- The Android CI workflow does not include `architecture/sqlite-offline-no-docker` in its push branch filter; it is triggered by `foundation/**`, PRs to `main`, or manual dispatch.
+- The Android CI workflow includes `architecture/sqlite-offline-no-docker` in its push branch filter and runs when Android files or the workflow change. Its existence does not prove an APK build passed; no successful Android run/artifact was verified in this inspection.
 - A dedicated `docs/implementation/PHASE-1-EXECUTION-STATUS.md` did not exist before this record.
 
 ## 6. Commands and results
