@@ -31,7 +31,7 @@ function isTrustedRenderer(rawUrl: string): boolean {
       return parsed.hostname === "127.0.0.1" && parsed.port === "5173";
     }
     if (parsed.protocol === "file:") {
-      return resolve(decodeURIComponent(parsed.pathname)).toLowerCase()
+      return resolve(fileURLToPath(parsed)).toLowerCase()
         === resolve(join(app.getAppPath(), "dist", "index.html")).toLowerCase();
     }
     return false;
