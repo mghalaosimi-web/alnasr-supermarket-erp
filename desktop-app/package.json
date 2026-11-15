@@ -16,11 +16,10 @@
     "build:electron": "tsc -p tsconfig.electron.json && node scripts/copy-electron-assets.mjs",
     "build": "npm run build:backend && npm run build:renderer && npm run build:electron",
     "typecheck": "tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "dist:win": "npm run build && electron-builder --win nsis --x64",
-    "postinstall": "electron-builder install-app-deps"
+    "dist:win": "npm run build && electron-builder --win nsis --x64"
   },
   "dependencies": {
-    "better-sqlite3": "12.4.1",
+    "better-sqlite3": "13.2.0",
     "fastify": "5.6.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -55,7 +54,7 @@
     "directories": {
       "output": "release"
     },
-    "npmRebuild": true,
+    "npmRebuild": false,
     "nodeGypRebuild": false,
     "win": {
       "target": [
