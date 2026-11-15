@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { closeDatabase, openDatabase } from "../db/database.js";
 import {
   createCustomer,
@@ -13,6 +13,8 @@ import {
 
 describe("customer and supplier services", () => {
   const db = openDatabase(":memory:");
+  afterAll(() => closeDatabase(db));
+
   afterEach(() => {
     db.exec("DELETE FROM audit_events");
     db.exec("DELETE FROM customers");
