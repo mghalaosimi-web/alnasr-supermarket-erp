@@ -4,7 +4,7 @@ type User = { id: string; username: string; displayName: string; roles: string[]
 type LoginResult = { token: string; expiresAt: string; user: User };
 type Health = { status: string; product: string; database: string; schemaVersion: number };
 type Screen = "checking" | "setup" | "login" | "dashboard" | "error";
-type View = "dashboard" | "products" | "customers" | "suppliers";
+type View = "dashboard" | "products" | "customers" | "suppliers" | "inventory";
 type ProductRow = {
   id: string; sku: string; name_ar: string; name_en: string | null; base_unit: string;
   sale_price_minor: number; cost_price_minor: number; is_active: number;
@@ -13,6 +13,8 @@ type PartnerRow = {
   id: string; code: string; name: string; phone: string | null;
   credit_limit_minor?: number; is_active: number;
 };
+type InventoryRow = { product_id: string; sku: string; name_ar: string; base_unit: string; quantity: number };
+type Warehouse = { id: string; store_id: string; code: string; name: string };
 type ApiError = { error?: string; message?: string };
 type FormValues = Record<string, string>;
 
@@ -20,7 +22,8 @@ const navigation: { key: View; label: string; description: string }[] = [
   { key: "dashboard", label: "نظرة عامة", description: "ملخص حالة النظام" },
   { key: "products", label: "المنتجات", description: "إدارة الأصناف والأسعار" },
   { key: "customers", label: "العملاء", description: "سجل العملاء وحدود الائتمان" },
-  { key: "suppliers", label: "الموردون", description: "سجل الموردين وبياناتهم" }
+  { key: "suppliers", label: "الموردون", description: "سجل الموردين وبياناتهم" },
+  { key: "inventory", label: "المخزون", description: "أرصدة الأصناف وتسويات المخزون" }
 ];
 const futureModules = [
   ["نقطة البيع", "المبيعات والفواتير والتحصيل"],
@@ -33,7 +36,7 @@ const futureModules = [
 
 const emptyForm: FormValues = {
   sku: "", nameAr: "", nameEn: "", baseUnit: "piece", salePrice: "0", costPrice: "0", barcode: "",
-  code: "", name: "", phone: "", creditLimit: "0"
+  code: "", name: "", phone: "", creditLimit: "0", productId: "", quantityDelta: "1", unitCost: "0", reason: ""
 };
 
 export default function App() {
@@ -52,6 +55,9 @@ export default function App() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormValues>(emptyForm);
   const [notice, setNotice] = useState("");
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
+  const [productOptions, setProductOptions] = useState<ProductRow[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -129,16 +135,35 @@ export default function App() {
 
   async function loadRows(view: View) {
     if (view === "dashboard") return;
-    const route = view === "products" ? "/api/v1/products"
-      : view === "customers" ? "/api/v1/customers" : "/api/v1/suppliers";
     setLoadingRows(true);
     setError("");
     try {
-      const response = await window.alnasr.request<{ items: Array<ProductRow | PartnerRow> }>({
-        path: route, token
-      });
-      if (response.status !== 200) throw new Error("تعذر تحميل البيانات. تحقق من صلاحيات الحساب.");
-      setRows(response.data.items);
+      if (view === "inventory") {
+        const locations = await window.alnasr.request<{ warehouses: Warehouse[] }>({ path: "/api/v1/locations", token });
+        if (locations.status !== 200) throw new Error("تعذر تحميل المستودعات أو لا تملك صلاحية عرض المخزون.");
+        const activeWarehouses = locations.data.warehouses;
+        setWarehouses(activeWarehouses);
+        const warehouseId = selectedWarehouseId || activeWarehouses[0]?.id || "";
+        if (!warehouseId) throw new Error("لا يوجد مستودع نشط. أنشئ مستودعاً قبل تسجيل حركة مخزون.");
+        setSelectedWarehouseId(warehouseId);
+        const [productsResponse, balancesResponse] = await Promise.all([
+          window.alnasr.request<{ items: ProductRow[] }>({ path: "/api/v1/products", token }),
+          window.alnasr.request<{ items: InventoryRow[] }>({
+            path: "/api/v1/inventory/balances?warehouseId=" + encodeURIComponent(warehouseId), token
+          })
+        ]);
+        if (productsResponse.status !== 200 || balancesResponse.status !== 200) {
+          throw new Error("تعذر تحميل أصناف المستودع وأرصدتها.");
+        }
+        setProductOptions(productsResponse.data.items);
+        setRows(balancesResponse.data.items);
+      } else {
+        const route = view === "products" ? "/api/v1/products"
+          : view === "customers" ? "/api/v1/customers" : "/api/v1/suppliers";
+        const response = await window.alnasr.request<{ items: Array<ProductRow | PartnerRow> }>({ path: route, token });
+        if (response.status !== 200) throw new Error("تعذر تحميل البيانات. تحقق من صلاحيات الحساب.");
+        setRows(response.data.items);
+      }
     } catch (cause) {
       setRows([]);
       setError(cause instanceof Error ? cause.message : "تعذر تحميل البيانات.");
