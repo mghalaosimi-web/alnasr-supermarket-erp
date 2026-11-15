@@ -209,11 +209,20 @@ export default function App() {
           code: form.code, name: form.name, phone: form.phone || null,
           creditLimitMinor: Number(form.creditLimit)
         };
-      } else {
+      } else if (activeView === "suppliers") {
         route = "/api/v1/suppliers";
         body = { code: form.code, name: form.name, phone: form.phone || null };
+      } else {
+        route = "/api/v1/inventory/adjustments";
+        body = {
+          productId: form.productId, warehouseId: selectedWarehouseId,
+          quantityDelta: Number(form.quantityDelta), unitCostMinor: Number(form.unitCost),
+          reason: form.reason, idempotencyKey: crypto.randomUUID()
+        };
       }
-      const response = await window.alnasr.request<ApiError>({ path: route, method: "POST", token, body });
+      const response = await window.alnasr.request<ApiError>({
+        path: route, method: "POST", token, body
+      });
       if (response.status !== 201) {
         const apiError = response.data as ApiError;
         throw new Error(apiError.message ?? (response.status === 409
@@ -285,7 +294,8 @@ export default function App() {
   const canWrite = activeView === "products"
     ? user?.permissions.includes("products:write")
     : activeView === "customers" ? user?.permissions.includes("customers:write")
-    : user?.permissions.includes("suppliers:write");
+    : activeView === "suppliers" ? user?.permissions.includes("suppliers:write")
+    : user?.permissions.includes("inventory:adjust");
 
   return (
     <main className="workspace" dir="rtl">
@@ -325,8 +335,8 @@ export default function App() {
               <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 4}</b></div></div>
           </section>
         </> : <>
-          <div className="list-toolbar"><div><h2>{title}</h2><p>بيانات محفوظة في قاعدة SQLite المحلية.</p></div>
-            {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm(emptyForm); setError(""); }}>
+          <div className="list-toolbar"><div><h2>{title}</h2><p>بيانات محفوظة في قاعدة SQLite المحلية{activeView === "inventory" && warehouses[0] ? " · " + (warehouses.find(item => item.id === selectedWarehouseId)?.name ?? warehouses[0].name) : ""}.</p></div>
+            {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm(current => ({ ...emptyForm, productId: productOptions[0]?.id ?? "" })); setError(""); }}>
               {formOpen ? "إغلاق النموذج" : "إضافة سجل جديد"}
             </button>}
           </div>
@@ -346,6 +356,14 @@ export default function App() {
               <label>الاسم<input value={form.name} onChange={e => setField("name", e.target.value)} required minLength={2} maxLength={160} /></label>
               <label>رقم الهاتف<input value={form.phone} onChange={e => setField("phone", e.target.value)} maxLength={40} /></label>
               {activeView === "customers" && <label>حد الائتمان (بالوحدة الصغرى)<input type="number" min="0" step="1" value={form.creditLimit} onChange={e => setField("creditLimit", e.target.value)} /></label>}
+            </>}
+            {activeView === "inventory" && <>
+              <label>الصنف<select value={form.productId} onChange={e => setField("productId", e.target.value)} required>
+                <option value="">اختر الصنف</option>{productOptions.map(product => <option key={product.id} value={product.id}>{product.name_ar} — {product.sku}</option>)}
+              </select></label>
+              <label>كمية التسوية (+ إضافة / − صرف)<input type="number" step="1" value={form.quantityDelta} onChange={e => setField("quantityDelta", e.target.value)} required /></label>
+              <label>تكلفة الوحدة (بالوحدة الصغرى)<input type="number" min="0" step="1" value={form.unitCost} onChange={e => setField("unitCost", e.target.value)} required /></label>
+              <label className="wide-field">سبب التسوية<input value={form.reason} onChange={e => setField("reason", e.target.value)} required minLength={3} maxLength={240} /></label>
             </>}
             <div className="form-actions"><button className="primary action-button" type="submit" disabled={busy}>{busy ? "جارٍ الحفظ..." : "حفظ السجل"}</button>
               <button className="secondary-button" type="button" onClick={() => setFormOpen(false)}>إلغاء</button></div>
