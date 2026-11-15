@@ -1,0 +1,87 @@
+name: AL-NASR Windows SQLite Runtime Validation
+
+on:
+  pull_request:
+    branches:
+      - foundation/alnasr-commerce-acceptance
+    paths:
+      - "local-app/**"
+      - "docs/implementation/WINDOWS-FIRST-EXECUTION-PLAN.md"
+      - ".github/workflows/windows-runtime-validation.yml"
+  push:
+    branches:
+      - architecture/sqlite-offline-no-docker
+    paths:
+      - "local-app/**"
+      - "docs/implementation/WINDOWS-FIRST-EXECUTION-PLAN.md"
+      - ".github/workflows/windows-runtime-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alnasr-windows-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-runtime:
+    name: Windows x64 SQLite runtime
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: local-app
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24 x64
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          architecture: x64
+          cache: npm
+          cache-dependency-path: local-app/package-lock.json
+
+      - name: Install dependencies and native SQLite binding
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify ProgramData database location and native SQLite open
+        shell: pwsh
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP "alnasr-programdata-smoke"
+          $env:ProgramData = $testRoot
+          Remove-Item Env:AL_NASR_DATABASE_PATH -ErrorAction SilentlyContinue
+          @'
+          import { existsSync, rmSync } from "node:fs";
+          import { dirname, join, resolve } from "node:path";
+          import { openDatabase, closeDatabase, resolveDatabasePath } from "./dist/db/database.js";
+
+          const expected = join(process.env.ProgramData, "AL-NASR", "data", "alnasr.sqlite");
+          const actual = resolveDatabasePath();
+          if (resolve(actual).toLowerCase() !== resolve(expected).toLowerCase()) {
+            throw new Error(`Unexpected database path: ${actual}`);
+          }
+          const db = openDatabase(actual);
+          try {
+            const result = db.pragma("quick_check", { simple: true });
+            if (result !== "ok") throw new Error(`SQLite quick_check failed: ${result}`);
+            if (Number(db.pragma("user_version", { simple: true })) !== 4) {
+              throw new Error("Expected schema version 4.");
+            }
+          } finally {
+            closeDatabase(db);
+          }
+          if (!existsSync(actual)) throw new Error("SQLite database file was not created.");
+          console.log(`Windows ProgramData SQLite smoke test passed: ${actual}`);
+          '@ | node --input-type=module
