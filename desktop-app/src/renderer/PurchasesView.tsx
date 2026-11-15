@@ -4,7 +4,6 @@ type Product = { id: string; sku: string; name_ar: string; cost_price_minor: num
 type Supplier = { id: string; code: string; name: string };
 type Warehouse = { id: string; store_id: string; name: string };
 type Store = { id: string; name: string };
-type ApiResult<T> = { status: number; data: T };
 type CartLine = { quantity: number; unitCostMinor: number };
 
 export default function PurchasesView({ token, canWrite }: { token: string; canWrite: boolean }) {
