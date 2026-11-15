@@ -1,8 +1,10 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
+import { dirname, join } from "node:path";
 import { z } from "zod";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { closeDatabase, openDatabase } from "./db/database.js";
+import { closeDatabase, openDatabase, resolveDatabasePath } from "./db/database.js";
+import { createDatabaseBackup } from "./backup/backup.js";
 import { authenticateSession, bootstrapOwner, hasPermission, login, logout } from "./auth/auth.js";
 import { createProduct, listProducts } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
@@ -261,6 +263,25 @@ export function buildServer() {
     } catch (error) {
       if (error instanceof Error) return reply.code(409).send({ error: "purchase_post_rejected", message: error.message });
       throw error;
+    }
+  });
+
+
+  app.post("/api/v1/backups", async (request, reply) => {
+    const user = authorize(request, reply, "settings:write");
+    if (!user) return;
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const destination = join(dirname(resolveDatabasePath()), "backups", `alnasr-${stamp}.sqlite`);
+    try {
+      const backup = await createDatabaseBackup(db, destination);
+      db.prepare(`
+        INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json)
+        VALUES (?, ?, 'database.backup.created', 'database_backup', ?, ?)
+      `).run(randomUUID(), user.id, backup.path, JSON.stringify({ schemaVersion: backup.schemaVersion }));
+      return reply.code(201).send({ backup });
+    } catch (error) {
+      request.log.error({ err: error }, "Database backup failed");
+      return reply.code(500).send({ error: "backup_failed" });
     }
   });
 
