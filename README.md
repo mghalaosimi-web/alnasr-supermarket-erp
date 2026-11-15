@@ -15,7 +15,6 @@ AL-NASR is an independently branded supermarket and retail-management product fo
 - **Languages:** Arabic RTL first, with English LTR support.
 - **Brand assets and usage:** [Brand guidelines](docs/brand/BRAND-GUIDELINES.md).
 - **Branding coverage and remaining work:** [Brand implementation matrix](docs/brand/BRAND-IMPLEMENTATION-MATRIX.md).
-- **Upstream integration compatibility decisions:** [Compatibility overrides](docs/architecture/COMPATIBILITY-OVERRIDES.md).
 
 ## Product scope
 
@@ -27,57 +26,52 @@ AL-NASR is an independently branded supermarket and retail-management product fo
 - Accounting, cash management, payment reconciliation, and financial reports
 - Multi-warehouse and multi-branch operations with role-based access control
 - Arabic RTL and English LTR interfaces
-- Local-network operation with a controlled offline workflow and later synchronization
-- Desktop, tablet, and phone access
+- Fully local operation without internet; Android access over private Wi-Fi/LAN
+- Windows desktop and Android client
 
-## Intended technical foundation
+## Accepted target architecture
 
-- **ERPNext / Frappe v16** for ERP, inventory, purchasing, accounting, users, permissions, and APIs.
-- **X POS v16** as the selected POS candidate for evaluation.
-- **AL-NASR custom Frappe app** for supermarket-specific workflows, configuration, integrations, Arabic product experience, and original branding.
+**SQLite local-first — no Docker.** The accepted architecture is recorded in [ADR-0002](docs/architecture/ADR-0002-sqlite-local-first-no-docker.md).
 
-The upstream source revisions are pinned in [UPSTREAM-LOCK.md](docs/architecture/UPSTREAM-LOCK.md). This is an engineering baseline under verification, not a declaration that every feature is already implemented or production-ready.
+- **Windows desktop:** React + TypeScript packaged with Electron.
+- **Local API:** TypeScript + Fastify hosted by the Windows desktop runtime.
+- **Database:** one authoritative local SQLite database using `better-sqlite3`, migrations, transactions, and integrity checks.
+- **Android:** native Kotlin client connecting to the Windows PC over authenticated HTTPS on the private LAN.
+- **Offline:** Windows works without internet. Android queues eligible operations while disconnected and replays them using idempotency keys after reconnecting.
+- **No Docker, WSL2, MariaDB, Redis, cloud account, or separately installed Node.js** is required for normal local operation.
 
-### Get the pinned source tree
+The previous ERPNext/Frappe + MariaDB + Redis baseline is superseded. It remains in the repository as historical research and CI evidence only; it is not the target runtime and cannot be made SQLite-compatible by changing a connection string.
 
-Clone with submodules enabled so Frappe, ERPNext, and X POS are checked out at the exact commits recorded by this repository:
+## Architecture and integrity principles
 
-```bash
-git clone --recurse-submodules https://github.com/mghalaosimi-web/alnasr-supermarket-erp.git
-cd alnasr-supermarket-erp
-bash scripts/bootstrap-upstream.sh
-```
-
-If the repository was cloned without submodules, the bootstrap script initializes them and verifies all three immutable revisions. The upstream projects remain separate Git repositories; AL-NASR-specific code stays in `apps/alnasr`.
-
-## Architecture principles
-
-1. Keep ERPNext core unmodified; implement AL-NASR-specific behavior in custom Frappe apps and supported extension points.
-2. Keep upstream components identifiable and their original license/copyright notices intact.
-3. Separate the AL-NASR commercial identity from upstream project names, logos, and trademarks.
-4. Do not treat browser offline caching as equivalent to multi-terminal LAN synchronization.
-5. Never silently discard queued offline sales; use idempotent synchronization, conflict review, and audit trails.
-6. No production secrets, customer data, credentials, or database dumps belong in this repository.
-7. Do not claim complete rebranding until every owned surface in the brand implementation matrix has passed visual and functional review.
+1. Keep one authoritative SQLite database on the Windows host; Android must never open the database file directly or over a shared folder.
+2. Execute inventory and financial mutations transactionally and preserve an auditable history.
+3. Use idempotency keys and durable synchronization queues to prevent duplicate Android replay.
+4. Never silently discard queued offline operations; expose pending, accepted, rejected, and conflict states.
+5. Posted financial documents are corrected through reversals/returns, not destructive edits.
+6. Protect LAN access with HTTPS, explicit device pairing, revocable credentials, and authorization on every operation.
+7. Keep business data, credentials, signing keys, and production configuration out of Git.
+8. Do not claim a module or installer is complete until its acceptance tests pass on the target environment.
 
 ## Repository status
 
-**Status: Foundation and initial brand assets / not production-ready.**
+**Status: Existing ERPNext foundation retained; SQLite replacement architecture accepted; replacement implementation not yet complete.**
 
-- Repository initialized and custom Frappe app scaffold created.
-- Frappe, ERPNext, and X POS are pinned as recursive Git submodules; GitHub Actions verified their exact upstream commit SHAs.
-- A clean disposable Bench integration passed on 2026-11-14: all three apps installed, migrations completed on temporary MariaDB, application contracts and HTTP health passed. See [runtime integration run #43604127743](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43604127743).
-- Initial AL-NASR brand wordmark, mark, favicon, and brand documentation added.
-- Custom app metadata is branded; full ERPNext/X POS screen, receipt, email, login, and desktop-client branding remains to be integrated and tested.
-- Installation, offline recovery, LAN multi-terminal synchronization, mobile behavior, barcode hardware, thermal printing, and accounting flows require integration tests before release.
+- Existing Frappe/ERPNext/X POS source pins, custom app, and historical CI runs remain available for reference.
+- The historical disposable integration run reported 1,268 passing test executions on its tested revision. Those results validate that historical ERPNext-based baseline only; they do not validate the new SQLite architecture.
+- The prior Windows installer and Android artifacts were built from the previous packaging approach and must not be treated as final AL-NASR SQLite deliverables.
+- The accepted SQLite architecture and required quality gates are documented in [ADR-0002](docs/architecture/ADR-0002-sqlite-local-first-no-docker.md).
+- The next work is to create the new application workspace, schema/migrations, domain services, local API, React desktop shell, Android LAN pairing/client, and clean-machine installer tests.
 
-## Upstream references
+## Historical upstream references
+
+These projects informed the previous ERPNext-based prototype and are not dependencies of the accepted SQLite target:
 
 - [ERPNext](https://github.com/frappe/erpnext) — GNU GPL v3.0
 - [Frappe Framework](https://github.com/frappe/frappe) — MIT License
-- [X POS](https://github.com/kodlyft/xpos) — MIT License; selected candidate branch: version-16
-- [Original POS Awesome](https://github.com/ucraft-com/POS-Awesome) — GNU GPL v3.0; not the default v16 choice.
+- [X POS](https://github.com/kodlyft/xpos) — MIT License
+- [Original POS Awesome](https://github.com/ucraft-com/POS-Awesome) — GNU GPL v3.0
 
 ## License and attribution
 
-This repository may contain components under different licenses. Preserve all upstream LICENSE files, copyright notices, and attribution requirements. Do not assume that the entire repository is covered by one license until the component and distribution model has been reviewed.
+This repository contains historical components under different licenses. Preserve upstream LICENSE files, copyright notices, and attribution requirements for retained source. Review the license of each component before reuse or distribution. The new SQLite application must declare and audit its own dependencies and licenses before release.
