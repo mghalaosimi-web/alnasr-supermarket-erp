@@ -4,15 +4,16 @@ This is the replacement local-first runtime defined in [ADR-0002](../docs/archit
 
 ## Implemented
 
-- SQLite schema migrations v1–v3, stored outside the application installation directory.
+- SQLite schema migrations v1–v4, stored outside the application installation directory.
 - Foreign keys, WAL mode, FULL synchronous writes, busy timeout, WAL auto-checkpoint, startup integrity check, and graceful WAL checkpoint at shutdown.
 - Refusal to open a database created by a newer unsupported application schema.
 - First-run owner bootstrap creates the owner account, default store, and main warehouse atomically.
 - Scrypt password hashing, hashed bearer-token sessions, session expiry/revocation, role/permission resolution, and per-account failed-login lockout.
-- Permission-checked Fastify API for setup, authentication, product catalog, stock balances, inventory adjustments, sales, purchases, and verified database backup creation.
+- Permission-checked Fastify API for setup, authentication, product catalog, customer/supplier master-data CRUD, stock balances, inventory adjustments, sales, partial sale-payment allocations, purchases, and verified database backup creation.
 - Product creation/search/deactivation with validation and audit records.
 - Transactional stock ledger with non-negative stock enforcement and idempotent retries.
 - POS sale drafts and atomic posting that deducts stock.
+- Partial payment allocations for posted sales using cash, card, bank transfer, or mobile wallet records; outstanding balance checks, idempotency-key replay protection, and audit events. No external payment processor is integrated.
 - Purchase drafts and receiving that adds stock.
 - SQLite backup creation through the online backup API, integrity verification, temporary-file creation, and atomic finalization.
 - Automated tests for schema, persistent reopen, forward-schema protection, authentication, owner setup, RBAC, catalog, stock ledger, sales, purchasing, backup, and API integration.
@@ -57,4 +58,4 @@ By default, Windows data is stored under `%ProgramData%\\AL-NASR\\data\\alnasr.s
 
 ## Not yet implemented
 
-This is a verified backend foundation, not the finished desktop product. Still outstanding: React user interface, Electron desktop lifecycle and single-instance protection, Windows installer and startup behavior, Android client and secure LAN pairing/TLS, backup restore and retention policy, payment capture, returns/refunds, accounting journals and reconciliation, shifts/cash management, supplier/customer management screens and APIs, and clean Windows/hardware acceptance.
+This is a verified backend foundation, not the finished desktop product. Still outstanding: React user interface, Electron desktop lifecycle and single-instance protection, Windows installer and startup behavior, Android client and secure LAN pairing/TLS, backup restore and retention policy, payment settlement/reconciliation, returns/refunds, accounting journals and reconciliation, shifts/cash management, full Windows React screens, Electron lifecycle, Windows-native installer, backup restore/retention, and clean Windows/hardware acceptance.
