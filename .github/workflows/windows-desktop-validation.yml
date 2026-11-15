@@ -61,6 +61,33 @@ jobs:
         working-directory: desktop-app
         run: npx electron-builder --win nsis --x64
 
+      - name: Launch packaged app and verify local SQLite API
+        shell: pwsh
+        working-directory: desktop-app
+        run: |
+          $app = Resolve-Path "release/win-unpacked/AL-NASR ERP.exe"
+          $process = Start-Process -FilePath $app.Path -ArgumentList "--disable-gpu" -PassThru
+          try {
+            $health = $null
+            $deadline = (Get-Date).AddSeconds(45)
+            while ((Get-Date) -lt $deadline) {
+              if ($process.HasExited) { throw "Packaged AL-NASR process exited with code $($process.ExitCode)." }
+              try {
+                $health = Invoke-RestMethod -Uri "http://127.0.0.1:4317/api/v1/health" -TimeoutSec 2
+                break
+              } catch { Start-Sleep -Seconds 1 }
+            }
+            if ($null -eq $health) { throw "Packaged local API did not become ready within 45 seconds." }
+            if ($health.status -ne "ok" -or $health.database -ne "sqlite" -or $health.schemaVersion -ne 4) {
+              throw "Unexpected packaged API health response: $($health | ConvertTo-Json -Compress)"
+            }
+            $dbPath = Join-Path $env:ProgramData "AL-NASR/data/alnasr.sqlite"
+            if (-not (Test-Path $dbPath)) { throw "Expected ProgramData SQLite database was not created: $dbPath" }
+            Write-Host "Packaged app smoke test passed: SQLite schema $($health.schemaVersion), database $dbPath"
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+
       - name: Upload Windows installer preview
         uses: actions/upload-artifact@v4
         with:
