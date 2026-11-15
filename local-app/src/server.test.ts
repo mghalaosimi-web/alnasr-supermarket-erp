@@ -208,6 +208,73 @@ describe("local API integration", () => {
     expect(existsSync(backup.json().backup.path)).toBe(true);
   });
 
+  it("updates and deactivates products through the authorized API", async () => {
+    directory = mkdtempSync(join(tmpdir(), "alnasr-products-"));
+    process.env.AL_NASR_DATABASE_PATH = join(directory, "products.sqlite");
+    app = buildServer();
+
+    const setup = await app.inject({
+      method: "POST",
+      url: "/api/v1/setup/owner",
+      payload: { username: "productowner", displayName: "Product Owner", password: "A-Strong-Password-2026" }
+    });
+    expect(setup.statusCode).toBe(201);
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: { username: "productowner", password: "A-Strong-Password-2026" }
+    });
+    expect(login.statusCode).toBe(200);
+    const authorization = { authorization: `Bearer ${login.json().token as string}` };
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/v1/products",
+      headers: authorization,
+      payload: { sku: "EDIT-001", nameAr: "صنف قبل التعديل", nameEn: "Before", baseUnit: "piece",
+        salePriceMinor: 100, costPriceMinor: 50, barcode: "628100001111" }
+    });
+    expect(created.statusCode).toBe(201);
+    const productId = created.json().product.id as string;
+
+    const updated = await app.inject({
+      method: "PUT",
+      url: `/api/v1/products/${productId}`,
+      headers: authorization,
+      payload: { sku: "EDIT-001", nameAr: "صنف بعد التعديل", nameEn: "After", baseUnit: "piece",
+        salePriceMinor: 125, costPriceMinor: 60, barcode: "628100001112" }
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().product.name_ar).toBe("صنف بعد التعديل");
+    expect(updated.json().product.sale_price_minor).toBe(125);
+
+    const unauthenticatedUpdate = await app.inject({
+      method: "PUT",
+      url: `/api/v1/products/${productId}`,
+      payload: { sku: "EDIT-001", nameAr: "اختراق", baseUnit: "piece", salePriceMinor: 1, costPriceMinor: 1 }
+    });
+    expect(unauthenticatedUpdate.statusCode).toBe(401);
+
+    const deactivated = await app.inject({
+      method: "POST",
+      url: `/api/v1/products/${productId}/deactivate`,
+      headers: authorization
+    });
+    expect(deactivated.statusCode).toBe(204);
+    const listed = await app.inject({ method: "GET", url: "/api/v1/products", headers: authorization });
+    expect(listed.statusCode).toBe(200);
+    expect(listed.json().items).toHaveLength(0);
+
+    const inactiveEdit = await app.inject({
+      method: "PUT",
+      url: `/api/v1/products/${productId}`,
+      headers: authorization,
+      payload: { sku: "EDIT-001", nameAr: "تعديل غير مسموح", baseUnit: "piece",
+        salePriceMinor: 125, costPriceMinor: 60 }
+    });
+    expect(inactiveEdit.statusCode).toBe(409);
+  });
+
   it("enforces authenticated customer and supplier API workflows", async () => {
     directory = mkdtempSync(join(tmpdir(), "alnasr-partners-"));
     process.env.AL_NASR_DATABASE_PATH = join(directory, "partners.sqlite");
