@@ -174,6 +174,30 @@ describe("local API integration", () => {
     expect(balance.statusCode).toBe(200);
     expect(balance.json().quantity).toBe(3);
 
+    const locations = await app.inject({
+      method: "GET",
+      url: "/api/v1/locations",
+      headers: authorization
+    });
+    expect(locations.statusCode).toBe(200);
+    expect(locations.json().warehouses).toHaveLength(1);
+    expect(locations.json().warehouses[0].id).toBe(warehouse.id);
+
+    const stockBalances = await app.inject({
+      method: "GET",
+      url: "/api/v1/inventory/balances?warehouseId=" + warehouse.id,
+      headers: authorization
+    });
+    expect(stockBalances.statusCode).toBe(200);
+    expect(stockBalances.json().items).toHaveLength(1);
+    expect(stockBalances.json().items[0].quantity).toBe(3);
+
+    const unauthenticatedBalances = await app.inject({
+      method: "GET",
+      url: "/api/v1/inventory/balances?warehouseId=" + warehouse.id
+    });
+    expect(unauthenticatedBalances.statusCode).toBe(401);
+
     const backup = await app.inject({
       method: "POST",
       url: "/api/v1/backups",
