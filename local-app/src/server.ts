@@ -174,9 +174,7 @@ export function buildServer() {
     const parsed = productSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
     try {
-      const product = createProduct(db, parsed.data);
-      db.prepare("UPDATE audit_events SET actor_user_id = ? WHERE entity_type = 'product' AND entity_id = ? AND actor_user_id IS NULL")
-        .run(user.id, product.id);
+      const product = createProduct(db, { ...parsed.data, actorUserId: user.id });
       return reply.code(201).send({ product });
     } catch (error) {
       if (error instanceof Error && error.message.includes("UNIQUE constraint")) {
