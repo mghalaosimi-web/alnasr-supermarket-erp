@@ -57,6 +57,8 @@ export default function App() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
   const [productOptions, setProductOptions] = useState<ProductRow[]>([]);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -120,6 +122,25 @@ export default function App() {
       setError(cause instanceof Error ? cause.message : "حدث خطأ أثناء تسجيل الدخول.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function createBackup() {
+    setBackupBusy(true);
+    setBackupMessage("");
+    setError("");
+    try {
+      const response = await window.alnasr.request<{ backup: { path: string; integrity: string; schemaVersion: number } }>({
+        path: "/api/v1/backups", method: "POST", token
+      });
+      if (response.status !== 201 || response.data.backup.integrity !== "ok") {
+        throw new Error("تعذر إنشاء نسخة احتياطية سليمة.");
+      }
+      setBackupMessage("تم إنشاء نسخة احتياطية والتحقق منها. المسار: " + response.data.backup.path);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "فشل إنشاء النسخة الاحتياطية.");
+    } finally {
+      setBackupBusy(false);
     }
   }
 
@@ -328,11 +349,15 @@ export default function App() {
               <span className="module-number">{String(index + 4).padStart(2, "0")}</span><h3>{label}</h3><p>{description}</p><span className="module-state">قيد التنفيذ</span>
             </article>)}
           </div>
-          <section className="system-panel"><div><h3>حالة النظام المحلي</h3><p>الخادم وقاعدة البيانات يعملان على هذا الجهاز.</p></div>
+          <section className="system-panel"><div><h3>حالة النظام المحلي</h3><p>الخادم وقاعدة البيانات يعملان على هذا الجهاز.</p>
+              {user?.permissions.includes("settings:write") && <button className="secondary-button backup-button" onClick={() => void createBackup()} disabled={backupBusy}>{backupBusy ? "جارٍ إنشاء النسخة..." : "إنشاء نسخة احتياطية الآن"}</button>}
+            </div>
             <div className="facts"><div><small>الخادم</small><b>Fastify · 127.0.0.1</b></div>
               <div><small>قاعدة البيانات</small><b>{health?.database?.toUpperCase() ?? "SQLITE"}</b></div>
               <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 4}</b></div></div>
           </section>
+          {backupMessage && <div className="success-note backup-result" role="status">{backupMessage}</div>}
+          {error && <div className="error page-error" role="alert">{error}</div>}
         </> : <>
           <div className="list-toolbar"><div><h2>{title}</h2><p>بيانات محفوظة في قاعدة SQLite المحلية{activeView === "inventory" && warehouses[0] ? " · " + (warehouses.find(item => item.id === selectedWarehouseId)?.name ?? warehouses[0].name) : ""}.</p></div>
             {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm(current => ({ ...emptyForm, productId: productOptions[0]?.id ?? "" })); setError(""); }}>
