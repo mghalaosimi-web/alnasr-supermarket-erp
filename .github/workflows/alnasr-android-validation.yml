@@ -2,13 +2,16 @@ name: AL-NASR Android client validation
 
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - foundation/alnasr-commerce-acceptance
     paths:
       - "android/**"
       - ".github/workflows/alnasr-android-validation.yml"
   push:
     branches:
       - "foundation/**"
+      - "architecture/sqlite-offline-no-docker"
     paths:
       - "android/**"
       - ".github/workflows/alnasr-android-validation.yml"
