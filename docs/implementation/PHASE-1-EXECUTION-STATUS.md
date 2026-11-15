@@ -265,3 +265,40 @@ A passing Windows backend workflow will validate the backend on Windows only. It
 - Android remains frozen; no Android implementation was started in this Windows-first continuation.
 
 **Phase 1 remains open. The EXE artifact is a technical installer preview, not a complete or release-approved ERP product.**
+
+
+---
+
+## 13. Packaged Windows acceptance and desktop master-data UI — 2026-11-15
+
+### Windows installer acceptance on GitHub-hosted Windows runner
+- Workflow: [AL-NASR Windows Desktop Validation run 43752169158](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43752169158)
+- Conclusion: **success**.
+- Electron/React typecheck: passed.
+- Backend, renderer, and Electron build: passed.
+- Windows x64 NSIS packaging: passed.
+- Unpacked packaged-app launch: passed; local health endpoint returned `status=ok`, `database=sqlite`, `schemaVersion=4`; SQLite file was created at `C:\\ProgramData\\AL-NASR\\data\\alnasr.sqlite`.
+- Silent NSIS installation: passed.
+- Launch of the installed executable and local API health verification: passed.
+- Silent uninstall: passed.
+- Post-uninstall persistence assertion: passed; the ProgramData SQLite database remained present.
+- Installer artifact: `AL-NASR-Windows-Installer-Preview`, artifact ID `14176688556`, 131,920,100 bytes, expires 2026-12-15.
+- Desktop package-lock artifact: `AL-NASR-Desktop-Package-Lock`, artifact ID `14176758256`, 46,198 bytes, expires 2026-11-22. The lockfile remains an artifact and has not yet been committed to source; desktop CI still runs `npm install`.
+
+### React desktop master-data screens
+- Replaced the dashboard-only placeholder navigation with active product, customer, and supplier screens.
+- Products: list and create with SKU, Arabic/English names, unit, sale/cost minor-unit prices, and optional barcode.
+- Customers: list and create with code, name, phone, credit limit; deactivate action preserves historical records.
+- Suppliers: list and create with code, name, phone; deactivate action preserves historical records.
+- Screens call the existing Fastify API through the hardened Electron IPC bridge and rely on backend authorization. The UI does not grant permissions independently.
+- Remaining: product update/deactivate API/UI, customer/supplier edit UI, inventory/warehouse UI, POS and purchase screens, returns/refunds, cash shifts, accounting, reporting, administration, backup/restore UI, bilingual English locale, and full end-to-end business acceptance.
+
+### Updated Windows-first status
+- W0 Windows backend runtime validation: passed (run 43749007934 and subsequent run 43751986121).
+- W1 Electron host, renderer, build and NSIS packaging: passed on the current validated build.
+- Packaged runtime API + ProgramData SQLite: passed.
+- NSIS install + installed-app startup + uninstall data persistence: passed on GitHub-hosted Windows runner.
+- Actual clean physical Windows 10/11 device acceptance, signing, ProgramData ACL hardening, upgrade-in-place acceptance, peripheral acceptance, and complete ERP business workflows: still open.
+- Android remains frozen until Windows release acceptance is complete.
+
+**Decision:** The Windows EXE has passed a meaningful CI installation/runtime/persistence gate, but remains a technical preview. Phase 1 is not closed and the ERP is not yet complete or release-approved.
