@@ -5,7 +5,13 @@ import { pathToFileURL } from "node:url";
 import { openDatabase } from "./db/database.js";
 import { authenticateSession, bootstrapOwner, login, logout } from "./auth/auth.js";
 
-const bootstrapSchema = z.object({\n  username: z.string().trim().min(3).max(40),\n  displayName: z.string().trim().min(2).max(100),\n  password: z.string().min(12).max(256)\n});\n\nconst loginSchema = z.object({
+const bootstrapSchema = z.object({
+  username: z.string().trim().min(3).max(40),
+  displayName: z.string().trim().min(2).max(100),
+  password: z.string().min(12).max(256)
+});
+
+const loginSchema = z.object({
   username: z.string().trim().min(3).max(40),
   password: z.string().min(1).max(256)
 });
