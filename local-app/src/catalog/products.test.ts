@@ -55,6 +55,8 @@ describe("product catalog", () => {
       salePriceMinor: 2500, costPriceMinor: 1800
     });
     expect(listProducts(database, "بسمتي")).toHaveLength(1);
+    database.prepare("INSERT INTO users(id, username, password_hash, display_name) VALUES (?, ?, ?, ?)")
+      .run("test-actor", "testactor", "test-hash", "Test Actor");
     deactivateProduct(database, product.id, "test-actor");
     expect(listProducts(database, "بسمتي")).toHaveLength(0);
     expect(database.prepare("SELECT is_active FROM products WHERE id = ?").get(product.id)).toEqual({ is_active: 0 });
