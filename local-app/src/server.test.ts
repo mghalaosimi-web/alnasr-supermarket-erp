@@ -98,6 +98,74 @@ describe("local API integration", () => {
     expect(posting.statusCode).toBe(200);
     expect(posting.json().status).toBe("posted");
 
+    const saleId = sale.json().saleId as string;
+    const firstPayment = await app.inject({
+      method: "POST",
+      url: `/api/v1/sales/${saleId}/payments`,
+      headers: authorization,
+      payload: {
+        method: "cash", amountMinor: 100, reference: null,
+        idempotencyKey: "api-sale-payment-001"
+      }
+    });
+    expect(firstPayment.statusCode).toBe(201);
+    expect(firstPayment.json().payment.outstandingMinor).toBe(100);
+
+    const duplicatePayment = await app.inject({
+      method: "POST",
+      url: `/api/v1/sales/${saleId}/payments`,
+      headers: authorization,
+      payload: {
+        method: "cash", amountMinor: 100, reference: null,
+        idempotencyKey: "api-sale-payment-001"
+      }
+    });
+    expect(duplicatePayment.statusCode).toBe(200);
+    expect(duplicatePayment.json().payment.duplicate).toBe(true);
+
+    const conflictingPayment = await app.inject({
+      method: "POST",
+      url: `/api/v1/sales/${saleId}/payments`,
+      headers: authorization,
+      payload: {
+        method: "cash", amountMinor: 99, reference: null,
+        idempotencyKey: "api-sale-payment-001"
+      }
+    });
+    expect(conflictingPayment.statusCode).toBe(409);
+
+    const secondPayment = await app.inject({
+      method: "POST",
+      url: `/api/v1/sales/${saleId}/payments`,
+      headers: authorization,
+      payload: {
+        method: "mobile_wallet", amountMinor: 100, reference: "wallet-ref-001",
+        idempotencyKey: "api-sale-payment-002"
+      }
+    });
+    expect(secondPayment.statusCode).toBe(201);
+    expect(secondPayment.json().payment.outstandingMinor).toBe(0);
+
+    const overpayment = await app.inject({
+      method: "POST",
+      url: `/api/v1/sales/${saleId}/payments`,
+      headers: authorization,
+      payload: {
+        method: "cash", amountMinor: 1, idempotencyKey: "api-sale-payment-003"
+      }
+    });
+    expect(overpayment.statusCode).toBe(409);
+
+    const paymentSummary = await app.inject({
+      method: "GET",
+      url: `/api/v1/sales/${saleId}/payments`,
+      headers: authorization
+    });
+    expect(paymentSummary.statusCode).toBe(200);
+    expect(paymentSummary.json().paidMinor).toBe(200);
+    expect(paymentSummary.json().outstandingMinor).toBe(0);
+    expect(paymentSummary.json().items).toHaveLength(2);
+
     const balance = await app.inject({
       method: "GET",
       url: `/api/v1/inventory/balance?productId=${productId}&warehouseId=${warehouse.id}`,
