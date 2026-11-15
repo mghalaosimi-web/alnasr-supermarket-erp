@@ -39,23 +39,25 @@ The former ERPNext/Frappe + MariaDB + Redis + Docker design is superseded by ADR
 
 ## Verified implementation snapshot — 2026-11-15
 
-**Status: SQLite backend foundation implemented and CI-verified; Phase 1 is not complete.**
+**Status: Windows desktop technical preview builds, installs, starts, and preserves its SQLite data through uninstall in GitHub-hosted Windows CI. Phase 1 is still not complete or release-approved.**
 
 The current `local-app/` is a TypeScript/Fastify backend foundation. It includes SQLite schema migrations v1–v4; database durability/integrity settings; one-time owner setup; scrypt password hashing; hashed bearer sessions, expiration/revocation and seeded RBAC; product create/list; customer and supplier master-data CRUD; stock balance and adjustment ledger; sale draft/post; partial sale-payment allocation with idempotency and audit; purchase draft/receipt; and verified online database backup creation.
 
-The latest inspected local-runtime workflow is [run 43748469553](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43748469553) on source head `8b65139cfa1fe3d48f2cd5babdae6595daaeac5e`. It passed dependency installation, Typecheck, all 9 test files / 35 tests, and TypeScript build, including schema-v3-to-v4 migration and partial sale-payment tests. This validates only `local-app/`; it is not whole-product acceptance.
+The latest Windows-first backend validation [run 43751986121](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43751986121) passed on Windows x64, including native SQLite, TypeScript checks, 9 test files / 35 tests, build, and ProgramData database smoke. The local-runtime workflow also passed on the desktop UI commit [run 43752144002](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43752144002). These are component-level validations, not complete ERP acceptance.
 
 The Android Gradle validation workflow [run #48](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43747506964) passed on the same PR head and uploaded the debug-preview artifact `AL-NASR-Android-Debug-Preview` for controlled device testing. This is not a production release or device-acceptance result.
 
-An Android Kotlin/Gradle WebView preview project exists, but it is not yet a secure Fastify API companion: it lacks the required pairing protocol, certificate/public-key pinning, device registration/revocation, API session integration, and synchronization workflows. The old `deploy/windows` Inno Setup/PowerShell scaffold still packages the superseded Docker/ERPNext stack; it is not a SQLite Windows installer.
+Windows Electron/React and NSIS x64 packaging are now implemented. The Windows desktop workflow [run 43752169158](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43752169158) passed TypeScript checks, application build, NSIS packaging, packaged-app API/SQLite health, silent NSIS installation, installed-app startup, silent uninstall, and confirmation that `%ProgramData%\\AL-NASR\\data\\alnasr.sqlite` remains after uninstall. The current React desktop UI provides product, customer, and supplier list/create screens, plus customer/supplier deactivation. This remains a technical preview: no physical Windows 10/11 clean-machine acceptance, code signing, ACL hardening, upgrade-in-place, or complete ERP workflow acceptance has been completed.
+
+An Android Kotlin/Gradle WebView preview project exists, but it is not yet a secure Fastify API companion: it lacks the required pairing protocol, certificate/public-key pinning, device registration/revocation, API session integration, and synchronization workflows. Android implementation remains frozen until Windows release acceptance is complete. The old `deploy/windows` Inno Setup/PowerShell scaffold still packages the superseded Docker/ERPNext stack; it is blocked and must not be used.
 
 ## Major Phase 1 work still outstanding
 
 - Full domain schema and workflows for customers, suppliers, payments/allocations, returns/refunds, cash registers, shifts, and accounting journals.
 - Double-entry posting, receivable/payable reconciliation, inventory valuation, and data-backed operational/financial reports.
 - Restore, scheduled backups, retention and disaster-recovery validation.
-- Complete React desktop frontend with real API integration, localization, RTL/LTR and screen-level tests.
-- Electron main/preload/lifecycle, secure IPC, tray/single-instance behavior, persistent data-path management and Windows NSIS installer.
+- Complete React desktop frontend and workflows: product update/deactivation, customer/supplier edit, inventory, POS, purchases, returns, shifts, accounting, reports, administration, and backup/restore UI; English localization and screen-level tests.
+- Windows release hardening: ProgramData ACL policy, code signing, upgrade-in-place acceptance, clean physical Windows 10/11 testing, diagnostics, and peripherals.
 - Secure Kotlin Android REST client, TLS fingerprint verification, pairing, device revocation, authorization-scoped workflows and tested sync behavior.
 - CI coverage for the entire application, Windows packaging, Android build and external acceptance.
 - Clean Windows installation/upgrade/uninstall testing, physical Android/LAN testing and peripheral acceptance.
