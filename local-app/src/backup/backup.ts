@@ -35,7 +35,7 @@ export async function createDatabaseBackup(
       verification.close();
     }
 
-    const fileDescriptor = openSync(temporary, "r");
+    const fileDescriptor = openSync(temporary, "r+");
     try {
       fsyncSync(fileDescriptor);
     } finally {
