@@ -28,7 +28,11 @@ function isTrustedRenderer(rawUrl: string): boolean {
   try {
     const parsed = new URL(rawUrl);
     if (parsed.protocol === "http:") {
-      return parsed.hostname === "127.0.0.1" && parsed.port === "5173";
+      return !app.isPackaged
+        && parsed.hostname === "127.0.0.1"
+        && parsed.port === "5173"
+        && parsed.username === ""
+        && parsed.password === "";
     }
     if (parsed.protocol === "file:") {
       return resolve(fileURLToPath(parsed)).toLowerCase()
