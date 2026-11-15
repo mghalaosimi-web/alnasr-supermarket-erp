@@ -2,7 +2,7 @@ import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { z } from "zod";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { openDatabase } from "./db/database.js";
+import { closeDatabase, openDatabase } from "./db/database.js";
 import { authenticateSession, bootstrapOwner, hasPermission, login, logout } from "./auth/auth.js";
 import { createProduct, listProducts } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
@@ -265,7 +265,7 @@ export function buildServer() {
   });
 
   app.addHook("onClose", async () => {
-    db.close();
+    closeDatabase(db);
   });
 
   return app;
