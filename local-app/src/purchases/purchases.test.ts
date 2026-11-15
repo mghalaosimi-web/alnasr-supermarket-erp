@@ -58,15 +58,10 @@ describe("purchase receiving lifecycle", () => {
     expect(database.prepare("SELECT status FROM purchases WHERE id = ?").get(purchase.purchaseId)).toEqual({ status: "posted" });
   });
 
-  it("keeps purchase draft when stock receipt cannot be completed", () => {
+  it("rejects posting a purchase that does not exist", () => {
     const database = setup();
-    const purchase = createPurchase(database, purchaseInput());
-    postStockMovement(database, {
-      productId: "prod-1", warehouseId: "wh-1", quantityDelta: -1, unitCostMinor: 100,
-      sourceType: "test", sourceId: "test-1", idempotencyKey: "test-negative"
-    });
-    expect(() => postPurchase(database, purchase.purchaseId)).not.toThrow();
-    expect(getStockBalance(database, "prod-1", "wh-1")).toBe(19);
+    expect(() => postPurchase(database, "missing-purchase")).toThrow(/Purchase not found/);
+    expect(database.prepare("SELECT COUNT(*) AS count FROM stock_ledger").get()).toEqual({ count: 0 });
   });
 
   it("rejects purchase discount greater than subtotal", () => {
