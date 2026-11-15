@@ -11,6 +11,7 @@ import { createProduct, listProducts } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales/sales.js";
 import { createPurchase, postPurchase } from "./purchases/purchases.js";
+import { createCustomer, createSupplier, deactivateCustomer, deactivateSupplier, listCustomers, listSuppliers, updateCustomer, updateSupplier } from "./partners/partners.js";
 
 const bootstrapSchema = z.object({
   username: z.string().trim().min(3).max(40),
@@ -65,6 +66,25 @@ const stockAdjustmentSchema = z.object({
   unitCostMinor: z.number().int().nonnegative().safe(),
   reason: z.string().trim().min(3).max(240),
   idempotencyKey: z.string().trim().min(8).max(160)
+});
+
+const customerSchema = z.object({
+  code: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(2).max(160),
+  phone: z.string().trim().max(40).nullable().optional(),
+  creditLimitMinor: z.number().int().nonnegative().safe().optional()
+}).strict();
+
+const supplierSchema = z.object({
+  code: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(2).max(160),
+  phone: z.string().trim().max(40).nullable().optional()
+}).strict();
+
+const partnersQuerySchema = z.object({
+  search: z.string().max(80).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  offset: z.coerce.number().int().min(0).default(0)
 });
 
 const loginSchema = z.object({
@@ -184,6 +204,112 @@ export function buildServer() {
         return reply.code(409).send({ error: "sku_or_barcode_already_exists" });
       }
       if (error instanceof Error) return reply.code(400).send({ error: "product_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.get("/api/v1/customers", async (request, reply) => {
+    if (!authorize(request, reply, "customers:read")) return;
+    const query = partnersQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: "invalid_query" });
+    return { items: listCustomers(db, query.data.search ?? "", query.data.limit, query.data.offset) };
+  });
+
+  app.post("/api/v1/customers", async (request, reply) => {
+    const user = authorize(request, reply, "customers:write");
+    if (!user) return;
+    const parsed = customerSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return reply.code(201).send({ customer: createCustomer(db, parsed.data, user.id) });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("UNIQUE constraint")) {
+        return reply.code(409).send({ error: "customer_code_already_exists" });
+      }
+      if (error instanceof Error) return reply.code(400).send({ error: "customer_rejected" });
+      throw error;
+    }
+  });
+
+  app.put("/api/v1/customers/:customerId", async (request, reply) => {
+    const user = authorize(request, reply, "customers:write");
+    if (!user) return;
+    const params = z.object({ customerId: z.string().uuid() }).safeParse(request.params);
+    const parsed = customerSchema.safeParse(request.body);
+    if (!params.success || !parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return { customer: updateCustomer(db, params.data.customerId, parsed.data, user.id) };
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) return reply.code(404).send({ error: "customer_not_found" });
+      if (error instanceof Error && error.message.includes("UNIQUE constraint")) return reply.code(409).send({ error: "customer_code_already_exists" });
+      if (error instanceof Error) return reply.code(409).send({ error: "customer_update_rejected" });
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/customers/:customerId/deactivate", async (request, reply) => {
+    const user = authorize(request, reply, "customers:write");
+    if (!user) return;
+    const params = z.object({ customerId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      deactivateCustomer(db, params.data.customerId, user.id);
+      return reply.code(204).send();
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) return reply.code(404).send({ error: "customer_not_found" });
+      throw error;
+    }
+  });
+
+  app.get("/api/v1/suppliers", async (request, reply) => {
+    if (!authorize(request, reply, "suppliers:read")) return;
+    const query = partnersQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: "invalid_query" });
+    return { items: listSuppliers(db, query.data.search ?? "", query.data.limit, query.data.offset) };
+  });
+
+  app.post("/api/v1/suppliers", async (request, reply) => {
+    const user = authorize(request, reply, "suppliers:write");
+    if (!user) return;
+    const parsed = supplierSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return reply.code(201).send({ supplier: createSupplier(db, parsed.data, user.id) });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("UNIQUE constraint")) {
+        return reply.code(409).send({ error: "supplier_code_already_exists" });
+      }
+      if (error instanceof Error) return reply.code(400).send({ error: "supplier_rejected" });
+      throw error;
+    }
+  });
+
+  app.put("/api/v1/suppliers/:supplierId", async (request, reply) => {
+    const user = authorize(request, reply, "suppliers:write");
+    if (!user) return;
+    const params = z.object({ supplierId: z.string().uuid() }).safeParse(request.params);
+    const parsed = supplierSchema.safeParse(request.body);
+    if (!params.success || !parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return { supplier: updateSupplier(db, params.data.supplierId, parsed.data, user.id) };
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) return reply.code(404).send({ error: "supplier_not_found" });
+      if (error instanceof Error && error.message.includes("UNIQUE constraint")) return reply.code(409).send({ error: "supplier_code_already_exists" });
+      if (error instanceof Error) return reply.code(409).send({ error: "supplier_update_rejected" });
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/suppliers/:supplierId/deactivate", async (request, reply) => {
+    const user = authorize(request, reply, "suppliers:write");
+    if (!user) return;
+    const params = z.object({ supplierId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      deactivateSupplier(db, params.data.supplierId, user.id);
+      return reply.code(204).send();
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) return reply.code(404).send({ error: "supplier_not_found" });
       throw error;
     }
   });
