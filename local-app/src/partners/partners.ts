@@ -72,7 +72,6 @@ function createPartner<T extends CustomerRecord | SupplierRecord>(
     throw new Error("creditLimitMinor must be a non-negative safe integer.");
   }
 
-  const table = tableFor(kind);
   const id = randomUUID();
   const insert = db.transaction(() => {
     if (kind === "customer") {
@@ -123,12 +122,11 @@ function updatePartner<T extends CustomerRecord | SupplierRecord>(
     throw new Error("creditLimitMinor must be a non-negative safe integer.");
   }
 
-  const table = tableFor(kind);
   const update = db.transaction(() => {
     if (kind === "customer") {
       db.prepare(`
         UPDATE customers SET code = ?, name = ?, phone = ?, credit_limit_minor = ? WHERE id = ?
-      `).run(id ? input.code.trim() : input.code.trim(), input.name.trim(), input.phone?.trim() || null, creditLimitMinor, id);
+      `).run(input.code.trim(), input.name.trim(), input.phone?.trim() || null, creditLimitMinor, id);
     } else {
       db.prepare(`
         UPDATE suppliers SET code = ?, name = ?, phone = ? WHERE id = ?
@@ -146,7 +144,6 @@ function updatePartner<T extends CustomerRecord | SupplierRecord>(
       JSON.stringify({ code: input.code.trim() })
     );
   });
-  void table;
   update();
 
   return getPartner<T>(db, kind, id)!;
