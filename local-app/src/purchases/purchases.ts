@@ -164,3 +164,55 @@ export function postPurchase(
   });
   return post();
 }
+
+
+export interface PurchaseListItem {
+  id: string;
+  document_no: string;
+  status: "draft" | "posted" | "voided";
+  supplier_id: string;
+  supplier_name: string;
+  store_id: string;
+  store_name: string;
+  warehouse_id: string;
+  warehouse_name: string;
+  subtotal_minor: number;
+  discount_minor: number;
+  tax_minor: number;
+  total_minor: number;
+  line_count: number;
+  unit_count: number;
+  created_at: string;
+}
+
+export function listPurchases(
+  db: Database.Database,
+  search = "",
+  limit = 100,
+  offset = 0
+): PurchaseListItem[] {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+    throw new Error("Limit must be between 1 and 200.");
+  }
+  if (!Number.isInteger(offset) || offset < 0) {
+    throw new Error("Offset must be a non-negative integer.");
+  }
+  const term = `%${search.trim().slice(0, 80)}%`;
+  return db.prepare(`
+    SELECT
+      p.id, p.document_no, p.status, p.supplier_id, s.name AS supplier_name,
+      p.store_id, st.name AS store_name, p.warehouse_id, w.name AS warehouse_name,
+      p.subtotal_minor, p.discount_minor, p.tax_minor, p.total_minor,
+      COUNT(pl.id) AS line_count, COALESCE(SUM(pl.quantity), 0) AS unit_count,
+      p.created_at
+    FROM purchases p
+    JOIN suppliers s ON s.id = p.supplier_id
+    JOIN stores st ON st.id = p.store_id
+    JOIN warehouses w ON w.id = p.warehouse_id
+    LEFT JOIN purchase_lines pl ON pl.purchase_id = p.id
+    WHERE p.document_no LIKE ? OR s.name LIKE ? OR s.code LIKE ?
+    GROUP BY p.id
+    ORDER BY p.created_at DESC, p.document_no DESC
+    LIMIT ? OFFSET ?
+  `).all(term, term, term, limit, offset) as PurchaseListItem[];
+}
