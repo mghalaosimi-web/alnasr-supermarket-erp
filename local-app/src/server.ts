@@ -1,4 +1,6 @@
 import Fastify from "fastify";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { openDatabase } from "./db/database.js";
 
 export function buildServer() {
@@ -23,7 +25,8 @@ export function buildServer() {
   return app;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const entryPath = process.argv[1];
+if (entryPath && import.meta.url === pathToFileURL(resolve(entryPath)).href) {
   const app = buildServer();
   const host = process.env.AL_NASR_API_HOST ?? "127.0.0.1";
   const port = Number(process.env.AL_NASR_API_PORT ?? 4317);
