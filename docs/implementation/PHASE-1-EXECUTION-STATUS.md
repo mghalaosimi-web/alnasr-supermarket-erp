@@ -231,3 +231,10 @@ Windows desktop is now the sole active client-delivery target in Main Phase 1. A
 - Android: frozen pending W6.
 
 A passing Windows backend workflow will validate the backend on Windows only. It will not prove that an Electron desktop application or a Windows installer exists.
+
+
+### W1 desktop build diagnostics — 2026-11-15
+- Electron main/preload source, React RTL shell, runtime-copy scripts, and NSIS x64 configuration are now in `desktop-app/`.
+- The first package attempt found that Electron `45.3.3` was not available under that exact npm version, so the dependency was pinned to the published `45.3.2`.
+- The next package attempt exposed a native V8 API compile failure in `better-sqlite3 12.4.1` when rebuilding for Electron 45. The desktop package now uses `better-sqlite3 13.2.0`, whose release line migrated to Node-API/N-API to avoid runtime-specific V8 ABI rebuilds; Electron rebuild has been disabled for this N-API package.
+- Current Windows desktop validation: [run 43749717043](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43749717043) — running at the time of this update. No Windows installer artifact is claimed until this run completes and the generated package is inspected.
