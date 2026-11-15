@@ -11,6 +11,7 @@ import { createProduct, listProducts } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales/sales.js";
 import { createPurchase, postPurchase } from "./purchases/purchases.js";
+import { listSalePayments, recordSalePayment } from "./payments/payments.js";
 import { createCustomer, createSupplier, deactivateCustomer, deactivateSupplier, listCustomers, listSuppliers, updateCustomer, updateSupplier } from "./partners/partners.js";
 
 const bootstrapSchema = z.object({
@@ -43,6 +44,13 @@ const saleSchema = z.object({
   taxMinor: z.number().int().nonnegative().safe().optional(),
   idempotencyKey: z.string().trim().min(8).max(160)
 });
+
+const paymentSchema = z.object({
+  method: z.enum(["cash", "card", "bank_transfer", "mobile_wallet"]),
+  amountMinor: z.number().int().positive().safe(),
+  reference: z.string().trim().max(120).nullable().optional(),
+  idempotencyKey: z.string().trim().min(8).max(160)
+}).strict();
 
 const purchaseSchema = z.object({
   documentNo: z.string().trim().min(1).max(64),
@@ -363,6 +371,44 @@ export function buildServer() {
       return postSale(db, params.data.saleId, user.id);
     } catch (error) {
       if (error instanceof Error) return reply.code(409).send({ error: "sale_post_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.get("/api/v1/sales/:saleId/payments", async (request, reply) => {
+    if (!authorize(request, reply, "sales:read")) return;
+    const params = z.object({ saleId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return listSalePayments(db, params.data.saleId);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Sale not found")) {
+        return reply.code(404).send({ error: "sale_not_found" });
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/sales/:saleId/payments", async (request, reply) => {
+    const user = authorize(request, reply, "sales:pay");
+    if (!user) return;
+    const params = z.object({ saleId: z.string().uuid() }).safeParse(request.params);
+    const parsed = paymentSchema.safeParse(request.body);
+    if (!params.success || !parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      const payment = recordSalePayment(db, {
+        ...parsed.data,
+        saleId: params.data.saleId,
+        actorUserId: user.id
+      });
+      return reply.code(payment.duplicate ? 200 : 201).send({ payment });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Sale not found")) {
+        return reply.code(404).send({ error: "sale_not_found" });
+      }
+      if (error instanceof Error) {
+        return reply.code(409).send({ error: "payment_rejected", message: error.message });
+      }
       throw error;
     }
   });
