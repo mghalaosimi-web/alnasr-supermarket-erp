@@ -136,3 +136,7 @@ button { cursor: pointer; }
 .record-form select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #315A8518; }
 .wide-field { grid-column: span 2; }
 .negative-stock { color: #B33B3B; }
+
+.backup-button { margin-top: 12px; min-height: 36px; font-size: 10px; }
+.backup-button:disabled { opacity: .55; cursor: wait; }
+.backup-result { overflow-wrap: anywhere; line-height: 1.8; }
