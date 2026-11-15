@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const migrationV1 = `
 CREATE TABLE IF NOT EXISTS app_meta (
@@ -291,4 +291,19 @@ CREATE INDEX IF NOT EXISTS idx_purchase_lines_product
 
 export function applySchemaV3(db: Database.Database): void {
   db.exec(migrationV3);
+}
+
+
+const migrationV4 = `
+INSERT OR IGNORE INTO permissions(code, description)
+VALUES ('sales:pay', 'Record and view sale payment allocations');
+
+INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
+  ('role-owner', 'sales:pay'),
+  ('role-admin', 'sales:pay'),
+  ('role-cashier', 'sales:pay');
+`;
+
+export function applySchemaV4(db: Database.Database): void {
+  db.exec(migrationV4);
 }
