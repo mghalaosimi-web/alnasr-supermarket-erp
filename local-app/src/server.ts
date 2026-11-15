@@ -1,4 +1,5 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
+import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { resolve } from "node:path";
