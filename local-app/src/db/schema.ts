@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const migrationV1 = `
 CREATE TABLE IF NOT EXISTS app_meta (
@@ -253,4 +253,42 @@ INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
 
 export function applySchemaV2(db: Database.Database): void {
   db.exec(migrationV2);
+}
+
+const migrationV3 = `
+ALTER TABLE sales ADD COLUMN warehouse_id TEXT REFERENCES warehouses(id) ON DELETE RESTRICT;
+
+CREATE TABLE IF NOT EXISTS purchases (
+  id TEXT PRIMARY KEY,
+  document_no TEXT NOT NULL UNIQUE,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE RESTRICT,
+  warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
+  supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
+  status TEXT NOT NULL CHECK (status IN ('draft', 'posted', 'voided')),
+  subtotal_minor INTEGER NOT NULL CHECK (subtotal_minor >= 0),
+  discount_minor INTEGER NOT NULL DEFAULT 0 CHECK (discount_minor >= 0),
+  tax_minor INTEGER NOT NULL DEFAULT 0 CHECK (tax_minor >= 0),
+  total_minor INTEGER NOT NULL CHECK (total_minor >= 0),
+  idempotency_key TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS purchase_lines (
+  id TEXT PRIMARY KEY,
+  purchase_id TEXT NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  unit_cost_minor INTEGER NOT NULL CHECK (unit_cost_minor >= 0),
+  line_total_minor INTEGER NOT NULL CHECK (line_total_minor >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchases_supplier_created
+  ON purchases(supplier_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_purchase_lines_product
+  ON purchase_lines(product_id);
+`;
+
+export function applySchemaV3(db: Database.Database): void {
+  db.exec(migrationV3);
 }
