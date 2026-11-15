@@ -238,3 +238,30 @@ A passing Windows backend workflow will validate the backend on Windows only. It
 - The first package attempt found that Electron `45.3.3` was not available under that exact npm version, so the dependency was pinned to the published `45.3.2`.
 - The next package attempt exposed a native V8 API compile failure in `better-sqlite3 12.4.1` when rebuilding for Electron 45. The desktop package now uses `better-sqlite3 13.2.0`, whose release line migrated to Node-API/N-API to avoid runtime-specific V8 ABI rebuilds; Electron rebuild has been disabled for this N-API package.
 - Current Windows desktop validation: [run 43749717043](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43749717043) — running at the time of this update. No Windows installer artifact is claimed until this run completes and the generated package is inspected.
+
+
+---
+
+## 12. Windows Electron packaging milestone — 2026-11-15
+
+### Verified result
+- Windows desktop workflow [run 43749717043](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43749717043) completed with conclusion **success** on Windows runner.
+- Electron/React TypeScript checks passed.
+- Backend runtime, React renderer, and Electron host build passed.
+- electron-builder successfully produced the Windows x64 NSIS installer and uploaded artifact `AL-NASR-Windows-Installer-Preview` (artifact ID `14175762937`, 131,918,103 bytes; 30-day retention).
+- Generated desktop npm lockfile was uploaded as `AL-NASR-Desktop-Package-Lock` (artifact ID `14176330116`, 46,198 bytes; 7-day retention). It has not yet been committed to the branch, so desktop workflow currently uses `npm install`, not `npm ci`.
+- This confirms successful packaging only. It is not evidence of successful installation, app startup, database creation from the packaged binary, upgrade/uninstall behavior, or end-user acceptance.
+
+### Additional runtime acceptance gate added
+- Workflow now includes a Windows PowerShell step to launch the packaged executable, poll `http://127.0.0.1:4317/api/v1/health`, require SQLite schema version 4, and verify the database is created under `%ProgramData%\\AL-NASR\\data\\alnasr.sqlite`.
+- The new gate is pending a fresh workflow run after commit `119fcbb89e2f9853c307dade1cd8099a5071db12`; no pass is claimed yet.
+
+### Current exact boundaries
+- W0 Windows backend runtime validation: passed (run 43749007934).
+- W1 Electron/React compilation and NSIS package creation: passed (run 43749717043).
+- Packaged executable launch + embedded API + ProgramData DB smoke test: pending new run.
+- Windows installer installation/uninstallation/upgrade persistence and clean Windows 10/11 acceptance: not yet performed.
+- ProgramData ACL hardening, backup restore/retention, complete business UI, returns, cash shifts, double-entry accounting, financial reports, and peripheral integration remain open.
+- Android remains frozen; no Android implementation was started in this Windows-first continuation.
+
+**Phase 1 remains open. The EXE artifact is a technical installer preview, not a complete or release-approved ERP product.**
