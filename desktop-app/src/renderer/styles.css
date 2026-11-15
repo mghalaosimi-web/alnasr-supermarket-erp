@@ -131,3 +131,8 @@ button { cursor: pointer; }
 @media (max-width: 1150px) {
   .record-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.record-form select { height: 41px; width: 100%; min-width: 0; border: 1px solid #D9E0E8; border-radius: 7px; padding: 0 11px; color: var(--navy); background: #FFF; outline: none; }
+.record-form select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #315A8518; }
+.wide-field { grid-column: span 2; }
+.negative-stock { color: #B33B3B; }
