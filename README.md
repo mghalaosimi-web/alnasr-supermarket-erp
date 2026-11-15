@@ -35,9 +35,9 @@ The former ERPNext/Frappe + MariaDB + Redis + Docker design is superseded by ADR
 
 **Status: SQLite backend foundation implemented and CI-verified; Phase 1 is not complete.**
 
-The current `local-app/` is a TypeScript/Fastify backend foundation. It includes SQLite schema migrations v1–v3; database durability/integrity settings; one-time owner setup; scrypt password hashing; hashed bearer sessions, expiration/revocation and seeded RBAC; product create/list; stock balance and adjustment ledger; sale draft/post; purchase draft/receipt; and verified online database backup creation.
+The current `local-app/` is a TypeScript/Fastify backend foundation. It includes SQLite schema migrations v1–v4; database durability/integrity settings; one-time owner setup; scrypt password hashing; hashed bearer sessions, expiration/revocation and seeded RBAC; product create/list; customer and supplier master-data CRUD; stock balance and adjustment ledger; sale draft/post; partial sale-payment allocation with idempotency and audit; purchase draft/receipt; and verified online database backup creation.
 
-The latest inspected local-runtime workflow is [run #108](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43747507029) on current PR head `c780b58c5a5f79a000cb33823858012e96cf07f2`. It passed dependency installation, TypeScript typecheck, unit tests, and TypeScript build. Earlier run #94 recorded 8 test files / 28 tests. These runs validate only `local-app/`; they are not whole-product acceptance.
+The latest inspected local-runtime workflow is [run 43748469553](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43748469553) on source head `8b65139cfa1fe3d48f2cd5babdae6595daaeac5e`. It passed dependency installation, Typecheck, all 9 test files / 35 tests, and TypeScript build, including schema-v3-to-v4 migration and partial sale-payment tests. This validates only `local-app/`; it is not whole-product acceptance.
 
 The Android Gradle validation workflow [run #48](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43747506964) passed on the same PR head and uploaded the debug-preview artifact `AL-NASR-Android-Debug-Preview` for controlled device testing. This is not a production release or device-acceptance result.
 
