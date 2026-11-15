@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 import { closeDatabase, openDatabase, resolveDatabasePath } from "./db/database.js";
 import { createDatabaseBackup } from "./backup/backup.js";
 import { authenticateSession, bootstrapOwner, hasPermission, login, logout } from "./auth/auth.js";
-import { createProduct, listProducts } from "./catalog/products.js";
+import { createProduct, deactivateProduct, listProducts, updateProduct } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales/sales.js";
 import { createPurchase, postPurchase } from "./purchases/purchases.js";
@@ -250,6 +250,36 @@ export function buildServer() {
         return reply.code(409).send({ error: "sku_or_barcode_already_exists" });
       }
       if (error instanceof Error) return reply.code(400).send({ error: "product_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.put("/api/v1/products/:productId", async (request, reply) => {
+    const user = authorize(request, reply, "products:write");
+    if (!user) return;
+    const params = z.object({ productId: z.string().uuid() }).safeParse(request.params);
+    const parsed = productSchema.safeParse(request.body);
+    if (!params.success || !parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return { product: updateProduct(db, params.data.productId, { ...parsed.data, actorUserId: user.id }) };
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) return reply.code(404).send({ error: "product_not_found" });
+      if (error instanceof Error && error.message.includes("UNIQUE constraint")) return reply.code(409).send({ error: "sku_or_barcode_already_exists" });
+      if (error instanceof Error) return reply.code(409).send({ error: "product_update_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/products/:productId/deactivate", async (request, reply) => {
+    const user = authorize(request, reply, "products:write");
+    if (!user) return;
+    const params = z.object({ productId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      deactivateProduct(db, params.data.productId, user.id);
+      return reply.code(204).send();
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) return reply.code(404).send({ error: "product_not_found" });
       throw error;
     }
   });
