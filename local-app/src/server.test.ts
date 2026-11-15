@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildServer } from "./server.js";
@@ -105,5 +105,14 @@ describe("local API integration", () => {
     });
     expect(balance.statusCode).toBe(200);
     expect(balance.json().quantity).toBe(3);
+
+    const backup = await app.inject({
+      method: "POST",
+      url: "/api/v1/backups",
+      headers: authorization
+    });
+    expect(backup.statusCode).toBe(201);
+    expect(backup.json().backup.integrity).toBe("ok");
+    expect(existsSync(backup.json().backup.path)).toBe(true);
   });
 });
