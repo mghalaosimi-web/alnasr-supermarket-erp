@@ -1,0 +1,78 @@
+name: AL-NASR Windows Desktop Validation
+
+on:
+  pull_request:
+    branches:
+      - foundation/alnasr-commerce-acceptance
+    paths:
+      - "desktop-app/**"
+      - "local-app/**"
+      - ".github/workflows/windows-desktop-validation.yml"
+  push:
+    branches:
+      - architecture/sqlite-offline-no-docker
+    paths:
+      - "desktop-app/**"
+      - "local-app/**"
+      - ".github/workflows/windows-desktop-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alnasr-windows-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-build:
+    name: Electron React x64 build and NSIS packaging
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24 x64
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          architecture: x64
+          cache: npm
+          cache-dependency-path: |
+            local-app/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix local-app --no-audit --no-fund
+
+      - name: Install desktop dependencies and generate lockfile
+        working-directory: desktop-app
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck Electron and React
+        working-directory: desktop-app
+        run: npm run typecheck
+
+      - name: Build SQLite backend, React renderer, and Electron host
+        working-directory: desktop-app
+        run: npm run build
+
+      - name: Package Windows x64 NSIS installer
+        working-directory: desktop-app
+        run: npx electron-builder --win nsis --x64
+
+      - name: Upload Windows installer preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: AL-NASR-Windows-Installer-Preview
+          path: desktop-app/release/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload generated npm lockfile for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: AL-NASR-Desktop-Package-Lock
+          path: desktop-app/package-lock.json
+          if-no-files-found: error
+          retention-days: 7
