@@ -198,3 +198,36 @@ The current branch tree was inspected recursively at `c780b58...`:
 ### Updated conclusion
 
 Customer and supplier master-data CRUD and sale-payment allocation are now partially implemented; older rows in the original snapshot above that label customers/suppliers as unimplemented are superseded by this section. Sale payment support is not equivalent to full accounts receivable, cash management, refunds, settlement, or general-ledger accounting. Phase 1 remains open.
+
+
+---
+
+## 11. Windows-first execution decision and initial Windows CI findings (2026-11-15)
+
+### Priority decision
+Windows desktop is now the sole active client-delivery target in Main Phase 1. Android implementation is frozen and preserved until Windows passes clean-machine release acceptance. The Android Gradle workflow is manual-only during this freeze. No Android source was deleted.
+
+### Actions taken
+- Added [Windows-first execution plan](WINDOWS-FIRST-EXECUTION-PLAN.md), defining W0–W6 from Windows runtime validation through clean-machine installer acceptance.
+- Added `.github/workflows/windows-runtime-validation.yml` to test the SQLite runtime on `windows-latest` with Node 24 x64, including native `better-sqlite3`, typecheck, tests, build, and ProgramData database smoke test.
+- Changed the Android validation workflow to `workflow_dispatch` only while Windows is the active delivery target.
+- Blocked `deploy/windows/installer.iss` at installer initialization. That installer deploys the superseded Docker/ERPNext stack and is not compatible with the SQLite application; it must not be used.
+- Updated the root README to link the Windows-first plan.
+
+### Windows-specific defect found
+- First Windows CI run: [43748917644](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43748917644) — dependency installation and TypeScript typecheck passed, but 2 of 35 tests failed in backup flows.
+- Root cause: backup finalization opened the temporary SQLite file read-only before calling `fsync`; Windows returned `EPERM` for that descriptor.
+- Corrective change: `local-app/src/backup/backup.ts` now opens the temporary backup with `r+` before flushing it.
+- A Windows and Linux CI rerun was triggered for the corrective commit. Their final results must be recorded before calling W0 green.
+
+### Current Windows delivery status
+- W0 Windows baseline: **in progress; not yet accepted**.
+- W1 Electron host/lifecycle: not implemented.
+- W2 React desktop UI: not implemented.
+- W3 Windows data protection/operations: not implemented.
+- W4 complete ERP workflows: not implemented.
+- W5 SQLite-native Windows installer: not implemented; legacy installer is blocked.
+- W6 clean Windows 10/11 release acceptance: not run.
+- Android: frozen pending W6.
+
+A passing Windows backend workflow will validate the backend on Windows only. It will not prove that an Electron desktop application or a Windows installer exists.
