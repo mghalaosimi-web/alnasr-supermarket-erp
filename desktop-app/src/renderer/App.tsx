@@ -373,11 +373,15 @@ export default function App() {
               : rows.length === 0 ? <div className="empty-state"><h3>لا توجد سجلات بعد</h3><p>أضف أول سجل ليظهر هنا.</p></div>
               : <div className="table-scroll"><table className="data-table"><thead><tr>
                 {activeView === "products" ? <><th>رمز الصنف</th><th>اسم الصنف</th><th>الوحدة</th><th>سعر البيع</th><th>التكلفة</th></>
+                  : activeView === "inventory" ? <><th>رمز الصنف</th><th>اسم الصنف</th><th>الوحدة</th><th>الرصيد الحالي</th></>
                   : <><th>الرمز</th><th>الاسم</th><th>الهاتف</th>{activeView === "customers" && <th>حد الائتمان</th>}<th>الحالة</th><th>إجراء</th></>}
               </tr></thead><tbody>
                 {activeView === "products" ? (rows as ProductRow[]).map(row => <tr key={row.id}>
                   <td dir="ltr">{row.sku}</td><td>{row.name_ar}{row.name_en && <small className="secondary-name">{row.name_en}</small>}</td>
                   <td dir="ltr">{row.base_unit}</td><td>{formatMinor(row.sale_price_minor)}</td><td>{formatMinor(row.cost_price_minor)}</td>
+                </tr>) : activeView === "inventory" ? (rows as InventoryRow[]).map(row => <tr key={row.product_id}>
+                  <td dir="ltr">{row.sku}</td><td>{row.name_ar}</td><td dir="ltr">{row.base_unit}</td>
+                  <td><strong className={row.quantity < 0 ? "negative-stock" : ""}>{formatQuantity(row.quantity)}</strong></td>
                 </tr>) : (rows as PartnerRow[]).map(row => <tr key={row.id}>
                   <td dir="ltr">{row.code}</td><td>{row.name}</td><td dir="ltr">{row.phone ?? "—"}</td>
                   {activeView === "customers" && <td>{formatMinor(row.credit_limit_minor ?? 0)}</td>}
@@ -395,6 +399,10 @@ export default function App() {
 
 function formatMinor(value: number): string {
   return new Intl.NumberFormat("ar-YE", { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatQuantity(value: number): string {
+  return new Intl.NumberFormat("ar-YE", { maximumFractionDigits: 3 }).format(value);
 }
 
 function Brand({ compact = false }: { compact?: boolean }) {
