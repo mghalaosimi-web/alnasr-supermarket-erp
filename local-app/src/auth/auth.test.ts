@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { applySchemaV1, applySchemaV2 } from "../db/schema.js";
-import { authenticateSession, createUser, hasPermission, login, logout, verifyPassword } from "./auth.js";
+import { authenticateSession, bootstrapOwner, createUser, hasPermission, login, logout, verifyPassword } from "./auth.js";
 
 describe("local authentication and RBAC", () => {
   let db: Database.Database | undefined;
