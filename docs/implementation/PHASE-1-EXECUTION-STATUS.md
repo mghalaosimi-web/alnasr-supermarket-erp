@@ -302,3 +302,25 @@ A passing Windows backend workflow will validate the backend on Windows only. It
 - Android remains frozen until Windows release acceptance is complete.
 
 **Decision:** The Windows EXE has passed a meaningful CI installation/runtime/persistence gate, but remains a technical preview. Phase 1 is not closed and the ERP is not yet complete or release-approved.
+
+
+---
+
+## 14. Inventory desktop workflow — 2026-11-15
+
+### Backend additions
+- Added authenticated `GET /api/v1/locations` (requires `inventory:read`) to return active stores and warehouses for the signed-in desktop client.
+- Added authenticated `GET /api/v1/inventory/balances?warehouseId=...` (requires `inventory:read`) to return each active product's aggregate stock quantity for the selected warehouse.
+- Extended the API integration test to cover warehouse context, aggregate balances after stock movements and sale posting, and rejection of unauthenticated balance access.
+
+### Desktop additions
+- Added an Inventory navigation/screen with current warehouse stock balances.
+- Added stock adjustment form with product selection, signed quantity delta, unit cost, reason, and a fresh idempotency key per submission.
+- Uses the existing backend stock ledger and permission check; the renderer does not mutate SQLite directly.
+
+### CI evidence on this source update
+- Local runtime [run 43753265119](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43753265119): **success**, 9 test files / 35 tests, typecheck and build passed.
+- Windows SQLite runtime [run 43753265112](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43753265112): **success**, 9 test files / 35 tests, native SQLite and ProgramData smoke passed.
+- Windows desktop packaging workflow [run 43753265118](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43753265118): pending at snapshot time; do not claim this latest inventory UI build passed packaging until the run concludes.
+
+**Remaining inventory scope:** physical stock count workflow, stock transfers, valuation/costing, reorder thresholds, expiry/batch tracking, and reports. Inventory adjustments are not a substitute for a complete warehouse-management module.
