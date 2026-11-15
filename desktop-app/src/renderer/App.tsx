@@ -4,7 +4,7 @@ type User = { id: string; username: string; displayName: string; roles: string[]
 type LoginResult = { token: string; expiresAt: string; user: User };
 type Health = { status: string; product: string; database: string; schemaVersion: number };
 type Screen = "checking" | "setup" | "login" | "dashboard" | "error";
-type View = "dashboard" | "products" | "customers" | "suppliers" | "inventory";
+type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory";
 type ProductRow = {
   id: string; sku: string; name_ar: string; name_en: string | null; base_unit: string;
   sale_price_minor: number; cost_price_minor: number; is_active: number;
@@ -20,13 +20,13 @@ type FormValues = Record<string, string>;
 
 const navigation: { key: View; label: string; description: string }[] = [
   { key: "dashboard", label: "نظرة عامة", description: "ملخص حالة النظام" },
+  { key: "pos", label: "نقطة البيع", description: "إنشاء فاتورة وخصم المخزون" },
   { key: "products", label: "المنتجات", description: "إدارة الأصناف والأسعار" },
   { key: "customers", label: "العملاء", description: "سجل العملاء وحدود الائتمان" },
   { key: "suppliers", label: "الموردون", description: "سجل الموردين وبياناتهم" },
   { key: "inventory", label: "المخزون", description: "أرصدة الأصناف وتسويات المخزون" }
 ];
 const futureModules = [
-  ["نقطة البيع", "المبيعات والفواتير والتحصيل"],
   ["المشتريات", "أوامر الشراء والاستلام"],
   ["المرتجعات", "مرتجعات المبيعات والمشتريات"],
   ["الصندوق والورديات", "فتح وإغلاق الورديات وحركة النقد"],
@@ -59,6 +59,12 @@ export default function App() {
   const [productOptions, setProductOptions] = useState<ProductRow[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState("");
+  const [posProducts, setPosProducts] = useState<ProductRow[]>([]);
+  const [posCart, setPosCart] = useState<Record<string, number>>({});
+  const [posStoreId, setPosStoreId] = useState("");
+  const [posWarehouseId, setPosWarehouseId] = useState("");
+  const [posBusy, setPosBusy] = useState(false);
+  const [posMessage, setPosMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -144,6 +150,42 @@ export default function App() {
     }
   }
 
+  function changeCart(productId: string, delta: number) {
+    setPosCart(current => {
+      const next = { ...current };
+      const quantity = (next[productId] ?? 0) + delta;
+      if (quantity <= 0) delete next[productId]; else next[productId] = quantity;
+      return next;
+    });
+  }
+
+  async function completePosSale() {
+    const lines = Object.entries(posCart).map(([productId, quantity]) => {
+      const product = posProducts.find(item => item.id === productId);
+      return product ? { productId, quantity, unitPriceMinor: product.sale_price_minor } : null;
+    }).filter((line): line is { productId: string; quantity: number; unitPriceMinor: number } => line !== null);
+    if (!lines.length || !posStoreId || !posWarehouseId) { setError("أضف صنفاً واحداً على الأقل إلى الفاتورة."); return; }
+    setPosBusy(true); setError(""); setPosMessage("");
+    try {
+      const created = await window.alnasr.request<{ saleId: string; totalMinor: number }>({
+        path: "/api/v1/sales", method: "POST", token,
+        body: { documentNo: `POS-${Date.now()}`, storeId: posStoreId, warehouseId: posWarehouseId,
+          lines, idempotencyKey: crypto.randomUUID() }
+      });
+      if (created.status !== 201) throw new Error("تعذر إنشاء فاتورة البيع.");
+      const posted = await window.alnasr.request({ path: `/api/v1/sales/${created.data.saleId}/post`, method: "POST", token });
+      if (posted.status !== 200) throw new Error("تم إنشاء الفاتورة كمسودة، لكن تعذر ترحيلها وخصم المخزون.");
+      const paid = await window.alnasr.request({ path: `/api/v1/sales/${created.data.saleId}/payments`, method: "POST", token,
+        body: { method: "cash", amountMinor: created.data.totalMinor, idempotencyKey: crypto.randomUUID() } });
+      if (paid.status !== 201 && paid.status !== 200) {
+        setPosCart({}); setPosMessage(`تم ترحيل الفاتورة ${created.data.saleId} وخصم المخزون، لكن تعذر تسجيل التحصيل النقدي. راجع المدفوعات.`);
+      } else {
+        setPosCart({}); setPosMessage(`اكتملت الفاتورة ${created.data.saleId} وتم تسجيل التحصيل النقدي.`);
+      }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "تعذر إكمال عملية البيع."); }
+    finally { setPosBusy(false); }
+  }
+
   async function logout() {
     try {
       await window.alnasr.request({ path: "/api/v1/auth/logout", method: "POST", token });
@@ -158,7 +200,18 @@ export default function App() {
     setLoadingRows(true);
     setError("");
     try {
-      if (view === "inventory") {
+      if (view === "pos") {
+        const [locations, products] = await Promise.all([
+          window.alnasr.request<{ stores: Array<{ id: string; name: string }>; warehouses: Warehouse[] }>({ path: "/api/v1/locations", token }),
+          window.alnasr.request<{ items: ProductRow[] }>({ path: "/api/v1/products", token })
+        ]);
+        if (locations.status !== 200 || products.status !== 200) throw new Error("تعذر تحميل بيانات نقطة البيع.");
+        const store = locations.data.stores[0];
+        const warehouse = locations.data.warehouses.find(item => item.store_id === store?.id);
+        if (!store || !warehouse) throw new Error("يجب إعداد متجر ومستودع نشط قبل البيع.");
+        setPosStoreId(store.id); setPosWarehouseId(warehouse.id); setWarehouses(locations.data.warehouses);
+        setPosProducts(products.data.items); setPosCart({}); setPosMessage("");
+      } else if (view === "inventory") {
         const locations = await window.alnasr.request<{ warehouses: Warehouse[] }>({ path: "/api/v1/locations", token });
         if (locations.status !== 200) throw new Error("تعذر تحميل المستودعات أو لا تملك صلاحية عرض المخزون.");
         const activeWarehouses = locations.data.warehouses;
@@ -358,6 +411,24 @@ export default function App() {
           </section>
           {backupMessage && <div className="success-note backup-result" role="status">{backupMessage}</div>}
           {error && <div className="error page-error" role="alert">{error}</div>}
+        </> : activeView === "pos" ? <>
+          <div className="list-toolbar"><div><h2>نقطة البيع</h2><p>إنشاء فاتورة وترحيلها وخصم الكميات من المستودع المحدد.</p></div></div>
+          {error && <div className="error page-error" role="alert">{error}</div>}
+          {posMessage && <div className="success-note" role="status">{posMessage}</div>}
+          <section className="data-panel">
+            <div className="section-heading"><h2>الأصناف المتاحة</h2><p>اختر الأصناف لإضافتها إلى الفاتورة.</p></div>
+            {loadingRows ? <div className="empty-state">جارٍ تحميل الأصناف...</div> : <div className="table-scroll"><table className="data-table"><thead><tr><th>الصنف</th><th>SKU</th><th>سعر البيع</th><th>إضافة</th></tr></thead><tbody>
+              {posProducts.map(product => <tr key={product.id}><td>{product.name_ar}</td><td dir="ltr">{product.sku}</td><td>{formatMinor(product.sale_price_minor)}</td><td><button className="table-action" onClick={() => changeCart(product.id, 1)}>إضافة +</button></td></tr>)}
+            </tbody></table></div>}
+          </section>
+          <section className="data-panel"><div className="section-heading"><h2>الفاتورة الحالية</h2><p>العملة بوحدتها الصغرى كما هي مخزنة في قاعدة البيانات.</p></div>
+            {Object.keys(posCart).length === 0 ? <div className="empty-state">السلة فارغة. أضف أصنافاً من القائمة أعلاه.</div> : <div className="table-scroll"><table className="data-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th>تعديل</th></tr></thead><tbody>
+              {Object.entries(posCart).map(([id, quantity]) => { const product = posProducts.find(item => item.id === id); if (!product) return null; return <tr key={id}><td>{product.name_ar}</td><td>{formatQuantity(quantity)}</td><td>{formatMinor(product.sale_price_minor)}</td><td>{formatMinor(quantity * product.sale_price_minor)}</td><td><button className="table-action" onClick={() => changeCart(id, -1)}>−</button> <button className="table-action" onClick={() => changeCart(id, 1)}>+</button></td></tr>; })}
+            </tbody></table></div>}
+            <div className="form-actions"><strong>الإجمالي: {formatMinor(Object.entries(posCart).reduce((sum, [id, quantity]) => sum + quantity * (posProducts.find(item => item.id === id)?.sale_price_minor ?? 0), 0))}</strong>
+              <button className="primary action-button" disabled={posBusy || Object.keys(posCart).length === 0 || !user?.permissions.includes("sales:create") || !user?.permissions.includes("sales:post") || !user?.permissions.includes("sales:pay")} onClick={() => void completePosSale()}>{posBusy ? "جارٍ إكمال البيع..." : "إتمام البيع والتحصيل نقداً"}</button></div>
+            {!user?.permissions.includes("sales:pay") && <p className="muted">حسابك لا يملك صلاحية تسجيل التحصيل النقدي.</p>}
+          </section>
         </> : <>
           <div className="list-toolbar"><div><h2>{title}</h2><p>بيانات محفوظة في قاعدة SQLite المحلية{activeView === "inventory" && warehouses[0] ? " · " + (warehouses.find(item => item.id === selectedWarehouseId)?.name ?? warehouses[0].name) : ""}.</p></div>
             {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm({ ...emptyForm, productId: productOptions[0]?.id ?? "" }); setError(""); }}>
