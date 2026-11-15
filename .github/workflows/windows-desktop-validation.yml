@@ -88,6 +88,42 @@ jobs:
             if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
 
+      - name: Install NSIS EXE, launch installed app, and verify uninstall preserves data
+        shell: pwsh
+        working-directory: desktop-app
+        run: |
+          $installer = (Get-ChildItem "release" -Filter "*.exe" | Select-Object -First 1).FullName
+          if (-not $installer) { throw "NSIS installer EXE was not produced." }
+          $installDir = "C:\\AL-NASR-ERP-Install-Test"
+          if (Test-Path $installDir) { Remove-Item $installDir -Recurse -Force }
+          $install = Start-Process -FilePath $installer -ArgumentList @("/S", "/D=$installDir") -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit code $($install.ExitCode)." }
+          $installedApp = Join-Path $installDir "AL-NASR ERP.exe"
+          if (-not (Test-Path $installedApp)) { throw "Installed desktop executable not found: $installedApp" }
+          $process = Start-Process -FilePath $installedApp -ArgumentList "--disable-gpu" -PassThru
+          try {
+            $health = $null
+            $deadline = (Get-Date).AddSeconds(45)
+            while ((Get-Date) -lt $deadline) {
+              if ($process.HasExited) { throw "Installed AL-NASR process exited with code $($process.ExitCode)." }
+              try { $health = Invoke-RestMethod -Uri "http://127.0.0.1:4317/api/v1/health" -TimeoutSec 2; break }
+              catch { Start-Sleep -Seconds 1 }
+            }
+            if ($null -eq $health -or $health.status -ne "ok" -or $health.database -ne "sqlite" -or $health.schemaVersion -ne 4) {
+              throw "Installed app health check failed: $($health | ConvertTo-Json -Compress)"
+            }
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+          $dbPath = Join-Path $env:ProgramData "AL-NASR/data/alnasr.sqlite"
+          if (-not (Test-Path $dbPath)) { throw "Installed app did not preserve/create its ProgramData database." }
+          $uninstaller = Get-ChildItem $installDir -Filter "Uninstall*.exe" | Select-Object -First 1
+          if (-not $uninstaller) { throw "NSIS uninstaller was not found in the install directory." }
+          $remove = Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($remove.ExitCode -ne 0) { throw "NSIS silent uninstall failed with exit code $($remove.ExitCode)." }
+          if (-not (Test-Path $dbPath)) { throw "Application uninstall removed the persistent SQLite database." }
+          Write-Host "NSIS install, installed-app API health, and uninstall data-persistence smoke tests passed."
+
       - name: Upload Windows installer preview
         uses: actions/upload-artifact@v4
         with:
