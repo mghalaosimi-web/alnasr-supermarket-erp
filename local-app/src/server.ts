@@ -10,7 +10,7 @@ import { authenticateSession, bootstrapOwner, hasPermission, login, logout } fro
 import { createProduct, deactivateProduct, listProducts, updateProduct } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales/sales.js";
-import { createPurchase, postPurchase } from "./purchases/purchases.js";
+import { createPurchase, listPurchases, postPurchase } from "./purchases/purchases.js";
 import { listSalePayments, recordSalePayment } from "./payments/payments.js";
 import { createCustomer, createSupplier, deactivateCustomer, deactivateSupplier, listCustomers, listSuppliers, updateCustomer, updateSupplier } from "./partners/partners.js";
 
@@ -479,6 +479,13 @@ export function buildServer() {
       }
       throw error;
     }
+  });
+
+  app.get("/api/v1/purchases", async (request, reply) => {
+    if (!authorize(request, reply, "purchases:read")) return;
+    const query = partnersQuerySchema.safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: "invalid_query" });
+    return { items: listPurchases(db, query.data.search ?? "", query.data.limit, query.data.offset) };
   });
 
   app.post("/api/v1/purchases", async (request, reply) => {
