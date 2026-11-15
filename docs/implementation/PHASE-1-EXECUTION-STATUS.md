@@ -324,3 +324,38 @@ A passing Windows backend workflow will validate the backend on Windows only. It
 - Windows desktop packaging workflow [run 43753265118](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43753265118): pending at snapshot time; do not claim this latest inventory UI build passed packaging until the run concludes.
 
 **Remaining inventory scope:** physical stock count workflow, stock transfers, valuation/costing, reorder thresholds, expiry/batch tracking, and reports. Inventory adjustments are not a substitute for a complete warehouse-management module.
+
+
+
+---
+
+## 15. Windows desktop acceptance rerun — 2026-11-15
+
+### Source revision
+- Branch: `architecture/sqlite-offline-no-docker`
+- Validated head: `af463a446b7d61c8f74823e1003212204c7f0425`
+- The TypeScript defect in the inventory form reset callback was corrected by removing the unused callback parameter.
+
+### Latest CI evidence
+- Local Runtime Validation [run 43759249960](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43759249960): **success**.
+- Windows SQLite Runtime Validation [run 43759249975](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43759249975): **success**.
+- Windows Desktop Validation [run 43759249959](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43759249959): **success**.
+- Desktop job steps all completed successfully: backend dependency installation, desktop dependency installation, Electron/React typecheck, backend/renderer/Electron build, x64 NSIS packaging, packaged executable launch, local API/SQLite health check, silent install, installed executable launch, silent uninstall, and post-uninstall database persistence assertion.
+- The desktop package-lock artifact was uploaded as artifact ID `14179612314` (46,198 bytes, 7-day retention). It was downloaded and inspected: lockfile v3, root package `@al-nasr/windows-desktop@0.1.0`, and declared direct dependency versions match `desktop-app/package.json`. It remains an artifact, not committed to the branch; the desktop workflow still uses `npm install`, not `npm ci`.
+- The Windows installer preview artifact was uploaded as artifact ID `14179507886` (131,921,628 bytes, 30-day retention).
+
+### Current desktop UI scope confirmed from source
+- Available screens: dashboard, products, customers, suppliers, and inventory.
+- Product creation captures SKU, Arabic/English names, unit, sale/cost minor-unit prices, and optional barcode.
+- Customer/supplier creation and deactivation are implemented; deactivation retains historical records.
+- Inventory screen loads warehouse context and product balances and submits stock adjustments through the API.
+- Dashboard can request a verified SQLite backup when the account has `settings:write`.
+- POS, purchasing, returns/refunds, cash shifts, accounting, reports, user/role administration, backup restore/retention UI, English localization, product/partner editing, and full business end-to-end workflows are not yet complete.
+
+### Acceptance boundary
+- This is successful GitHub-hosted Windows CI evidence, not physical clean-device acceptance on Windows 10 and Windows 11.
+- Code signing, ProgramData ACL review/hardening, upgrade-in-place testing, printer/barcode peripherals, and a supported release/upgrade policy remain open.
+- Android remains frozen until Windows release acceptance is completed.
+- PR #7 remains Draft and unmerged. No production deployment or production-data mutation has been performed.
+
+**Decision:** The current source revision has passed the latest local, Windows SQLite, and packaged Windows install/uninstall/persistence CI gates. The Windows build is still a technical preview, not a complete ERP release. Phase 1 remains open.
