@@ -62,10 +62,13 @@ export function recordSalePayment(
     throw new Error("Payment reference must not exceed 120 characters.");
   }
 
+  const normalizedReference = input.reference?.trim() || null;
+  const normalizedIdempotencyKey = input.idempotencyKey.trim();
+
   const record = db.transaction((): SalePaymentResult => {
     const existing = db.prepare(
       "SELECT id, sale_id, method, amount_minor, reference FROM payments WHERE idempotency_key = ?"
-    ).get(input.idempotencyKey) as {
+    ).get(normalizedIdempotencyKey) as {
       id: string; sale_id: string; method: SalePaymentMethod;
       amount_minor: number; reference: string | null;
     } | undefined;
@@ -74,7 +77,7 @@ export function recordSalePayment(
       const sameRequest = existing.sale_id === input.saleId
         && existing.method === input.method
         && existing.amount_minor === input.amountMinor
-        && existing.reference === (input.reference ?? null);
+        && existing.reference === normalizedReference;
       if (!sameRequest) throw new Error("Payment idempotency key conflict.");
       const totals = saleTotals(db, input.saleId);
       return {
@@ -104,8 +107,8 @@ export function recordSalePayment(
       input.saleId,
       input.method,
       input.amountMinor,
-      input.reference?.trim() || null,
-      input.idempotencyKey
+      normalizedReference,
+      normalizedIdempotencyKey
     );
 
     const paidMinor = totals.paidMinor + input.amountMinor;
