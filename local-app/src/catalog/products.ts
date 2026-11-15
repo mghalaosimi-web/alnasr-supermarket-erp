@@ -76,6 +76,35 @@ export function listProducts(db: Database.Database, search = "", limit = 100, of
   `).all(term, term, term, limit, offset) as ProductRecord[];
 }
 
+export function updateProduct(db: Database.Database, id: string, input: ProductInput): ProductRecord {
+  validate(input);
+  const update = db.transaction(() => {
+    const current = getProduct(db, id);
+    if (!current) throw new Error("Product not found.");
+    if (!current.is_active) throw new Error("Inactive products cannot be edited.");
+    db.prepare(`
+      UPDATE products
+      SET sku = ?, name_ar = ?, name_en = ?, base_unit = ?, sale_price_minor = ?, cost_price_minor = ?
+      WHERE id = ?
+    `).run(input.sku.trim(), input.nameAr.trim(), input.nameEn?.trim() || null,
+      input.baseUnit, input.salePriceMinor, input.costPriceMinor, id);
+
+    if (input.barcode !== undefined) {
+      db.prepare("DELETE FROM product_barcodes WHERE product_id = ?").run(id);
+      if (input.barcode) {
+        db.prepare("INSERT INTO product_barcodes(id, product_id, barcode, unit_code) VALUES (?, ?, ?, ?)")
+          .run(randomUUID(), id, input.barcode, input.baseUnit);
+      }
+    }
+    db.prepare(`
+      INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json)
+      VALUES (?, ?, 'product.updated', 'product', ?, ?)
+    `).run(randomUUID(), input.actorUserId ?? null, id, JSON.stringify({ sku: input.sku.trim() }));
+  });
+  update();
+  return getProduct(db, id)!;
+}
+
 export function deactivateProduct(db: Database.Database, id: string, actorUserId: string): void {
   const update = db.transaction(() => {
     const product = getProduct(db, id);
