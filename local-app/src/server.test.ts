@@ -1,0 +1,109 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { buildServer } from "./server.js";
+import { closeDatabase, openDatabase } from "./db/database.js";
+
+describe("local API integration", () => {
+  const originalPath = process.env.AL_NASR_DATABASE_PATH;
+  let directory: string | undefined;
+  let app: ReturnType<typeof buildServer> | undefined;
+
+  afterEach(async () => {
+    if (app) {
+      await app.close();
+      app = undefined;
+    }
+    if (originalPath === undefined) delete process.env.AL_NASR_DATABASE_PATH;
+    else process.env.AL_NASR_DATABASE_PATH = originalPath;
+    if (directory) {
+      rmSync(directory, { recursive: true, force: true });
+      directory = undefined;
+    }
+  });
+
+  it("sets up the store, authenticates, creates a product and posts a sale with stock control", async () => {
+    directory = mkdtempSync(join(tmpdir(), "alnasr-api-"));
+    const databasePath = join(directory, "api.sqlite");
+    process.env.AL_NASR_DATABASE_PATH = databasePath;
+    app = buildServer();
+
+    const setup = await app.inject({
+      method: "POST",
+      url: "/api/v1/setup/owner",
+      payload: {
+        username: "ownerapi",
+        displayName: "API Owner",
+        password: "A-Strong-Password-2026"
+      }
+    });
+    expect(setup.statusCode).toBe(201);
+
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: { username: "ownerapi", password: "A-Strong-Password-2026" }
+    });
+    expect(login.statusCode).toBe(200);
+    const token = login.json().token as string;
+    const authorization = { authorization: `Bearer ${token}` };
+
+    const db = openDatabase(databasePath);
+    const store = db.prepare("SELECT id FROM stores LIMIT 1").get() as { id: string };
+    const warehouse = db.prepare("SELECT id FROM warehouses LIMIT 1").get() as { id: string };
+    closeDatabase(db);
+
+    const productResponse = await app.inject({
+      method: "POST",
+      url: "/api/v1/products",
+      headers: authorization,
+      payload: {
+        sku: "API-001", nameAr: "ماء", nameEn: "Water", baseUnit: "piece",
+        salePriceMinor: 100, costPriceMinor: 50, barcode: "628100009999"
+      }
+    });
+    expect(productResponse.statusCode).toBe(201);
+    const productId = productResponse.json().product.id as string;
+
+    const adjustment = await app.inject({
+      method: "POST",
+      url: "/api/v1/inventory/adjustments",
+      headers: authorization,
+      payload: {
+        productId, warehouseId: warehouse.id, quantityDelta: 5, unitCostMinor: 50,
+        reason: "رصيد افتتاحي", idempotencyKey: "api-opening-stock-001"
+      }
+    });
+    expect(adjustment.statusCode).toBe(201);
+    expect(adjustment.json().balance).toBe(5);
+
+    const sale = await app.inject({
+      method: "POST",
+      url: "/api/v1/sales",
+      headers: authorization,
+      payload: {
+        documentNo: "API-INV-001", storeId: store.id, warehouseId: warehouse.id,
+        lines: [{ productId, quantity: 2, unitPriceMinor: 100 }],
+        idempotencyKey: "api-sale-create-001"
+      }
+    });
+    expect(sale.statusCode).toBe(201);
+
+    const posting = await app.inject({
+      method: "POST",
+      url: `/api/v1/sales/${sale.json().saleId}/post`,
+      headers: authorization
+    });
+    expect(posting.statusCode).toBe(200);
+    expect(posting.json().status).toBe("posted");
+
+    const balance = await app.inject({
+      method: "GET",
+      url: `/api/v1/inventory/balance?productId=${productId}&warehouseId=${warehouse.id}`,
+      headers: authorization
+    });
+    expect(balance.statusCode).toBe(200);
+    expect(balance.json().quantity).toBe(3);
+  });
+});
