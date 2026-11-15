@@ -1,0 +1,83 @@
+{
+  "name": "@al-nasr/windows-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev:renderer": "vite --host 127.0.0.1 --strictPort",
+    "dev:electron": "wait-on tcp:5173 && npm run build:backend && npm run build:electron && cross-env AL_NASR_RENDERER_URL=http://127.0.0.1:5173 electron .",
+    "build:backend": "npm --prefix ../local-app run build && node scripts/copy-runtime.mjs",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm run build:backend && npm run build:renderer && npm run build:electron",
+    "typecheck": "tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "dist:win": "npm run build && electron-builder --win nsis --x64"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.4.1",
+    "fastify": "5.6.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "4.0.3",
+    "@types/node": "24.10.0",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.3.0",
+    "concurrently": "9.2.1",
+    "cross-env": "10.1.0",
+    "electron": "45.3.3",
+    "electron-builder": "26.18.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.8",
+    "wait-on": "8.0.4"
+  },
+  "build": {
+    "appId": "com.alnasr.erp",
+    "productName": "AL-NASR ERP",
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "files": [
+      "dist-electron/**/*",
+      "dist/**/*",
+      "runtime/dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "npmRebuild": true,
+    "nodeGypRebuild": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "AL-NASR-Setup-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": true,
+      "allowElevation": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AL-NASR ERP",
+      "runAfterFinish": true
+    }
+  }
+}
