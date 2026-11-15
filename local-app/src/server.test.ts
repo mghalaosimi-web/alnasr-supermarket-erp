@@ -115,4 +115,106 @@ describe("local API integration", () => {
     expect(backup.json().backup.integrity).toBe("ok");
     expect(existsSync(backup.json().backup.path)).toBe(true);
   });
+
+  it("enforces authenticated customer and supplier API workflows", async () => {
+    directory = mkdtempSync(join(tmpdir(), "alnasr-partners-"));
+    process.env.AL_NASR_DATABASE_PATH = join(directory, "partners.sqlite");
+    app = buildServer();
+
+    const setup = await app.inject({
+      method: "POST",
+      url: "/api/v1/setup/owner",
+      payload: {
+        username: "partnerowner",
+        displayName: "Partner Owner",
+        password: "A-Strong-Password-2026"
+      }
+    });
+    expect(setup.statusCode).toBe(201);
+
+    const unauthenticated = await app.inject({ method: "GET", url: "/api/v1/customers" });
+    expect(unauthenticated.statusCode).toBe(401);
+
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: { username: "partnerowner", password: "A-Strong-Password-2026" }
+    });
+    expect(login.statusCode).toBe(200);
+    const authorization = { authorization: `Bearer ${login.json().token as string}` };
+
+    const createdCustomer = await app.inject({
+      method: "POST",
+      url: "/api/v1/customers",
+      headers: authorization,
+      payload: { code: "C-API-001", name: "عميل API", phone: "777000001", creditLimitMinor: 5000 }
+    });
+    expect(createdCustomer.statusCode).toBe(201);
+    const customerId = createdCustomer.json().customer.id as string;
+
+    const listedCustomers = await app.inject({
+      method: "GET",
+      url: "/api/v1/customers?search=C-API-001",
+      headers: authorization
+    });
+    expect(listedCustomers.statusCode).toBe(200);
+    expect(listedCustomers.json().items).toHaveLength(1);
+
+    const updatedCustomer = await app.inject({
+      method: "PUT",
+      url: `/api/v1/customers/${customerId}`,
+      headers: authorization,
+      payload: { code: "C-API-001", name: "عميل API محدث", creditLimitMinor: 7500 }
+    });
+    expect(updatedCustomer.statusCode).toBe(200);
+    expect(updatedCustomer.json().customer.credit_limit_minor).toBe(7500);
+
+    const duplicateCustomer = await app.inject({
+      method: "POST",
+      url: "/api/v1/customers",
+      headers: authorization,
+      payload: { code: "C-API-001", name: "عميل مكرر" }
+    });
+    expect(duplicateCustomer.statusCode).toBe(409);
+
+    const deactivatedCustomer = await app.inject({
+      method: "POST",
+      url: `/api/v1/customers/${customerId}/deactivate`,
+      headers: authorization
+    });
+    expect(deactivatedCustomer.statusCode).toBe(204);
+
+    const createdSupplier = await app.inject({
+      method: "POST",
+      url: "/api/v1/suppliers",
+      headers: authorization,
+      payload: { code: "S-API-001", name: "مورد API", phone: "777000002" }
+    });
+    expect(createdSupplier.statusCode).toBe(201);
+    const supplierId = createdSupplier.json().supplier.id as string;
+
+    const updatedSupplier = await app.inject({
+      method: "PUT",
+      url: `/api/v1/suppliers/${supplierId}`,
+      headers: authorization,
+      payload: { code: "S-API-002", name: "مورد API محدث" }
+    });
+    expect(updatedSupplier.statusCode).toBe(200);
+    expect(updatedSupplier.json().supplier.code).toBe("S-API-002");
+
+    const deactivatedSupplier = await app.inject({
+      method: "POST",
+      url: `/api/v1/suppliers/${supplierId}/deactivate`,
+      headers: authorization
+    });
+    expect(deactivatedSupplier.statusCode).toBe(204);
+
+    const remainingSuppliers = await app.inject({
+      method: "GET",
+      url: "/api/v1/suppliers",
+      headers: authorization
+    });
+    expect(remainingSuppliers.statusCode).toBe(200);
+    expect(remainingSuppliers.json().items).toHaveLength(0);
+  });
 });
