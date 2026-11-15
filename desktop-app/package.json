@@ -13,10 +13,11 @@
     "dev:electron": "wait-on tcp:5173 && npm run build:backend && npm run build:electron && cross-env AL_NASR_RENDERER_URL=http://127.0.0.1:5173 electron .",
     "build:backend": "npm --prefix ../local-app run build && node scripts/copy-runtime.mjs",
     "build:renderer": "vite build",
-    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:electron": "tsc -p tsconfig.electron.json && node scripts/copy-electron-assets.mjs",
     "build": "npm run build:backend && npm run build:renderer && npm run build:electron",
     "typecheck": "tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "dist:win": "npm run build && electron-builder --win nsis --x64"
+    "dist:win": "npm run build && electron-builder --win nsis --x64",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "better-sqlite3": "12.4.1",
