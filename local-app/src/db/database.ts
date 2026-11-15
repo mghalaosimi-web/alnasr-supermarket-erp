@@ -15,30 +15,51 @@ export function resolveDatabasePath(): string {
 export function openDatabase(path = resolveDatabasePath()): Database.Database {
   mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path);
-  db.pragma("foreign_keys = ON");
-  db.pragma("journal_mode = WAL");
-  db.pragma("synchronous = FULL");
-  db.pragma("busy_timeout = 5000");
-  db.pragma("trusted_schema = OFF");
+  try {
+    db.pragma("foreign_keys = ON");
+    db.pragma("journal_mode = WAL");
+    db.pragma("synchronous = FULL");
+    db.pragma("busy_timeout = 5000");
+    db.pragma("wal_autocheckpoint = 1000");
+    db.pragma("journal_size_limit = 67108864");
+    db.pragma("trusted_schema = OFF");
 
-  const migrate = db.transaction(() => {
-    const current = Number(db.pragma("user_version", { simple: true }));
-    if (current > SCHEMA_VERSION) {
-      throw new Error(`Database schema ${current} is newer than this application supports (${SCHEMA_VERSION}).`);
+    const migrate = db.transaction(() => {
+      const current = Number(db.pragma("user_version", { simple: true }));
+      if (current > SCHEMA_VERSION) {
+        throw new Error(`Database schema ${current} is newer than this application supports (${SCHEMA_VERSION}).`);
+      }
+      if (current < 1) {
+        applySchemaV1(db);
+        db.pragma("user_version = 1");
+      }
+      if (current < 2) {
+        applySchemaV2(db);
+        db.pragma("user_version = 2");
+      }
+      if (current < 3) {
+        applySchemaV3(db);
+        db.pragma("user_version = 3");
+      }
+    });
+    migrate();
+
+    const integrity = db.pragma("quick_check", { simple: true });
+    if (integrity !== "ok") {
+      throw new Error(`SQLite integrity check failed: ${String(integrity)}`);
     }
-    if (current < 1) {
-      applySchemaV1(db);
-      db.pragma("user_version = 1");
-    }
-    if (current < 2) {
-      applySchemaV2(db);
-      db.pragma("user_version = 2");
-    }
-    if (current < 3) {
-      applySchemaV3(db);
-      db.pragma("user_version = 3");
-    }
-  });
-  migrate();
-  return db;
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
+}
+
+export function closeDatabase(db: Database.Database): void {
+  if (!db.open) return;
+  try {
+    db.pragma("wal_checkpoint(TRUNCATE)");
+  } finally {
+    db.close();
+  }
 }
