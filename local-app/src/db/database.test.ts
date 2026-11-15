@@ -45,6 +45,6 @@ describe("AL-NASR SQLite schema v1", () => {
   });
 
   it("declares the first schema version", () => {
-    expect(SCHEMA_VERSION).toBe(1);
+    expect(SCHEMA_VERSION).toBe(2);
   });
 });
