@@ -1,41 +1,54 @@
 # AL-NASR device packaging readiness
 
-**Checked:** 2026-11-14  
-**Pinned X POS source:** `kodlyft/xpos@3668fca6ffcab737347d4d223ac93f5d74aa90b3`  
-**Decision:** Do not publish a Windows installer or Android APK from the current source baseline. The upstream client build exists, but neither target is yet a complete, AL-NASR-branded, self-contained device deliverable.
+**Checked:** 2026-11-15  
+**Accepted architecture:** [ADR-0002 — SQLite local-first, no Docker](architecture/ADR-0002-sqlite-local-first-no-docker.md)  
+**Decision:** Do not publish a Windows installer or declare Android companion readiness from the current source state.
 
-## Windows: Electron client is not the complete Windows system
+## Windows: upstream Electron client is not the SQLite ERP desktop product
 
-The pinned X POS source contains an Electron desktop client:
+The pinned historical X POS source contains an Electron client and an NSIS configuration, but it targets the former ERPNext/Frappe architecture, uses X POS identity, and depends on a MariaDB-backed client cache. It is not the Windows host for the new Fastify + SQLite implementation.
 
-- `frontend/package.json` defines `build:electron`, `dist`, and `dist:win`.
-- `frontend/electron-builder.yml` defines an NSIS x64 installer target.
-- `frontend/scripts/build-win.mjs` invokes `electron-builder --win --dir`; its own contract is an unpacked `win-unpacked` directory, not an NSIS installer.
-- `frontend/electron/main.ts` opens the desktop window and defaults the Frappe endpoint to `http://localhost:8000`.
-- `frontend/electron/database/dbService.ts` connects to a separate MariaDB service at `127.0.0.1:3306` (default local database `xpos_local`) and creates the client-side schema. The Electron package includes `schema.sql`, not a MariaDB server or a Frappe/ERPNext Bench.
-- The upstream Electron shell still contains X POS-specific branding (including its window title and Windows AppUserModelID), and its `afterPack` hook writes upstream company/version metadata and uses the upstream icon.
+The current SQLite app has only a Fastify backend package under `local-app/`. It does not yet include a React renderer, Electron main/preload process, desktop lifecycle, tray/single-instance implementation, native module Electron ABI packaging, or AL-NASR Windows installer.
 
-Therefore, running the upstream Electron packaging command can produce a **POS client package**, but it does not install or start the Frappe/ERPNext server, provision MariaDB, configure the server URL, or deliver the complete single-PC AL-NASR stack. Re-labeling that client-only output as the complete AL-NASR Windows installer would be misleading. A separate, tested Windows server/launcher and service lifecycle are required before that claim is safe.
+**Windows exit evidence required:**
+1. Build the actual SQLite application with the React renderer and Electron shell.
+2. Verify `better-sqlite3` against the target Electron ABI.
+3. Build an NSIS installer on Windows CI.
+4. Install on a clean Windows 10/11 x64 VM with no external Node.js/Python/Docker/WSL requirement.
+5. Verify first-run owner setup, database location, app restart, upgrade preservation, uninstall preservation, and recovery.
 
-No upstream submodule files were modified to work around these gaps.
+## Android: Kotlin WebView preview exists, but is not the companion client
 
-## Android: current target is a PWA, not an APK
+A Kotlin Android Gradle project exists in `android/`. Its only current activity opens a fixed allowed HTTPS origin (`alnasr.local`) inside WebView and cancels certificate errors. Cleartext traffic is disabled.
 
-The pinned X POS frontend configures `vite-plugin-pwa` in `frontend/vite.config.ts`, with its web-app scope and start URL set to `/xpos/`. This produces browser-installable PWA assets; it does not define a native Android project.
+This is a useful source-level preview shell, but it does **not** yet implement the selected SQLite application's Fastify API contract. Specifically, it has no pairing codes/QR flow, no public-key/certificate fingerprint pinning, no device registration/revocation endpoints, no API session integration, no native permission-scoped workflows, and no durable idempotent sync queue. No physical Android device or LAN acceptance has been recorded.
 
-The pinned source has no Android Gradle project, Capacitor/TWA wrapper, Android application ID, or release-signing configuration. An APK cannot be claimed without adding and validating that native packaging layer. A release-signed APK also requires a signing key supplied and controlled outside the repository; no key or credential belongs in GitHub source.
+The network-security configuration trusts user-installed CA certificates for `alnasr.local`; this is not equivalent to certificate pinning. Do not enable LAN binding until the actual TLS trust model and pairing protocol are implemented and tested.
 
-The existing PWA is the lower-risk Android path once the AL-NASR site is served from a stable HTTPS origin and the phone can reach the Frappe backend. A LAN-only HTTP address is not sufficient for normal service-worker installation on Android unless a trusted HTTPS setup is provided.
+**Android exit evidence required:**
+1. Replace the WebView-only preview with the approved Kotlin API client and workflows.
+2. Implement secure pairing, certificate/public-key fingerprint validation, device registration, revocation and protected token storage.
+3. Integrate authentication and server-side permission checks for every mobile operation.
+4. Define offline read versus queued write behavior, idempotency, conflict handling and authoritative server confirmation.
+5. Build a debug APK and verify the Windows-hosted Fastify server connection on a physical Android device.
 
-## Safe CI decision
+## CI and release boundaries
 
-- Keep the existing Linux runtime job building the pinned X POS frontend and running the disposable Bench integration tests.
-- Do not add a Windows NSIS artifact job until the server/MariaDB provisioning boundary, AL-NASR shell branding, and first-run server configuration are implemented and tested.
-- Do not add an APK job until an Android wrapper, application identity, origin strategy, and signing process exist.
-- Do not commit real credentials, signing keys, business records, database dumps, or production configuration.
+- The local runtime CI validates TypeScript/backend only; it does not prove a desktop or mobile release.
+- The Android workflow must target the authorized SQLite branch before being treated as a CI gate for this project.
+- Do not commit Android signing keys or credentials. Keep release signing material outside Git.
+- A generated APK does not prove Android-to-Windows connectivity; a Windows EXE does not prove installability.
+- No release artifact should be labeled production-ready until clean install, startup, upgrade/recovery and real-device acceptance pass.
 
-## Exit evidence required
+## Current exit evidence
 
-1. **Windows:** a clean Windows runner builds an AL-NASR-branded installer; the installer is installed on a clean Windows VM; required services are installed/started or an explicit external-server setup is completed; first-run configuration and login succeed against a disposable test site; uninstall/upgrade behavior is checked.
-2. **Android:** the selected PWA or APK path is built from the same pinned source; Android installation succeeds on a real device; the phone reaches the Windows-hosted or approved HTTPS server; authentication, barcode/checkout flow, reconnect, and offline recovery are exercised.
-3. **Release artifact:** the CI run is green, the expected installer/APK exists, its checksum and metadata are recorded, and the artifact download URL is verified. Until then, no EXE/APK delivery claim is valid.
+| Deliverable | Evidence |
+|---|---|
+| SQLite backend | CI run #94: typecheck, 28 tests and build passed |
+| Android source | Kotlin WebView preview project present |
+| Android API integration | Not implemented |
+| Android TLS pinning/pairing | Not implemented |
+| Debug APK from authorized branch | Not verified |
+| Windows Electron/NSIS package | Not implemented for SQLite architecture |
+| Clean Windows VM | Not tested |
+| Physical Android device | Not tested |
