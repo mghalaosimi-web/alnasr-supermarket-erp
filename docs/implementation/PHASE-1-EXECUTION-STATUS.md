@@ -25,7 +25,7 @@
 ### SQLite and backend foundation
 
 - `local-app/` contains a Node.js 24 TypeScript package using Fastify, better-sqlite3, Zod, TypeScript, and Vitest. It has no React or Electron dependency.
-- SQLite schema migrations are versions 1–3. The schema includes stores, users, roles, permissions, sessions, audit events, warehouses, products, barcodes, customers and suppliers (basic records), stock ledger, sales, sale lines, sale-payment rows, purchases, and purchase lines.
+- SQLite schema migrations are versions 1–4. The schema includes stores, users, roles, permissions, sessions, audit events, warehouses, products, barcodes, customers and suppliers (basic records), stock ledger, sales, sale lines, sale-payment rows, purchases, and purchase lines.
 - Database startup enables foreign keys, WAL, FULL synchronous writes, 5-second busy timeout, WAL auto-checkpoint at 1,000 pages, 64 MiB journal size limit, and `trusted_schema=OFF`; it rejects newer unsupported schema versions and runs `quick_check`.
 - Default Windows database path is `%ProgramData%\\AL-NASR\\data\\alnasr.sqlite` when `ProgramData` is available. The fallback is under the user's local-share directory.
 - Authentication uses scrypt password hashes, hashed bearer tokens, 12-hour session expiry, logout revocation, failed-login lockout (five failures in a 15-minute window), seeded roles, and backend permission checks.
@@ -57,9 +57,10 @@ Latest inspected run for source HEAD `54c8a5d...`:
 | Authentication and RBAC | Partially complete | Bootstrap/login/logout/session expiry and seeded role permissions; user/role administration APIs and full policy matrix missing |
 | Stores and configuration | Partially complete | Default store and warehouse created during bootstrap; branch-aware settings, currency/tax/receipt/printer/network configuration missing |
 | Product catalog | Partially complete | Product create/list and barcode record; categories, multiple barcode API, units/conversions, price lists, bulk import/export, full lifecycle missing |
-| Customers | Not implemented | Basic table only; no customer service/API, credit balance, statement, payment history, or UI |
-| Suppliers | Not implemented | Basic table only; no supplier service/API, payables, statements, supplier payments, or UI |
-| POS | Partially complete | Sale draft and stock-deducting post; payment capture, suspended sales, receipt/invoice output, shift integration, credit policy, and UI missing |
+| Customers | Partially complete | Customer create/list/update/deactivate API, credit-limit field, audit events and tests; no statements, account balance/collections, payment history, or UI |
+| Suppliers | Partially complete | Supplier create/list/update/deactivate API, audit events and tests; no payables, statements, supplier payments, or UI |
+| POS | Partially complete | Sale draft and stock-deducting post; suspended sales, receipt/invoice output, shift integration, credit policy, and UI missing |
+| Sale payments | Partially complete | Partial cash/card/bank-transfer/mobile-wallet payment records, outstanding balance, idempotency, audit and `sales:pay` RBAC; no refunds, settlement/reconciliation, payment gateway, or UI |
 | Sales management | Partially complete | Create/post only; listing/detail, partial payment, controlled void/reversal, return/refund missing |
 | Purchasing | Partially complete | Draft and all-at-once receipt posting; partial receiving, supplier payment, purchase return, workflow UI missing |
 | Inventory | Partially complete | Integer stock ledger, balance, adjustment, non-negative enforcement; transfers, counts, valuation, expiry, reconciliation, UI missing |
@@ -168,3 +169,32 @@ The current branch tree was inspected recursively at `c780b58...`:
 ### Current verified conclusion
 
 **Phase 1 remains open and is not release-ready.** The SQLite backend foundation passes its current GitHub Actions validation, and an Android debug-preview APK has been built. The required React/Electron desktop application, SQLite-native Windows installer, complete ERP financial and operational workflows, backup restore/retention, secure Android REST pairing and device management, and clean-machine/device/hardware acceptance remain unimplemented or unverified. No PR merge, production deployment, or real business-data mutation was performed.
+
+
+---
+
+## 10. Backend payment milestone — schema v4 (2026-11-15)
+
+### Implemented on the authorized branch
+
+- Added `local-app/src/payments/payments.ts` with transactional sale-payment recording and payment listing.
+- Added SQLite migration v4 and the `sales:pay` permission; owner, admin and cashier roles receive this permission.
+- Added authenticated API endpoints:
+  - `POST /api/v1/sales/:saleId/payments`
+  - `GET /api/v1/sales/:saleId/payments`
+- Supported recorded payment methods: cash, card, bank transfer and mobile wallet. These are payment records only; no external payment processor is integrated.
+- Payments are accepted only for posted sales. Positive safe-integer amounts are required; an allocation cannot exceed the outstanding invoice balance.
+- Multiple partial payments are supported. Replayed requests with the same idempotency key and same payload return the original payment; key reuse with a different payload is rejected.
+- Each payment creates an audit event. The API returns total paid and outstanding balances.
+- Added integration coverage for two partial payments, idempotent replay, conflicting key reuse, overpayment rejection and payment listing.
+- Added a migration test that opens an existing schema-v3 database and verifies migration to v4 plus role grants.
+
+### CI verification
+
+- Latest local-runtime validation: [run 43748469553](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43748469553), on source head `8b65139cfa1fe3d48f2cd5babdae6595daaeac5e).
+- Result: **success** — dependency installation, TypeScript typecheck, all 9 test files / 35 tests, and TypeScript build passed.
+- This validates the local backend package only. It does not validate the desktop UI, Electron packaging, Windows installer, Android API pairing, or full ERP acceptance.
+
+### Updated conclusion
+
+Customer and supplier master-data CRUD and sale-payment allocation are now partially implemented; older rows in the original snapshot above that label customers/suppliers as unimplemented are superseded by this section. Sale payment support is not equivalent to full accounts receivable, cash management, refunds, settlement, or general-ledger accounting. Phase 1 remains open.
