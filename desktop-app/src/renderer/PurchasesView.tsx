@@ -4,11 +4,17 @@ type Product = { id: string; sku: string; name_ar: string; cost_price_minor: num
 type Supplier = { id: string; code: string; name: string };
 type Warehouse = { id: string; store_id: string; name: string };
 type Store = { id: string; name: string };
+type PurchaseRecord = {
+  id: string; document_no: string; status: "draft" | "posted" | "voided";
+  supplier_name: string; warehouse_name: string; total_minor: number;
+  line_count: number; unit_count: number; created_at: string;
+};
 type CartLine = { quantity: number; unitCostMinor: number };
 
 export default function PurchasesView({ token, canWrite }: { token: string; canWrite: boolean }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [purchaseHistory, setPurchaseHistory] = useState<PurchaseRecord[]>([]);
   const [storeId, setStoreId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [supplierId, setSupplierId] = useState("");
@@ -23,16 +29,18 @@ export default function PurchasesView({ token, canWrite }: { token: string; canW
     void Promise.all([
       window.alnasr.request<{ items: Product[] }>({ path: "/api/v1/products", token }),
       window.alnasr.request<{ items: Supplier[] }>({ path: "/api/v1/suppliers", token }),
-      window.alnasr.request<{ stores: Store[]; warehouses: Warehouse[] }>({ path: "/api/v1/locations", token })
-    ]).then(([productResponse, supplierResponse, locationResponse]) => {
+      window.alnasr.request<{ stores: Store[]; warehouses: Warehouse[] }>({ path: "/api/v1/locations", token }),
+      window.alnasr.request<{ items: PurchaseRecord[] }>({ path: "/api/v1/purchases?limit=20", token })
+    ]).then(([productResponse, supplierResponse, locationResponse, historyResponse]) => {
       if (!active) return;
-      if (productResponse.status !== 200 || supplierResponse.status !== 200 || locationResponse.status !== 200) {
+      if (productResponse.status !== 200 || supplierResponse.status !== 200 || locationResponse.status !== 200 || historyResponse.status !== 200) {
         throw new Error("تعذر تحميل بيانات المشتريات. تحقق من صلاحيات الحساب.");
       }
       const store = locationResponse.data.stores[0];
       const warehouse = locationResponse.data.warehouses.find(item => item.store_id === store?.id);
       setProducts(productResponse.data.items);
       setSuppliers(supplierResponse.data.items);
+      setPurchaseHistory(historyResponse.data.items);
       setSupplierId(supplierResponse.data.items[0]?.id ?? "");
       setStoreId(store?.id ?? "");
       setWarehouseId(warehouse?.id ?? "");
@@ -102,6 +110,8 @@ export default function PurchasesView({ token, canWrite }: { token: string; canW
       }
       setCart({});
       setNotice(`تم ترحيل فاتورة الشراء ${purchaseId} وإضافة الكميات إلى المخزون. الإجمالي: ${new Intl.NumberFormat("ar-YE").format(created.data.totalMinor)}`);
+      const history = await window.alnasr.request<{ items: PurchaseRecord[] }>({ path: "/api/v1/purchases?limit=20", token });
+      if (history.status === 200) setPurchaseHistory(history.data.items);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر إكمال فاتورة الشراء.");
     } finally { setBusy(false); }
@@ -113,6 +123,19 @@ export default function PurchasesView({ token, canWrite }: { token: string; canW
     <div className="list-toolbar"><div><h2>المشتريات والاستلام</h2><p>إنشاء فاتورة شراء وترحيلها لإضافة الكميات إلى المستودع المحدد.</p></div></div>
     {error && <div className="error page-error" role="alert">{error}</div>}
     {notice && <div className="success-note" role="status">{notice}</div>}
+    <section className="data-panel">
+      <div className="section-heading"><h2>سجل فواتير الشراء</h2><p>آخر 20 فاتورة مسجلة في قاعدة البيانات المحلية.</p></div>
+      {purchaseHistory.length === 0 ? <div className="empty-state">لا توجد فواتير شراء مسجلة حتى الآن.</div> :
+        <div className="table-scroll"><table className="data-table"><thead><tr><th>رقم الفاتورة</th><th>المورد</th><th>المستودع</th><th>الأصناف</th><th>الوحدات</th><th>الإجمالي</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>
+          {purchaseHistory.map(item => <tr key={item.id}>
+            <td dir="ltr">{item.document_no}</td><td>{item.supplier_name}</td><td>{item.warehouse_name}</td>
+            <td>{item.line_count}</td><td>{item.unit_count}</td>
+            <td>{new Intl.NumberFormat("ar-YE").format(item.total_minor)}</td>
+            <td>{item.status === "posted" ? "مرحّلة" : item.status === "draft" ? "مسودة" : "ملغاة"}</td>
+            <td dir="ltr">{new Date(item.created_at).toLocaleString("ar-YE")}</td>
+          </tr>)}
+        </tbody></table></div>}
+    </section>
     <section className="data-panel">
       <div className="section-heading"><h2>بيانات الفاتورة</h2><p>يتم ترحيل الفاتورة كاملة في معاملة مخزون واحدة.</p></div>
       <div className="record-form">
