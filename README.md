@@ -1,3 +1,9 @@
+## Windows-first delivery priority
+
+The active Phase 1 client target is now **Windows desktop first**. Android implementation is frozen until Windows installation, offline operation, core ERP workflows, backup/restore, upgrade, and clean-machine acceptance are complete. The existing Android preview source is preserved; its CI is manual-only during this freeze.
+
+See [Windows-first Phase 1 execution plan](docs/implementation/WINDOWS-FIRST-EXECUTION-PLAN.md). The old `deploy/windows/installer.iss` is intentionally blocked because it installs the superseded Docker/ERPNext stack; it is not the SQLite Windows installer.
+
 # النصر | AL-NASR
 
 **نظام متكامل لإدارة السوبرماركت وتجارة التجزئة والجملة**
