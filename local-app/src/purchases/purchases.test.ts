@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { applySchemaV1, applySchemaV2, applySchemaV3 } from "../db/schema.js";
 import { getStockBalance, postStockMovement } from "../inventory/stock-ledger.js";
-import { createPurchase, postPurchase } from "./purchases.js";
+import { createPurchase, listPurchases, postPurchase } from "./purchases.js";
 
 describe("purchase receiving lifecycle", () => {
   let db: Database.Database | undefined;
@@ -45,6 +45,27 @@ describe("purchase receiving lifecycle", () => {
     expect(first.totalMinor).toBe(1950);
     expect(retry.purchaseId).toBe(first.purchaseId);
     expect(retry.duplicate).toBe(true);
+  });
+
+  it("lists purchases with supplier and warehouse context and supports search", () => {
+    const database = setup();
+    const purchase = createPurchase(database, purchaseInput());
+    const all = listPurchases(database);
+    expect(all).toHaveLength(1);
+    expect(all[0]).toMatchObject({
+      id: purchase.purchaseId,
+      document_no: "PO-0001",
+      status: "draft",
+      supplier_name: "Supplier",
+      store_name: "Store",
+      warehouse_name: "Main",
+      subtotal_minor: 2000,
+      total_minor: 1950,
+      line_count: 1,
+      unit_count: 20
+    });
+    expect(listPurchases(database, "Supplier")).toHaveLength(1);
+    expect(listPurchases(database, "missing")).toHaveLength(0);
   });
 
   it("receives stock exactly once when a purchase is posted", () => {
