@@ -49,7 +49,7 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [busy, setBusy] = useState(false);
   const [activeView, setActiveView] = useState<View>("dashboard");
-  const [rows, setRows] = useState<Array<ProductRow | PartnerRow>>([]);
+  const [rows, setRows] = useState<Array<ProductRow | PartnerRow | InventoryRow>>([]);
   const [loadingRows, setLoadingRows] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormValues>(emptyForm);
