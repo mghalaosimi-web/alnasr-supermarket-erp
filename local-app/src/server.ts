@@ -3,9 +3,9 @@ import { z } from "zod";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { openDatabase } from "./db/database.js";
-import { authenticateSession, login, logout } from "./auth/auth.js";
+import { authenticateSession, bootstrapOwner, login, logout } from "./auth/auth.js";
 
-const loginSchema = z.object({
+const bootstrapSchema = z.object({\n  username: z.string().trim().min(3).max(40),\n  displayName: z.string().trim().min(2).max(100),\n  password: z.string().min(12).max(256)\n});\n\nconst loginSchema = z.object({
   username: z.string().trim().min(3).max(40),
   password: z.string().min(1).max(256)
 });
@@ -29,6 +29,29 @@ export function buildServer() {
       database: "sqlite",
       schemaVersion: version
     };
+  });
+
+
+  app.get("/api/v1/setup/status", async () => {
+    const row = db.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number };
+    return { setupRequired: row.count === 0 };
+  });
+
+  app.post("/api/v1/setup/owner", async (request, reply) => {
+    const parsed = bootstrapSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      const userId = bootstrapOwner(db, parsed.data);
+      return reply.code(201).send({ userId, setupRequired: false });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("already been completed")) {
+        return reply.code(409).send({ error: "setup_already_completed" });
+      }
+      if (error instanceof Error && error.message.includes("UNIQUE constraint")) {
+        return reply.code(409).send({ error: "username_already_exists" });
+      }
+      throw error;
+    }
   });
 
   app.post("/api/v1/auth/login", async (request, reply) => {
