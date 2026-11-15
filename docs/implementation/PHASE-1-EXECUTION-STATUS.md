@@ -221,12 +221,12 @@ Windows desktop is now the sole active client-delivery target in Main Phase 1. A
 - A Windows and Linux CI rerun was triggered for the corrective commit. Their final results must be recorded before calling W0 green.
 
 ### Current Windows delivery status
-- W0 Windows baseline: **in progress; not yet accepted**.
-- W1 Electron host/lifecycle: not implemented.
-- W2 React desktop UI: not implemented.
+- W0 Windows baseline: **passed in CI** — [run 43749007934](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43749007934). Node 24 x64 dependency installation, native SQLite binding, typecheck, all 9 test files / 35 tests, build, ProgramData path resolution, database creation, and SQLite quick_check passed on windows-latest. This is CI runner evidence, not yet a clean end-user machine acceptance.
+- W1 Electron host/lifecycle: initial source scaffold created; Windows build/typecheck/NSIS validation is pending.
+- W2 React desktop UI: initial Arabic RTL setup/login/dashboard shell created; ERP module screens and workflow integration remain incomplete.
 - W3 Windows data protection/operations: not implemented.
 - W4 complete ERP workflows: not implemented.
-- W5 SQLite-native Windows installer: not implemented; legacy installer is blocked.
+- W5 SQLite-native Windows installer: NSIS configuration and CI packaging job added; actual package build/inspection is pending. Legacy installer is blocked.
 - W6 clean Windows 10/11 release acceptance: not run.
 - Android: frozen pending W6.
 
