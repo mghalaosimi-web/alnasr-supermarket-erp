@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
+import PurchasesView from "./PurchasesView";
 
 type User = { id: string; username: string; displayName: string; roles: string[]; permissions: string[] };
 type LoginResult = { token: string; expiresAt: string; user: User };
 type Health = { status: string; product: string; database: string; schemaVersion: number };
 type Screen = "checking" | "setup" | "login" | "dashboard" | "error";
-type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory";
+type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory" | "purchases";
 type ProductRow = {
   id: string; sku: string; name_ar: string; name_en: string | null; base_unit: string;
   sale_price_minor: number; cost_price_minor: number; is_active: number;
@@ -24,10 +25,10 @@ const navigation: { key: View; label: string; description: string }[] = [
   { key: "products", label: "المنتجات", description: "إدارة الأصناف والأسعار" },
   { key: "customers", label: "العملاء", description: "سجل العملاء وحدود الائتمان" },
   { key: "suppliers", label: "الموردون", description: "سجل الموردين وبياناتهم" },
-  { key: "inventory", label: "المخزون", description: "أرصدة الأصناف وتسويات المخزون" }
+  { key: "inventory", label: "المخزون", description: "أرصدة الأصناف وتسويات المخزون" },
+  { key: "purchases", label: "المشتريات", description: "فواتير الشراء واستلام الأصناف" }
 ];
 const futureModules = [
-  ["المشتريات", "أوامر الشراء والاستلام"],
   ["المرتجعات", "مرتجعات المبيعات والمشتريات"],
   ["الصندوق والورديات", "فتح وإغلاق الورديات وحركة النقد"],
   ["المحاسبة", "دليل الحسابات والقيود والتقارير"]
@@ -196,7 +197,7 @@ export default function App() {
   }
 
   async function loadRows(view: View) {
-    if (view === "dashboard") return;
+    if (view === "dashboard" || view === "purchases") return;
     setLoadingRows(true);
     setError("");
     try {
@@ -246,7 +247,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (screen === "dashboard" && activeView !== "dashboard" && token) void loadRows(activeView);
+    if (screen === "dashboard" && activeView !== "dashboard" && activeView !== "purchases" && token) void loadRows(activeView);
   }, [screen, activeView, token]);
 
   function openView(view: View) {
@@ -368,6 +369,7 @@ export default function App() {
     ? user?.permissions.includes("products:write")
     : activeView === "customers" ? user?.permissions.includes("customers:write")
     : activeView === "suppliers" ? user?.permissions.includes("suppliers:write")
+    : activeView === "purchases" ? user?.permissions.includes("purchases:write")
     : user?.permissions.includes("inventory:adjust");
 
   return (
@@ -429,7 +431,7 @@ export default function App() {
               <button className="primary action-button" disabled={posBusy || Object.keys(posCart).length === 0 || !user?.permissions.includes("sales:create") || !user?.permissions.includes("sales:post") || !user?.permissions.includes("sales:pay")} onClick={() => void completePosSale()}>{posBusy ? "جارٍ إكمال البيع..." : "إتمام البيع والتحصيل نقداً"}</button></div>
             {!user?.permissions.includes("sales:pay") && <p className="muted">حسابك لا يملك صلاحية تسجيل التحصيل النقدي.</p>}
           </section>
-        </> : <>
+        </> : activeView === "purchases" ? <PurchasesView token={token} canWrite={Boolean(user?.permissions.includes("purchases:write"))} /> : <>
           <div className="list-toolbar"><div><h2>{title}</h2><p>بيانات محفوظة في قاعدة SQLite المحلية{activeView === "inventory" && warehouses[0] ? " · " + (warehouses.find(item => item.id === selectedWarehouseId)?.name ?? warehouses[0].name) : ""}.</p></div>
             {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm({ ...emptyForm, productId: productOptions[0]?.id ?? "" }); setError(""); }}>
               {formOpen ? "إغلاق النموذج" : "إضافة سجل جديد"}
