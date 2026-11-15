@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This document describes the provisional ERPNext/Frappe + MariaDB + Redis + Docker baseline from 2026-11-12. That architecture is no longer the accepted target. [ADR-0002](ADR-0002-sqlite-local-first-no-docker.md), accepted 2026-11-15, supersedes this record and defines the SQLite local-first architecture. Retain this document only as historical research; do not use its deployment steps or technology decisions for current implementation.
+
 # AL-NASR platform baseline
 
 **Decision status:** Provisional engineering baseline  
