@@ -9,6 +9,7 @@ export interface ProductInput {
   salePriceMinor: number;
   costPriceMinor: number;
   barcode?: string | null;
+  actorUserId?: string | null;
 }
 
 export interface ProductRecord {
@@ -47,9 +48,9 @@ export function createProduct(db: Database.Database, input: ProductInput): Produ
         .run(randomUUID(), id, input.barcode, input.baseUnit);
     }
     db.prepare(`
-      INSERT INTO audit_events(id, action, entity_type, entity_id, payload_json)
-      VALUES (?, 'product.created', 'product', ?, ?)
-    `).run(randomUUID(), id, JSON.stringify({ sku: input.sku.trim() }));
+      INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json)
+      VALUES (?, ?, 'product.created', 'product', ?, ?)
+    `).run(randomUUID(), input.actorUserId ?? null, id, JSON.stringify({ sku: input.sku.trim() }));
   });
   create();
   return getProduct(db, id)!;
