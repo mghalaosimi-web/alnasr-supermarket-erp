@@ -4,12 +4,12 @@ This is the replacement local-first runtime defined in [ADR-0002](../docs/archit
 
 ## Implemented
 
-- SQLite database outside the installation directory, with foreign keys, WAL, FULL synchronous writes, busy timeout, and versioned migrations (schema v2).
+- SQLite database outside the installation directory, with foreign keys, WAL, FULL synchronous writes, busy timeout, and versioned migrations (schema v3).
 - Core tables for stores, users, roles, permissions, audit events, warehouses, products/barcodes, customers, suppliers, stock ledger, sales, sale lines, and payments.
 - First-run owner bootstrap, scrypt password hashing, hashed bearer-token sessions, role/permission resolution, logout, and a per-account failed-login lockout.
 - Fastify local endpoints for health, first-run setup, login, current session, and logout.
 - Transactional stock ledger posting with non-negative stock enforcement, audit events, and idempotent retries.
-- Unit tests for schema, authentication, owner bootstrap, session lifecycle, RBAC, lockout, and stock ledger behavior.
+- Unit tests for schema migrations, authentication, owner bootstrap, session lifecycle, RBAC, lockout, stock ledger, sale posting, and purchase receiving.
 
 ## API
 
@@ -42,4 +42,4 @@ By default, Windows data is stored under %ProgramData%\\AL-NASR\\data\\alnasr.sq
 
 ## Not yet implemented
 
-This remains a backend foundation, not the complete ERP. Full POS sales posting, purchasing/receiving, returns, accounting journals, shifts/cash management, full product/customer/supplier APIs, React renderer, Electron lifecycle, Android app, secure LAN pairing/TLS, backup/restore, Windows installer, and clean-machine/hardware acceptance are still outstanding.
+This remains a backend foundation, not the complete ERP. POS user interface and payment capture, returns/refunds, accounting journals and reconciliation, shifts/cash management, full product/customer/supplier APIs, React renderer, Electron lifecycle, Android app, secure LAN pairing/TLS, backup/restore, Windows installer, and clean-machine/hardware acceptance are still outstanding.
