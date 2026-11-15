@@ -9,6 +9,7 @@ This is the replacement local-first runtime defined in [ADR-0002](../docs/archit
 - First-run owner bootstrap, scrypt password hashing, hashed bearer-token sessions, role/permission resolution, logout, and a per-account failed-login lockout.
 - Fastify local endpoints for health, first-run setup, login, current session, and logout.
 - Transactional stock ledger posting with non-negative stock enforcement, audit events, and idempotent retries.
+- POS sale drafts and atomic posting that deducts stock; purchase drafts and receipt posting that adds stock; both support idempotent retries and transactional rollback.
 - Unit tests for schema migrations, authentication, owner bootstrap, session lifecycle, RBAC, lockout, stock ledger, sale posting, and purchase receiving.
 
 ## API
