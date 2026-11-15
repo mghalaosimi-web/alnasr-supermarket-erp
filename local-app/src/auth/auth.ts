@@ -73,6 +73,19 @@ export function createUser(
   return id;
 }
 
+
+export function bootstrapOwner(
+  db: Database.Database,
+  input: { username: string; displayName: string; password: string }
+): string {
+  const bootstrap = db.transaction(() => {
+    const existing = db.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number };
+    if (existing.count !== 0) throw new Error("Initial owner setup has already been completed.");
+    return createUser(db, { ...input, roleCode: "owner" });
+  });
+  return bootstrap();
+}
+
 function loadUser(db: Database.Database, userId: string): AuthenticatedUser | null {
   const row = db.prepare(
     "SELECT id, username, display_name FROM users WHERE id = ? AND is_active = 1"
