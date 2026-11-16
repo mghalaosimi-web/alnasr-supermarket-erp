@@ -38,11 +38,11 @@ export function listAccounts(db: Database.Database) {
 }
 
 export function getTrialBalance(db: Database.Database, asOf: string) {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asOf) || new Date(`${asOf}T00:00:00.000Z`).toISOString().slice(0, 10) !== asOf) throw new Error("Invalid trial balance date.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf) || new Date(`${asOf}T00:00:00.000Z`).toISOString().slice(0, 10) !== asOf) throw new Error("Invalid trial balance date.");
   const rows = db.prepare(`
     SELECT a.id, a.code, a.name_ar, a.name_en, a.account_type, a.normal_balance,
-      COALESCE(SUM(jl.debit_minor), 0) AS debit_minor,
-      COALESCE(SUM(jl.credit_minor), 0) AS credit_minor
+      COALESCE(SUM(CASE WHEN je.id IS NOT NULL THEN jl.debit_minor ELSE 0 END), 0) AS debit_minor,
+      COALESCE(SUM(CASE WHEN je.id IS NOT NULL THEN jl.credit_minor ELSE 0 END), 0) AS credit_minor
     FROM accounts a
     LEFT JOIN journal_lines jl ON jl.account_id = a.id
     LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id AND je.status = 'posted' AND je.entry_date <= ?
