@@ -5,12 +5,13 @@ import SupplierStatementView from "./SupplierStatementView";
 import CustomerStatementView from "./CustomerStatementView";
 import CashRegisterView from "./CashRegisterView";
 import AccountingView from "./AccountingView";
+import PurchaseReturnsView from "./PurchaseReturnsView";
 
 type User = { id: string; username: string; displayName: string; roles: string[]; permissions: string[] };
 type LoginResult = { token: string; expiresAt: string; user: User };
 type Health = { status: string; product: string; database: string; schemaVersion: number };
 type Screen = "checking" | "setup" | "login" | "dashboard" | "error";
-type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory" | "purchases" | "returns" | "cash" | "accounting";
+type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory" | "purchases" | "returns" | "purchase-returns" | "cash" | "accounting";
 type ProductRow = {
   id: string; sku: string; name_ar: string; name_en: string | null; base_unit: string;
   sale_price_minor: number; cost_price_minor: number; is_active: number;
@@ -34,7 +35,8 @@ const navigation: { key: View; label: string; description: string }[] = [
   { key: "suppliers", label: "الموردون", description: "سجل الموردين وبياناتهم" },
   { key: "inventory", label: "المخزون", description: "أرصدة الأصناف وتسويات المخزون" },
   { key: "purchases", label: "المشتريات", description: "فواتير الشراء واستلام الأصناف" },
-  { key: "returns", label: "المرتجعات", description: "مرتجعات المبيعات وإعادة المخزون" }
+  { key: "returns", label: "مرتجعات المبيعات", description: "إرجاع مبيعات العملاء" },
+  { key: "purchase-returns", label: "مرتجعات المشتريات", description: "إرجاع مشتريات الموردين" }
 ];
 const emptyForm: FormValues = {
   sku: "", nameAr: "", nameEn: "", baseUnit: "piece", salePrice: "0", costPrice: "0", barcode: "",
@@ -205,7 +207,7 @@ export default function App() {
   }
 
   async function loadRows(view: View) {
-    if (view === "dashboard" || view === "purchases" || view === "returns" || view === "cash" || view === "accounting") return;
+    if (view === "dashboard" || view === "purchases" || view === "returns" || view === "purchase-returns" || view === "cash" || view === "accounting") return;
     setLoadingRows(true);
     setError("");
     try {
@@ -457,7 +459,8 @@ export default function App() {
             {!user?.permissions.includes("sales:pay") && <p className="muted">حسابك لا يملك صلاحية تسجيل التحصيل النقدي.</p>}
           </section>
         </> : activeView === "purchases" ? <PurchasesView token={token} canWrite={Boolean(user?.permissions.includes("purchases:write"))} canPay={Boolean(user?.permissions.includes("purchases:pay"))} />
-        : activeView === "returns" ? <SalesReturnsView token={token} canReturn={Boolean(user?.permissions.includes("sales:return"))} /> : <>
+        : activeView === "returns" ? <SalesReturnsView token={token} canReturn={Boolean(user?.permissions.includes("sales:return"))} />
+        : activeView === "purchase-returns" ? <PurchaseReturnsView token={token} canReturn={Boolean(user?.permissions.includes("purchases:return"))} /> : <>
           <div className="list-toolbar"><div><h2>{title}</h2><p>بيانات محفوظة في قاعدة SQLite المحلية{activeView === "inventory" && warehouses[0] ? " · " + (warehouses.find(item => item.id === selectedWarehouseId)?.name ?? warehouses[0].name) : ""}.</p></div>
             {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm({ ...emptyForm, productId: productOptions[0]?.id ?? "" }); setError(""); }}>
               {formOpen ? "إغلاق النموذج" : "إضافة سجل جديد"}

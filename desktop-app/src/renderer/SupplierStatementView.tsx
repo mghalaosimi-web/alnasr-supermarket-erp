@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 type Supplier = { id: string; code: string; name: string; phone: string | null; is_active: number };
 type StatementItem = {
   id: string;
-  entryType: "purchase" | "payment";
+  entryType: "purchase" | "payment" | "return";
   documentNo: string;
   reference: string | null;
   method: string | null;
@@ -14,7 +14,7 @@ type StatementItem = {
 };
 type Statement = {
   supplier: Supplier;
-  summary: { purchasesMinor: number; paymentsMinor: number; outstandingMinor: number };
+  summary: { purchasesMinor: number; paymentsMinor: number; returnsMinor: number; outstandingMinor: number };
   items: StatementItem[];
   pagination: { limit: number; offset: number };
 };
@@ -46,7 +46,7 @@ export default function SupplierStatementView({ token, supplier, onClose }: Prop
   return (
     <section className="data-panel">
       <div className="list-toolbar">
-        <div><h2>كشف حساب المورد: {supplier.name}</h2><p>الرمز {supplier.code} · يعرض الفواتير والدفعات المرحلة فقط.</p></div>
+        <div><h2>كشف حساب المورد: {supplier.name}</h2><p>الرمز {supplier.code} · يعرض الفواتير والدفعات والمرتجعات المرحلة فقط.</p></div>
         <button className="secondary-button" onClick={onClose}>إغلاق الكشف</button>
       </div>
       {error && <div className="error page-error" role="alert">{error}</div>}
@@ -54,13 +54,14 @@ export default function SupplierStatementView({ token, supplier, onClose }: Prop
         <div className="facts">
           <div><small>إجمالي المشتريات</small><b>{formatMinor(statement.summary.purchasesMinor)}</b></div>
           <div><small>إجمالي الدفعات</small><b>{formatMinor(statement.summary.paymentsMinor)}</b></div>
+          <div><small>مرتجعات المشتريات</small><b>{formatMinor(statement.summary.returnsMinor)}</b></div>
           <div><small>الرصيد المستحق</small><b>{formatMinor(statement.summary.outstandingMinor)}</b></div>
         </div>
         {statement.items.length === 0 ? <div className="empty-state">لا توجد حركات مالية مرحلة لهذا المورد.</div> : <div className="table-scroll">
           <table className="data-table"><thead><tr><th>التاريخ</th><th>نوع الحركة</th><th>رقم المستند</th><th>المرجع / الطريقة</th><th>مدين</th><th>دائن</th><th>الرصيد التراكمي</th></tr></thead>
             <tbody>{statement.items.map(item => <tr key={item.id}>
               <td dir="ltr">{new Date(item.createdAt).toLocaleString("ar-YE")}</td>
-              <td>{item.entryType === "purchase" ? "فاتورة شراء" : "دفعة مورد"}</td>
+              <td>{item.entryType === "purchase" ? "فاتورة شراء" : item.entryType === "payment" ? "دفعة مورد" : "مرتجع شراء"}</td>
               <td dir="ltr">{item.documentNo}</td>
               <td>{item.reference ?? item.method ?? "—"}</td>
               <td>{formatMinor(item.debitMinor)}</td><td>{formatMinor(item.creditMinor)}</td><td><strong>{formatMinor(item.balanceMinor)}</strong></td>
