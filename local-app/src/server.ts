@@ -13,6 +13,7 @@ import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js"
 import { createSale, postSale } from "./sales/sales.js";
 import { createSaleReturn, postSaleReturn, voidSaleReturn, listReturnableSales, listSaleReturnableLines, listSaleReturns } from "./sales/sales-returns.js";
 import { createPurchase, listPurchases, postPurchase } from "./purchases/purchases.js";
+import { createPurchaseReturn, listPurchaseReturnableLines, listPurchaseReturns, listReturnablePurchases, postPurchaseReturn, voidPurchaseReturn } from "./purchases/purchase-returns.js";
 import { listSalePayments, recordSalePayment } from "./payments/payments.js";
 import { getSupplierStatement } from "./reports/supplier-statement.js";
 import { getCustomerStatement } from "./reports/customer-statement.js";
@@ -65,6 +66,16 @@ const paymentSchema = z.object({
   method: z.enum(["cash", "card", "bank_transfer", "mobile_wallet"]),
   amountMinor: z.number().int().positive().safe(),
   reference: z.string().trim().max(120).nullable().optional(),
+  idempotencyKey: z.string().trim().min(8).max(160)
+}).strict();
+
+const purchaseReturnSchema = z.object({
+  documentNo: z.string().trim().min(1).max(64),
+  reason: z.string().trim().min(3).max(240),
+  lines: z.array(z.object({
+    purchaseLineId: z.string().uuid(),
+    quantity: z.number().int().positive().safe()
+  })).min(1).max(500),
   idempotencyKey: z.string().trim().min(8).max(160)
 }).strict();
 
@@ -650,6 +661,76 @@ export function buildServer() {
       return postPurchase(db, params.data.purchaseId, user.id);
     } catch (error) {
       if (error instanceof Error) return reply.code(409).send({ error: "purchase_post_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.get("/api/v1/purchases/returnable", async (request, reply) => {
+    if (!authorize(request, reply, "purchases:read")) return;
+    return { items: listReturnablePurchases(db) };
+  });
+
+  app.get("/api/v1/purchases/:purchaseId/returnable-lines", async (request, reply) => {
+    if (!authorize(request, reply, "purchases:read")) return;
+    const params = z.object({ purchaseId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try { return { items: listPurchaseReturnableLines(db, params.data.purchaseId) }; }
+    catch (error) {
+      if (error instanceof Error && error.message.includes("Purchase not found")) return reply.code(404).send({ error: "purchase_not_found" });
+      if (error instanceof Error) return reply.code(409).send({ error: "purchase_return_lookup_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.get("/api/v1/purchases/:purchaseId/returns", async (request, reply) => {
+    if (!authorize(request, reply, "purchases:read")) return;
+    const params = z.object({ purchaseId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try { return { items: listPurchaseReturns(db, params.data.purchaseId) }; }
+    catch (error) {
+      if (error instanceof Error && error.message.includes("Purchase not found")) return reply.code(404).send({ error: "purchase_not_found" });
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/purchases/:purchaseId/returns", async (request, reply) => {
+    const user = authorize(request, reply, "purchases:return");
+    if (!user) return;
+    const params = z.object({ purchaseId: z.string().uuid() }).safeParse(request.params);
+    const parsed = purchaseReturnSchema.safeParse(request.body);
+    if (!params.success || !parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      const result = createPurchaseReturn(db, { ...parsed.data, purchaseId: params.data.purchaseId, actorUserId: user.id });
+      return reply.code(result.duplicate ? 200 : 201).send(result);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Purchase not found")) return reply.code(404).send({ error: "purchase_not_found" });
+      if (error instanceof Error) return reply.code(409).send({ error: "purchase_return_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/purchase-returns/:returnId/post", async (request, reply) => {
+    const user = authorize(request, reply, "purchases:return");
+    if (!user) return;
+    const params = z.object({ returnId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try { return postPurchaseReturn(db, params.data.returnId, user.id); }
+    catch (error) {
+      if (error instanceof Error && error.message.includes("Purchase return not found")) return reply.code(404).send({ error: "purchase_return_not_found" });
+      if (error instanceof Error) return reply.code(409).send({ error: "purchase_return_post_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/purchase-returns/:returnId/void", async (request, reply) => {
+    const user = authorize(request, reply, "purchases:return");
+    if (!user) return;
+    const params = z.object({ returnId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try { return voidPurchaseReturn(db, params.data.returnId, user.id); }
+    catch (error) {
+      if (error instanceof Error && error.message.includes("Purchase return not found")) return reply.code(404).send({ error: "purchase_return_not_found" });
+      if (error instanceof Error) return reply.code(409).send({ error: "purchase_return_void_rejected", message: error.message });
       throw error;
     }
   });
