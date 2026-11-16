@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
+import { postSystemJournalEntry } from "../accounting/journal.js";
 
 export type CashDirection = "in" | "out";
 export type CashMovementType = "sale_receipt" | "purchase_payment" | "manual_in" | "manual_out";
@@ -41,10 +42,21 @@ export function openCashSession(db: Database.Database, input: { storeId: string;
   if (!Number.isSafeInteger(input.openingFloatMinor) || input.openingFloatMinor < 0) throw new Error("Opening float must be a non-negative safe integer.");
   if (!db.prepare("SELECT id FROM stores WHERE id = ? AND is_active = 1").get(input.storeId)) throw new Error("Active store not found.");
   const id = randomUUID();
+  const previousSessions = db.prepare("SELECT COUNT(*) AS count FROM cash_register_sessions WHERE store_id = ?").get(input.storeId) as { count: number };
   try {
     db.transaction(() => {
       db.prepare("INSERT INTO cash_register_sessions(id, store_id, opened_by, opening_float_minor, status, opening_note) VALUES (?, ?, ?, ?, 'open', ?)").run(id, input.storeId, input.actorUserId, input.openingFloatMinor, input.note?.trim() || null);
       db.prepare("INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json) VALUES (?, ?, 'cash.session.opened', 'cash_session', ?, ?)").run(randomUUID(), input.actorUserId, id, JSON.stringify({ storeId: input.storeId, openingFloatMinor: input.openingFloatMinor }));
+      if (previousSessions.count === 0 && input.openingFloatMinor > 0) {
+        postSystemJournalEntry(db, {
+          sourceType: "cash_opening", sourceId: id, idempotencyKey: `journal:cash-opening:${id}`,
+          description: "إثبات العهدة النقدية الافتتاحية", actorUserId: input.actorUserId,
+          lines: [
+            { accountCode: "1000", debitMinor: input.openingFloatMinor, description: "عهدة الصندوق" },
+            { accountCode: "3100", creditMinor: input.openingFloatMinor, description: "رصيد افتتاحي للصندوق" }
+          ]
+        });
+      }
     })();
   } catch (error) { if (error instanceof Error && error.message.includes("UNIQUE")) throw new Error("A cash session is already open for this store."); throw error; }
   return db.prepare("SELECT * FROM cash_register_sessions WHERE id = ?").get(id);
@@ -66,6 +78,22 @@ export function recordCashMovement(db: Database.Database, input: { storeId: stri
     const id = randomUUID();
     db.prepare("INSERT INTO cash_register_movements(id, session_id, direction, movement_type, amount_minor, description, idempotency_key, actor_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(id, session.id, input.direction, input.direction === "in" ? "manual_in" : "manual_out", input.amountMinor, description, key, input.actorUserId);
     db.prepare("INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json) VALUES (?, ?, 'cash.movement.recorded', 'cash_movement', ?, ?)").run(randomUUID(), input.actorUserId, id, JSON.stringify({ sessionId: session.id, direction: input.direction, amountMinor: input.amountMinor }));
+    const accountingReady = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'accounts'").get();
+    if (accountingReady) {
+      postSystemJournalEntry(db, {
+        sourceType: "cash_movement", sourceId: id, idempotencyKey: `journal:cash-movement:${id}`,
+        description, actorUserId: input.actorUserId,
+        lines: input.direction === "in"
+          ? [
+              { accountCode: "1000", debitMinor: input.amountMinor, description: "زيادة النقد بالصندوق" },
+              { accountCode: "3100", creditMinor: input.amountMinor, description: "إيداع نقدي / رصيد افتتاحي" }
+            ]
+          : [
+              { accountCode: "6000", debitMinor: input.amountMinor, description: "مصروف نقدي" },
+              { accountCode: "1000", creditMinor: input.amountMinor, description: "صرف نقدي من الصندوق" }
+            ]
+      });
+    }
     return { movementId: id, duplicate: false };
   })();
 }

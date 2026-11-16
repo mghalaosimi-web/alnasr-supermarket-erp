@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
+import { postSystemJournalEntry } from "../accounting/journal.js";
 
 export interface StockMovementInput {
   productId: string;
@@ -112,6 +113,28 @@ export function postStockMovement(
       })
     );
 
+    if ((input.sourceType === "opening_balance" || input.sourceType === "adjustment") && input.unitCostMinor > 0) {
+      const accountingReady = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'accounts'").get();
+      if (accountingReady) {
+        const adjustmentValue = Math.abs(input.quantityDelta) * input.unitCostMinor;
+        if (!Number.isSafeInteger(adjustmentValue)) throw new Error("Stock adjustment value exceeds the supported range.");
+        postSystemJournalEntry(db, {
+          sourceType: "stock_movement", sourceId: movementId,
+          idempotencyKey: `journal:stock-movement:${movementId}`,
+          description: input.sourceType === "opening_balance" ? "إثبات رصيد مخزون افتتاحي" : "تسوية قيمة المخزون",
+          actorUserId: input.actorUserId,
+          lines: input.quantityDelta > 0
+            ? [
+                { accountCode: "1200", debitMinor: adjustmentValue, description: "زيادة المخزون" },
+                { accountCode: "3100", creditMinor: adjustmentValue, description: "رصيد افتتاحي / تسوية" }
+              ]
+            : [
+                { accountCode: "3100", debitMinor: adjustmentValue, description: "رصيد افتتاحي / تسوية" },
+                { accountCode: "1200", creditMinor: adjustmentValue, description: "تخفيض المخزون" }
+              ]
+        });
+      }
+    }
     return {
       movementId,
       balance: balance + input.quantityDelta,
