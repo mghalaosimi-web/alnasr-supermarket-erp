@@ -304,10 +304,10 @@ describe("local API integration", () => {
     expect(accountList.json().items).toHaveLength(11);
     const journals = await app.inject({ method: "GET", url: "/api/v1/accounting/journals?limit=50", headers: authorization });
     expect(journals.statusCode).toBe(200);
-    expect(journals.json().items).toHaveLength(4);
+    expect(journals.json().items).toHaveLength(7);
     const trialBalance = await app.inject({ method: "GET", url: "/api/v1/accounting/trial-balance", headers: authorization });
     expect(trialBalance.statusCode).toBe(200);
-    expect(trialBalance.json().totals).toMatchObject({ debitMovementsMinor: 650, creditMovementsMinor: 650 });
+    expect(trialBalance.json().totals).toMatchObject({ debitMovementsMinor: 975, creditMovementsMinor: 975 });
     const invalidTrialBalance = await app.inject({
       method: "GET", url: "/api/v1/accounting/trial-balance?asOf=2026-02-30", headers: authorization
     });
@@ -317,8 +317,8 @@ describe("local API integration", () => {
       method: "GET", url: "/api/v1/accounting/financial-statements?from=2026-01-01&to=2026-12-31", headers: authorization
     });
     expect(statements.statusCode).toBe(200);
-    expect(statements.json().profitAndLoss.netIncomeMinor).toBe(statements.json().profitAndLoss.revenueMinor - statements.json().profitAndLoss.expensesMinor);
-    expect(statements.json().balanceSheet.balanced).toBe(true);
+    expect(statements.json().profitAndLoss).toMatchObject({ revenueMinor: 100, expensesMinor: 75, netIncomeMinor: 25 });
+    expect(statements.json().balanceSheet).toMatchObject({ balanced: true, assetsMinor: 325, liabilitiesAndEquityMinor: 325 });
     const invalidStatements = await app.inject({
       method: "GET", url: "/api/v1/accounting/financial-statements?from=2026-12-31&to=2026-01-01", headers: authorization
     });
