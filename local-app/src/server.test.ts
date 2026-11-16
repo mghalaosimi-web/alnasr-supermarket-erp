@@ -294,6 +294,20 @@ describe("local API integration", () => {
     expect(returnHistory.json().items).toHaveLength(1);
     expect(returnHistory.json().items[0].status).toBe("posted");
 
+    const accountList = await app.inject({ method: "GET", url: "/api/v1/accounting/accounts", headers: authorization });
+    expect(accountList.statusCode).toBe(200);
+    expect(accountList.json().items).toHaveLength(11);
+    const journals = await app.inject({ method: "GET", url: "/api/v1/accounting/journals?limit=50", headers: authorization });
+    expect(journals.statusCode).toBe(200);
+    expect(journals.json().items).toHaveLength(4);
+    const trialBalance = await app.inject({ method: "GET", url: "/api/v1/accounting/trial-balance", headers: authorization });
+    expect(trialBalance.statusCode).toBe(200);
+    expect(trialBalance.json().totals).toMatchObject({ debitMovementsMinor: 650, creditMovementsMinor: 650 });
+    const invalidTrialBalance = await app.inject({
+      method: "GET", url: "/api/v1/accounting/trial-balance?asOf=2026-02-30", headers: authorization
+    });
+    expect(invalidTrialBalance.statusCode).toBe(400);
+
     const customerStatement = await app.inject({
       method: "GET", url: `/api/v1/customers/${customerId}/statement?limit=50&offset=0`, headers: authorization
     });

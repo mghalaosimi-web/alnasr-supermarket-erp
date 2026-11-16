@@ -110,6 +110,9 @@ describe("AL-NASR SQLite schema v1", () => {
         expect(migrated.prepare(
           "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'cash_register_movements'"
         ).get()).toEqual({ name: "cash_register_movements" });
+        expect(migrated.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'accounts'").get()).toEqual({ name: "accounts" });
+        expect(migrated.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journal_entries'").get()).toEqual({ name: "journal_entries" });
+        expect(migrated.prepare("SELECT COUNT(*) AS count FROM accounts").get()).toEqual({ count: 11 });
         expect(migrated.prepare(
           "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'accounts'"
         ).get()).toEqual({ name: "accounts" });
