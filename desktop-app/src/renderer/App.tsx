@@ -3,12 +3,13 @@ import PurchasesView from "./PurchasesView";
 import SalesReturnsView from "./SalesReturnsView";
 import SupplierStatementView from "./SupplierStatementView";
 import CustomerStatementView from "./CustomerStatementView";
+import CashRegisterView from "./CashRegisterView";
 
 type User = { id: string; username: string; displayName: string; roles: string[]; permissions: string[] };
 type LoginResult = { token: string; expiresAt: string; user: User };
 type Health = { status: string; product: string; database: string; schemaVersion: number };
 type Screen = "checking" | "setup" | "login" | "dashboard" | "error";
-type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory" | "purchases" | "returns";
+type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory" | "purchases" | "returns" | "cash";
 type ProductRow = {
   id: string; sku: string; name_ar: string; name_en: string | null; base_unit: string;
   sale_price_minor: number; cost_price_minor: number; is_active: number;
@@ -25,6 +26,7 @@ type FormValues = Record<string, string>;
 const navigation: { key: View; label: string; description: string }[] = [
   { key: "dashboard", label: "نظرة عامة", description: "ملخص حالة النظام" },
   { key: "pos", label: "نقطة البيع", description: "إنشاء فاتورة وخصم المخزون" },
+  { key: "cash", label: "الصندوق والورديات", description: "إدارة العهدة والحركات والإقفال" },
   { key: "products", label: "المنتجات", description: "إدارة الأصناف والأسعار" },
   { key: "customers", label: "العملاء", description: "سجل العملاء وحدود الائتمان" },
   { key: "suppliers", label: "الموردون", description: "سجل الموردين وبياناتهم" },
@@ -204,7 +206,7 @@ export default function App() {
   }
 
   async function loadRows(view: View) {
-    if (view === "dashboard" || view === "purchases" || view === "returns") return;
+    if (view === "dashboard" || view === "purchases" || view === "returns" || view === "cash") return;
     setLoadingRows(true);
     setError("");
     try {
@@ -421,11 +423,11 @@ export default function App() {
             </div>
             <div className="facts"><div><small>الخادم</small><b>Fastify · 127.0.0.1</b></div>
               <div><small>قاعدة البيانات</small><b>{health?.database?.toUpperCase() ?? "SQLITE"}</b></div>
-              <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 6}</b></div></div>
+              <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 7}</b></div></div>
           </section>
           {backupMessage && <div className="success-note backup-result" role="status">{backupMessage}</div>}
           {error && <div className="error page-error" role="alert">{error}</div>}
-        </> : activeView === "pos" ? <>
+        </> : activeView === "cash" ? <CashRegisterView token={token} canManage={Boolean(user?.permissions.includes("cash:manage"))} /> : activeView === "pos" ? <>
           <div className="list-toolbar"><div><h2>نقطة البيع</h2><p>إنشاء فاتورة وترحيلها وخصم الكميات من المستودع المحدد.</p></div></div>
           {error && <div className="error page-error" role="alert">{error}</div>}
           {posMessage && <div className="success-note" role="status">{posMessage}</div>}
