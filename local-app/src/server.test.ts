@@ -112,7 +112,7 @@ describe("local API integration", () => {
     expect(receipt.statusCode).toBe(200);
     expect(receipt.json().sale).toMatchObject({ id: saleId, document_no: "API-INV-001", status: "posted" });
     expect(receipt.json().lines).toHaveLength(1);
-    expect(receipt.json().lines[0]).toMatchObject({ sku: "SKU-API-001", quantity: 2 });
+    expect(receipt.json().lines[0]).toMatchObject({ sku: "API-001", quantity: 2 });
     const cashWithoutShift = await app.inject({
       method: "POST", url: `/api/v1/sales/${saleId}/payments`, headers: authorization,
       payload: { method: "cash", amountMinor: 100, idempotencyKey: "cash-without-shift-001" }
