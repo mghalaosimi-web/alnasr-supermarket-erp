@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import PurchasesView from "./PurchasesView";
 import SalesReturnsView from "./SalesReturnsView";
 import SupplierStatementView from "./SupplierStatementView";
+import CustomerStatementView from "./CustomerStatementView";
 
 type User = { id: string; username: string; displayName: string; roles: string[]; permissions: string[] };
 type LoginResult = { token: string; expiresAt: string; user: User };
@@ -69,6 +70,7 @@ export default function App() {
   const [posBusy, setPosBusy] = useState(false);
   const [posMessage, setPosMessage] = useState("");
   const [selectedSupplier, setSelectedSupplier] = useState<PartnerRow | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<PartnerRow | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -255,6 +257,7 @@ export default function App() {
 
   function openView(view: View) {
     setSelectedSupplier(null);
+    setSelectedCustomer(null);
     setError("");
     setNotice("");
     setFormOpen(false);
@@ -488,11 +491,12 @@ export default function App() {
                   <td dir="ltr">{row.code}</td><td>{row.name}</td><td dir="ltr">{row.phone ?? "—"}</td>
                   {activeView === "customers" && <td>{formatMinor(row.credit_limit_minor ?? 0)}</td>}
                   <td><span className="active-pill">نشط</span></td>
-                  <td>{activeView === "suppliers" && <button className="table-action" onClick={() => setSelectedSupplier(row)}>كشف الحساب</button>} {canWrite && <button className="table-action" disabled={busy} onClick={() => void deactivatePartner(row)}>تعطيل</button>}</td>
+                  <td>{activeView === "suppliers" && <button className="table-action" onClick={() => setSelectedSupplier(row)}>كشف الحساب</button>} {activeView === "customers" && <button className="table-action" onClick={() => setSelectedCustomer(row)}>كشف الحساب</button>} {canWrite && <button className="table-action" disabled={busy} onClick={() => void deactivatePartner(row)}>تعطيل</button>}</td>
                 </tr>)}
               </tbody></table></div>}
           </section>
           {activeView === "suppliers" && selectedSupplier && <SupplierStatementView token={token} supplier={selectedSupplier} onClose={() => setSelectedSupplier(null)} />}
+          {activeView === "customers" && selectedCustomer && <CustomerStatementView token={token} customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} />}
         </>}
         <footer>AL-NASR ERP · جميع البيانات محفوظة محلياً على جهازك</footer>
       </section>
