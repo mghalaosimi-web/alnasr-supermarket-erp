@@ -3,25 +3,30 @@ type Account = { id: string; code: string; name_ar: string; name_en: string | nu
 type TrialBalance = { asOf: string; items: Array<Account & { debitMinor: number; creditMinor: number; debitBalanceMinor: number; creditBalanceMinor: number }>; totals: { debitMinor: number; creditMinor: number; debitMovementsMinor: number; creditMovementsMinor: number } };
 type JournalLine = { account_code: string; account_name: string; debit_minor: number; credit_minor: number; description: string | null };
 type Journal = { id: string; entry_no: string; source_type: string | null; description: string; entry_date: string; status: string; lines: JournalLine[] };
+type StatementLine = { id: string; code: string; name: string; amountMinor: number };
+type FinancialStatements = { period: { from: string; to: string }; profitAndLoss: { revenue: StatementLine[]; expenses: StatementLine[]; revenueMinor: number; expensesMinor: number; netIncomeMinor: number }; balanceSheet: { assets: StatementLine[]; liabilities: StatementLine[]; equity: StatementLine[]; currentEarningsMinor: number; assetsMinor: number; liabilitiesMinor: number; equityMinor: number; differenceMinor: number; balanced: boolean } };
 type Props = { token: string; canRead: boolean };
 
 export default function AccountingView({ token, canRead }: Props) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [trial, setTrial] = useState<TrialBalance | null>(null);
   const [journals, setJournals] = useState<Journal[]>([]);
+  const [statements, setStatements] = useState<FinancialStatements | null>(null);
   const [asOf, setAsOf] = useState(new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const refresh = useCallback(async (date: string) => {
     setLoading(true); setError("");
     try {
-      const [accountResponse, trialResponse, journalResponse] = await Promise.all([
+      const yearStart = date.slice(0, 4) + "-01-01";
+      const [accountResponse, trialResponse, journalResponse, statementResponse] = await Promise.all([
         window.alnasr.request<{ items: Account[] }>({ path: "/api/v1/accounting/accounts", token }),
-        window.alnasr.request<TrialBalance>({ path: `/api/v1/accounting/trial-balance?asOf=${encodeURIComponent(date)}`, token }),
-        window.alnasr.request<{ items: Journal[] }>({ path: "/api/v1/accounting/journals?limit=100&offset=0", token })
+        window.alnasr.request<TrialBalance>({ path: "/api/v1/accounting/trial-balance?asOf=" + encodeURIComponent(date), token }),
+        window.alnasr.request<{ items: Journal[] }>({ path: "/api/v1/accounting/journals?limit=100&offset=0", token }),
+        window.alnasr.request<FinancialStatements>({ path: "/api/v1/accounting/financial-statements?from=" + yearStart + "&to=" + encodeURIComponent(date), token })
       ]);
-      if (accountResponse.status !== 200 || trialResponse.status !== 200 || journalResponse.status !== 200) throw new Error("تعذر تحميل السجلات المحاسبية. تحقق من صلاحية الحساب.");
-      setAccounts(accountResponse.data.items); setTrial(trialResponse.data); setJournals(journalResponse.data.items);
+      if (accountResponse.status !== 200 || trialResponse.status !== 200 || journalResponse.status !== 200 || statementResponse.status !== 200) throw new Error("تعذر تحميل السجلات المحاسبية. تحقق من صلاحية الحساب.");
+      setAccounts(accountResponse.data.items); setTrial(trialResponse.data); setJournals(journalResponse.data.items); setStatements(statementResponse.data);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "تعذر تحميل المحاسبة."); }
     finally { setLoading(false); }
   }, [token]);
@@ -41,6 +46,26 @@ export default function AccountingView({ token, canRead }: Props) {
         <div><small>حركة المدين</small><b>{money(trial.totals.debitMovementsMinor)}</b></div>
         <div><small>حركة الدائن</small><b>{money(trial.totals.creditMovementsMinor)}</b></div>
       </div><p className={trial.totals.debitMinor === trial.totals.creditMinor ? "success-note" : "error"}>{trial.totals.debitMinor === trial.totals.creditMinor ? "ميزان المراجعة متوازن حسب القيود المرحلة." : "تنبيه: يوجد فرق في ميزان المراجعة؛ يلزم التحقيق قبل اعتماد التقارير."}</p></section>
+      {statements && <>
+        <div className="section-heading"><h2>قائمة الدخل</h2><p>من {statements.period.from} إلى {statements.period.to} · الإيرادات والمصروفات من القيود المرحلة.</p></div>
+        <section className="data-panel"><div className="facts">
+          <div><small>الإيرادات</small><b>{money(statements.profitAndLoss.revenueMinor)}</b></div>
+          <div><small>المصروفات</small><b>{money(statements.profitAndLoss.expensesMinor)}</b></div>
+          <div><small>صافي الربح / الخسارة</small><b>{money(statements.profitAndLoss.netIncomeMinor)}</b></div>
+        </div><div className="table-scroll"><table className="data-table"><thead><tr><th>الحساب</th><th>الرمز</th><th>القيمة</th></tr></thead><tbody>
+          {[...statements.profitAndLoss.revenue, ...statements.profitAndLoss.expenses].map(row => <tr key={row.id}><td>{row.name}</td><td dir="ltr">{row.code}</td><td>{money(row.amountMinor)}</td></tr>)}
+        </tbody></table></div></section>
+        <div className="section-heading"><h2>الميزانية العمومية</h2><p>الأرصدة التراكمية حتى {statements.period.to}.</p></div>
+        <section className="data-panel"><div className="facts">
+          <div><small>إجمالي الأصول</small><b>{money(statements.balanceSheet.assetsMinor)}</b></div>
+          <div><small>الالتزامات</small><b>{money(statements.balanceSheet.liabilitiesMinor)}</b></div>
+          <div><small>حقوق الملكية</small><b>{money(statements.balanceSheet.equityMinor)}</b></div>
+          <div><small>الأرباح الحالية المتراكمة</small><b>{money(statements.balanceSheet.currentEarningsMinor)}</b></div>
+        </div><p className={statements.balanceSheet.balanced ? "success-note" : "error"}>{statements.balanceSheet.balanced ? "الميزانية متوازنة: الأصول تساوي الالتزامات وحقوق الملكية." : "الميزانية غير متوازنة. الفرق: " + money(statements.balanceSheet.differenceMinor)}</p>
+        <div className="table-scroll"><table className="data-table"><thead><tr><th>الحساب</th><th>الرمز</th><th>الرصيد</th></tr></thead><tbody>
+          {[...statements.balanceSheet.assets, ...statements.balanceSheet.liabilities, ...statements.balanceSheet.equity].map(row => <tr key={row.id}><td>{row.name}</td><td dir="ltr">{row.code}</td><td>{money(row.amountMinor)}</td></tr>)}
+        </tbody></table></div></section>
+      </>}
       <div className="section-heading"><h2>ميزان المراجعة</h2><p>الأرصدة حتى {trial.asOf} · جميع المبالغ بالوحدة الصغرى.</p></div>
       <section className="data-panel"><div className="table-scroll"><table className="data-table"><thead><tr><th>رقم الحساب</th><th>اسم الحساب</th><th>التصنيف</th><th>إجمالي المدين</th><th>إجمالي الدائن</th><th>رصيد مدين</th><th>رصيد دائن</th></tr></thead><tbody>
         {trial.items.map(item => <tr key={item.id}><td dir="ltr">{item.code}</td><td>{item.name_ar}</td><td>{item.account_type}</td><td>{money(item.debitMinor)}</td><td>{money(item.creditMinor)}</td><td>{money(item.debitBalanceMinor)}</td><td>{money(item.creditBalanceMinor)}</td></tr>)}
