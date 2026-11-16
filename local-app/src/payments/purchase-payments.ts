@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
+import { addLinkedCashMovement } from "../cash-register/cash-register.js";
 
 export type PurchasePaymentMethod = "cash" | "card" | "bank_transfer" | "mobile_wallet";
 
@@ -33,8 +34,8 @@ interface PurchasePaymentRow {
 
 function purchaseTotals(db: Database.Database, purchaseId: string) {
   const purchase = db.prepare(
-    "SELECT id, status, total_minor FROM purchases WHERE id = ?"
-  ).get(purchaseId) as { id: string; status: string; total_minor: number } | undefined;
+    "SELECT id, status, total_minor, store_id FROM purchases WHERE id = ?"
+  ).get(purchaseId) as { id: string; status: string; total_minor: number; store_id: string } | undefined;
   if (!purchase) throw new Error("Purchase not found.");
 
   const paid = db.prepare(
@@ -101,6 +102,15 @@ export function recordPurchasePayment(
       INSERT INTO purchase_payments(id, purchase_id, method, amount_minor, reference, idempotency_key)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(paymentId, input.purchaseId, input.method, input.amountMinor, reference, idempotencyKey);
+
+    if (input.method === "cash") {
+      addLinkedCashMovement(db, {
+        storeId: totals.purchase.store_id, direction: "out", movementType: "purchase_payment",
+        amountMinor: input.amountMinor, description: "سداد نقدي للمورد",
+        sourceId: paymentId, idempotencyKey: `purchase-cash:${idempotencyKey}`,
+        actorUserId: input.actorUserId
+      });
+    }
 
     const paidMinor = totals.paidMinor + input.amountMinor;
     const outstandingMinor = totals.purchase.total_minor - paidMinor;

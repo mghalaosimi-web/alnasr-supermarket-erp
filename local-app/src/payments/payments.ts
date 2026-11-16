@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
+import { addLinkedCashMovement } from "../cash-register/cash-register.js";
 
 export type SalePaymentMethod = "cash" | "card" | "bank_transfer" | "mobile_wallet";
 
@@ -33,8 +34,8 @@ interface SalePaymentRow {
 
 function saleTotals(db: Database.Database, saleId: string) {
   const sale = db.prepare(
-    "SELECT id, status, total_minor FROM sales WHERE id = ?"
-  ).get(saleId) as { id: string; status: string; total_minor: number } | undefined;
+    "SELECT id, status, total_minor, store_id FROM sales WHERE id = ?"
+  ).get(saleId) as { id: string; status: string; total_minor: number; store_id: string } | undefined;
   if (!sale) throw new Error("Sale not found.");
 
   const paid = db.prepare(
@@ -110,6 +111,15 @@ export function recordSalePayment(
       normalizedReference,
       normalizedIdempotencyKey
     );
+
+    if (input.method === "cash") {
+      addLinkedCashMovement(db, {
+        storeId: totals.sale.store_id, direction: "in", movementType: "sale_receipt",
+        amountMinor: input.amountMinor, description: `تحصيل نقدي من فاتورة البيع`,
+        sourceId: paymentId, idempotencyKey: `sale-cash:${normalizedIdempotencyKey}`,
+        actorUserId: input.actorUserId
+      });
+    }
 
     const paidMinor = totals.paidMinor + input.amountMinor;
     const outstandingMinor = totals.sale.total_minor - paidMinor;

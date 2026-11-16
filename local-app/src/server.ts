@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { closeDatabase, openDatabase, resolveDatabasePath } from "./db/database.js";
 import { createDatabaseBackup } from "./backup/backup.js";
+import { closeCashSession, getCashRegisterStatus, openCashSession, recordCashMovement } from "./cash-register/cash-register.js";
 import { authenticateSession, bootstrapOwner, hasPermission, login, logout } from "./auth/auth.js";
 import { createProduct, deactivateProduct, listProducts, updateProduct } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
@@ -690,6 +691,54 @@ export function buildServer() {
 
 
 
+
+  app.get("/api/v1/cash/register", async (request, reply) => {
+    if (!authorize(request, reply, "cash:read")) return;
+    const query = z.object({ storeId: z.string().uuid() }).safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: "invalid_query" });
+    try { return getCashRegisterStatus(db, query.data.storeId); }
+    catch (error) { if (error instanceof Error && error.message.includes("Active store not found")) return reply.code(404).send({ error: "store_not_found" }); throw error; }
+  });
+
+  app.post("/api/v1/cash/register/open", async (request, reply) => {
+    const user = authorize(request, reply, "cash:manage");
+    if (!user) return;
+    const parsed = z.object({
+      storeId: z.string().uuid(), openingFloatMinor: z.number().int().nonnegative().safe(),
+      note: z.string().trim().max(240).nullable().optional()
+    }).strict().safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try { return reply.code(201).send({ session: openCashSession(db, { ...parsed.data, actorUserId: user.id }) }); }
+    catch (error) { if (error instanceof Error) return reply.code(409).send({ error: "cash_session_open_rejected", message: error.message }); throw error; }
+  });
+
+  app.post("/api/v1/cash/register/movements", async (request, reply) => {
+    const user = authorize(request, reply, "cash:manage");
+    if (!user) return;
+    const parsed = z.object({
+      storeId: z.string().uuid(), direction: z.enum(["in", "out"]),
+      amountMinor: z.number().int().positive().safe(),
+      description: z.string().trim().min(3).max(240),
+      idempotencyKey: z.string().trim().min(8).max(160)
+    }).strict().safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      const result = recordCashMovement(db, { ...parsed.data, actorUserId: user.id });
+      return reply.code(result.duplicate ? 200 : 201).send(result);
+    } catch (error) { if (error instanceof Error) return reply.code(409).send({ error: "cash_movement_rejected", message: error.message }); throw error; }
+  });
+
+  app.post("/api/v1/cash/register/close", async (request, reply) => {
+    const user = authorize(request, reply, "cash:manage");
+    if (!user) return;
+    const parsed = z.object({
+      storeId: z.string().uuid(), countedCashMinor: z.number().int().nonnegative().safe(),
+      note: z.string().trim().max(240).nullable().optional()
+    }).strict().safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try { return closeCashSession(db, { ...parsed.data, actorUserId: user.id }); }
+    catch (error) { if (error instanceof Error) return reply.code(409).send({ error: "cash_session_close_rejected", message: error.message }); throw error; }
+  });
 
   app.post("/api/v1/backups", async (request, reply) => {
     const user = authorize(request, reply, "settings:write");
