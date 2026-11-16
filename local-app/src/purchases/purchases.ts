@@ -192,6 +192,7 @@ export interface PurchaseListItem {
   line_count: number;
   unit_count: number;
   paid_minor: number;
+  returned_minor: number;
   outstanding_minor: number;
   created_at: string;
 }
@@ -216,7 +217,8 @@ export function listPurchases(
       p.subtotal_minor, p.discount_minor, p.tax_minor, p.total_minor,
       COALESCE(pl.line_count, 0) AS line_count, COALESCE(pl.unit_count, 0) AS unit_count,
       COALESCE(pp.paid_minor, 0) AS paid_minor,
-      p.total_minor - COALESCE(pp.paid_minor, 0) AS outstanding_minor,
+      COALESCE(pr.returned_minor, 0) AS returned_minor,
+      p.total_minor - COALESCE(pp.paid_minor, 0) - COALESCE(pr.returned_minor, 0) AS outstanding_minor,
       p.created_at
     FROM purchases p
     JOIN suppliers s ON s.id = p.supplier_id

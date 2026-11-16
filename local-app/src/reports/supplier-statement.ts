@@ -93,13 +93,15 @@ export function getSupplierStatement(
   `).all(supplierId, supplierId, supplierId, limit, offset) as SupplierStatementItem[];
 
   const purchasesMinor = Number(summary.purchases_minor);
-  const paymentsMinor = Number(summary.payments_minor);\n  const returnsMinor = Number(summary.returns_minor);
+  const paymentsMinor = Number(summary.payments_minor);
+  const returnsMinor = Number(summary.returns_minor);
   return {
     supplier,
     summary: {
       purchasesMinor,
       paymentsMinor,
-      outstandingMinor: purchasesMinor - paymentsMinor
+      returnsMinor,
+      outstandingMinor: purchasesMinor - paymentsMinor - returnsMinor
     },
     items,
     pagination: { limit, offset }
