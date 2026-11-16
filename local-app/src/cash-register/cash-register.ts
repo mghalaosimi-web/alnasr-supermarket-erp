@@ -39,6 +39,11 @@ export function recordCashMovement(db: Database.Database, input: { storeId: stri
     const existing = db.prepare("SELECT id, session_id, direction, amount_minor, description FROM cash_register_movements WHERE idempotency_key = ?").get(key) as { id: string; session_id: string; direction: CashDirection; amount_minor: number; description: string } | undefined;
     if (existing) { const session = db.prepare("SELECT store_id FROM cash_register_sessions WHERE id = ?").get(existing.session_id) as { store_id: string }; if (session.store_id !== input.storeId || existing.direction !== input.direction || existing.amount_minor !== input.amountMinor || existing.description !== description) throw new Error("Cash movement idempotency key conflict."); return { movementId: existing.id, duplicate: true }; }
     const session = getOpenCashSession(db, input.storeId); if (!session) throw new Error("Open a cash session before recording cash movements.");
+    if (input.direction === "out") {
+      const totals = db.prepare("SELECT COALESCE(SUM(CASE WHEN direction = 'in' THEN amount_minor ELSE -amount_minor END), 0) AS balance_minor FROM cash_register_movements WHERE session_id = ?").get(session.id) as { balance_minor: number };
+      const available = session.opening_float_minor + Number(totals.balance_minor);
+      if (input.amountMinor > available) throw new Error("Cash outflow exceeds the available drawer balance.");
+    }
     const id = randomUUID();
     db.prepare("INSERT INTO cash_register_movements(id, session_id, direction, movement_type, amount_minor, description, idempotency_key, actor_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(id, session.id, input.direction, input.direction === "in" ? "manual_in" : "manual_out", input.amountMinor, description, key, input.actorUserId);
     db.prepare("INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json) VALUES (?, ?, 'cash.movement.recorded', 'cash_movement', ?, ?)").run(randomUUID(), input.actorUserId, id, JSON.stringify({ sessionId: session.id, direction: input.direction, amountMinor: input.amountMinor }));
@@ -61,5 +66,10 @@ export function closeCashSession(db: Database.Database, input: { storeId: string
 
 export function addLinkedCashMovement(db: Database.Database, input: { storeId: string; direction: CashDirection; movementType: "sale_receipt" | "purchase_payment"; amountMinor: number; description: string; sourceId: string; idempotencyKey: string; actorUserId?: string | null }): void {
   const session = getOpenCashSession(db, input.storeId); if (!session) throw new Error("Open a cash session before recording cash payments.");
+  if (input.direction === "out") {
+    const totals = db.prepare("SELECT COALESCE(SUM(CASE WHEN direction = 'in' THEN amount_minor ELSE -amount_minor END), 0) AS balance_minor FROM cash_register_movements WHERE session_id = ?").get(session.id) as { balance_minor: number };
+    const available = session.opening_float_minor + Number(totals.balance_minor);
+    if (input.amountMinor > available) throw new Error("Cash payment exceeds the available drawer balance.");
+  }
   db.prepare("INSERT INTO cash_register_movements(id, session_id, direction, movement_type, amount_minor, description, source_id, idempotency_key, actor_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(randomUUID(), session.id, input.direction, input.movementType, input.amountMinor, input.description, input.sourceId, input.idempotencyKey, input.actorUserId ?? null);
 }

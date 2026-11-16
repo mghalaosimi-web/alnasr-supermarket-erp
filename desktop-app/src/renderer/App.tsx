@@ -35,7 +35,6 @@ const navigation: { key: View; label: string; description: string }[] = [
   { key: "returns", label: "المرتجعات", description: "مرتجعات المبيعات وإعادة المخزون" }
 ];
 const futureModules = [
-  ["الصندوق والورديات", "فتح وإغلاق الورديات وحركة النقد"],
   ["المحاسبة", "دليل الحسابات والقيود والتقارير"]
 ] as const;
 
