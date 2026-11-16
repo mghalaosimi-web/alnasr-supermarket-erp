@@ -64,6 +64,8 @@ export default function App() {
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState("");
   const [posProducts, setPosProducts] = useState<ProductRow[]>([]);
+  const [posCustomers, setPosCustomers] = useState<PartnerRow[]>([]);
+  const [posCustomerId, setPosCustomerId] = useState("");
   const [posCart, setPosCart] = useState<Record<string, number>>({});
   const [posStoreId, setPosStoreId] = useState("");
   const [posWarehouseId, setPosWarehouseId] = useState("");
@@ -176,7 +178,7 @@ export default function App() {
       const created = await window.alnasr.request<{ saleId: string; totalMinor: number }>({
         path: "/api/v1/sales", method: "POST", token,
         body: { documentNo: `POS-${Date.now()}`, storeId: posStoreId, warehouseId: posWarehouseId,
-          lines, idempotencyKey: crypto.randomUUID() }
+          customerId: posCustomerId || null, lines, idempotencyKey: crypto.randomUUID() }
       });
       if (created.status !== 201) throw new Error("تعذر إنشاء فاتورة البيع.");
       const posted = await window.alnasr.request({ path: `/api/v1/sales/${created.data.saleId}/post`, method: "POST", token });
@@ -184,9 +186,9 @@ export default function App() {
       const paid = await window.alnasr.request({ path: `/api/v1/sales/${created.data.saleId}/payments`, method: "POST", token,
         body: { method: "cash", amountMinor: created.data.totalMinor, idempotencyKey: crypto.randomUUID() } });
       if (paid.status !== 201 && paid.status !== 200) {
-        setPosCart({}); setPosMessage(`تم ترحيل الفاتورة ${created.data.saleId} وخصم المخزون، لكن تعذر تسجيل التحصيل النقدي. راجع المدفوعات.`);
+        setPosCart({}); setPosCustomerId(""); setPosMessage(`تم ترحيل الفاتورة ${created.data.saleId} وخصم المخزون، لكن تعذر تسجيل التحصيل النقدي. راجع المدفوعات.`);
       } else {
-        setPosCart({}); setPosMessage(`اكتملت الفاتورة ${created.data.saleId} وتم تسجيل التحصيل النقدي.`);
+        setPosCart({}); setPosCustomerId(""); setPosMessage(`اكتملت الفاتورة ${created.data.saleId} وتم تسجيل التحصيل النقدي.`);
       }
     } catch (cause) { setError(cause instanceof Error ? cause.message : "تعذر إكمال عملية البيع."); }
     finally { setPosBusy(false); }
@@ -207,16 +209,19 @@ export default function App() {
     setError("");
     try {
       if (view === "pos") {
-        const [locations, products] = await Promise.all([
+        const [locations, products, customers] = await Promise.all([
           window.alnasr.request<{ stores: Array<{ id: string; name: string }>; warehouses: Warehouse[] }>({ path: "/api/v1/locations", token }),
-          window.alnasr.request<{ items: ProductRow[] }>({ path: "/api/v1/products", token })
+          window.alnasr.request<{ items: ProductRow[] }>({ path: "/api/v1/products", token }),
+          user?.permissions.includes("customers:read")
+            ? window.alnasr.request<{ items: PartnerRow[] }>({ path: "/api/v1/customers", token })
+            : Promise.resolve({ status: 200, data: { items: [] as PartnerRow[] } })
         ]);
-        if (locations.status !== 200 || products.status !== 200) throw new Error("تعذر تحميل بيانات نقطة البيع.");
+        if (locations.status !== 200 || products.status !== 200 || customers.status !== 200) throw new Error("تعذر تحميل بيانات نقطة البيع.");
         const store = locations.data.stores[0];
         const warehouse = locations.data.warehouses.find(item => item.store_id === store?.id);
         if (!store || !warehouse) throw new Error("يجب إعداد متجر ومستودع نشط قبل البيع.");
         setPosStoreId(store.id); setPosWarehouseId(warehouse.id); setWarehouses(locations.data.warehouses);
-        setPosProducts(products.data.items); setPosCart({}); setPosMessage("");
+        setPosProducts(products.data.items); setPosCustomers(customers.data.items); setPosCustomerId(""); setPosCart({}); setPosMessage("");
       } else if (view === "inventory") {
         const locations = await window.alnasr.request<{ warehouses: Warehouse[] }>({ path: "/api/v1/locations", token });
         if (locations.status !== 200) throw new Error("تعذر تحميل المستودعات أو لا تملك صلاحية عرض المخزون.");
@@ -424,6 +429,15 @@ export default function App() {
           <div className="list-toolbar"><div><h2>نقطة البيع</h2><p>إنشاء فاتورة وترحيلها وخصم الكميات من المستودع المحدد.</p></div></div>
           {error && <div className="error page-error" role="alert">{error}</div>}
           {posMessage && <div className="success-note" role="status">{posMessage}</div>}
+          {user?.permissions.includes("customers:read") && <section className="data-panel">
+            <div className="section-heading"><h2>بيانات العميل</h2><p>اختياري: اربط الفاتورة بحساب عميل لمتابعة الرصيد وكشف الحساب.</p></div>
+            <label>العميل
+              <select value={posCustomerId} onChange={event => setPosCustomerId(event.target.value)}>
+                <option value="">بيع نقدي مباشر / دون ربط عميل</option>
+                {posCustomers.map(customer => <option key={customer.id} value={customer.id}>{customer.name} — {customer.code}</option>)}
+              </select>
+            </label>
+          </section>}
           <section className="data-panel">
             <div className="section-heading"><h2>الأصناف المتاحة</h2><p>اختر الأصناف لإضافتها إلى الفاتورة.</p></div>
             {loadingRows ? <div className="empty-state">جارٍ تحميل الأصناف...</div> : <div className="table-scroll"><table className="data-table"><thead><tr><th>الصنف</th><th>SKU</th><th>سعر البيع</th><th>إضافة</th></tr></thead><tbody>
