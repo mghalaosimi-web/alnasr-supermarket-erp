@@ -27,7 +27,7 @@ describe("verified SQLite backup", () => {
     live.prepare("INSERT INTO stores(id, name) VALUES (?, ?)").run("backup-store", "Backup Store");
 
     const result = await createDatabaseBackup(live, backupPath);
-    expect(result.schemaVersion).toBe(8);
+    expect(result.schemaVersion).toBe(9);
     expect(result.integrity).toBe("ok");
 
     const backup = new Database(backupPath, { readonly: true, fileMustExist: true });
