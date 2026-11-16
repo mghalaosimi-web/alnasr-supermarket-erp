@@ -106,6 +106,21 @@ describe("local API integration", () => {
     expect(posting.json().status).toBe("posted");
 
     const saleId = sale.json().saleId as string;
+    const cashWithoutShift = await app.inject({
+      method: "POST", url: `/api/v1/sales/${saleId}/payments`, headers: authorization,
+      payload: { method: "cash", amountMinor: 100, idempotencyKey: "cash-without-shift-001" }
+    });
+    expect(cashWithoutShift.statusCode).toBe(409);
+    const openedShift = await app.inject({
+      method: "POST", url: "/api/v1/cash/register/open", headers: authorization,
+      payload: { storeId: store.id, openingFloatMinor: 0, note: "وردية اختبار" }
+    });
+    expect(openedShift.statusCode).toBe(201);
+    const duplicateOpenShift = await app.inject({
+      method: "POST", url: "/api/v1/cash/register/open", headers: authorization,
+      payload: { storeId: store.id, openingFloatMinor: 0 }
+    });
+    expect(duplicateOpenShift.statusCode).toBe(409);
     const firstPayment = await app.inject({
       method: "POST",
       url: `/api/v1/sales/${saleId}/payments`,
@@ -162,6 +177,28 @@ describe("local API integration", () => {
       }
     });
     expect(overpayment.statusCode).toBe(409);
+
+    const cashIn = await app.inject({
+      method: "POST", url: "/api/v1/cash/register/movements", headers: authorization,
+      payload: { storeId: store.id, direction: "in", amountMinor: 50, description: "إيداع نقدي إضافي", idempotencyKey: "cash-manual-in-001" }
+    });
+    expect(cashIn.statusCode).toBe(201);
+    const cashOut = await app.inject({
+      method: "POST", url: "/api/v1/cash/register/movements", headers: authorization,
+      payload: { storeId: store.id, direction: "out", amountMinor: 25, description: "مصروف تشغيلي", idempotencyKey: "cash-manual-out-001" }
+    });
+    expect(cashOut.statusCode).toBe(201);
+    const cashStatus = await app.inject({
+      method: "GET", url: `/api/v1/cash/register?storeId=${store.id}`, headers: authorization
+    });
+    expect(cashStatus.statusCode).toBe(200);
+    expect(cashStatus.json().totals).toMatchObject({ openingFloatMinor: 0, inflowMinor: 150, outflowMinor: 25, expectedCashMinor: 125, movementCount: 3 });
+    const closedShift = await app.inject({
+      method: "POST", url: "/api/v1/cash/register/close", headers: authorization,
+      payload: { storeId: store.id, countedCashMinor: 120, note: "فرق خمسة" }
+    });
+    expect(closedShift.statusCode).toBe(200);
+    expect(closedShift.json()).toMatchObject({ expectedCashMinor: 125, countedCashMinor: 120, varianceMinor: -5 });
 
     const paymentSummary = await app.inject({
       method: "GET",
@@ -559,6 +596,12 @@ describe("local API integration", () => {
     expect(inventory.json().quantity).toBe(12);
 
     const purchaseId = created.json().purchaseId as string;
+    const openCash = await app.inject({
+      method: "POST", url: "/api/v1/cash/register/open", headers: authorization,
+      payload: { storeId: store.id, openingFloatMinor: 1000, note: "وردية مشتريات" }
+    });
+    expect(openCash.statusCode).toBe(201);
+
     const payment = await app.inject({
       method: "POST",
       url: `/api/v1/purchases/${purchaseId}/payments`,
