@@ -10,6 +10,7 @@ import { authenticateSession, bootstrapOwner, hasPermission, login, logout } fro
 import { createProduct, deactivateProduct, listProducts, updateProduct } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales/sales.js";
+import { createSaleReturn, postSaleReturn } from "./sales/sales-returns.js";
 import { createPurchase, listPurchases, postPurchase } from "./purchases/purchases.js";
 import { listSalePayments, recordSalePayment } from "./payments/payments.js";
 import { listPurchasePayments, recordPurchasePayment } from "./payments/purchase-payments.js";
@@ -45,6 +46,16 @@ const saleSchema = z.object({
   taxMinor: z.number().int().nonnegative().safe().optional(),
   idempotencyKey: z.string().trim().min(8).max(160)
 });
+
+const saleReturnSchema = z.object({
+  documentNo: z.string().trim().min(1).max(64),
+  reason: z.string().trim().min(3).max(240),
+  lines: z.array(z.object({
+    saleLineId: z.string().uuid(),
+    quantity: z.number().int().positive().safe()
+  })).min(1).max(500),
+  idempotencyKey: z.string().trim().min(8).max(160)
+}).strict();
 
 const paymentSchema = z.object({
   method: z.enum(["cash", "card", "bank_transfer", "mobile_wallet"]),
@@ -447,6 +458,41 @@ export function buildServer() {
       return postSale(db, params.data.saleId, user.id);
     } catch (error) {
       if (error instanceof Error) return reply.code(409).send({ error: "sale_post_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/sales/:saleId/returns", async (request, reply) => {
+    const user = authorize(request, reply, "sales:return");
+    if (!user) return;
+    const params = z.object({ saleId: z.string().uuid() }).safeParse(request.params);
+    const parsed = saleReturnSchema.safeParse(request.body);
+    if (!params.success || !parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return reply.code(201).send(createSaleReturn(db, {
+        ...parsed.data, saleId: params.data.saleId, actorUserId: user.id
+      }));
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Sale not found")) {
+        return reply.code(404).send({ error: "sale_not_found" });
+      }
+      if (error instanceof Error) return reply.code(409).send({ error: "sale_return_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/sale-returns/:returnId/post", async (request, reply) => {
+    const user = authorize(request, reply, "sales:return");
+    if (!user) return;
+    const params = z.object({ returnId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return postSaleReturn(db, params.data.returnId, user.id);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Sales return not found")) {
+        return reply.code(404).send({ error: "sale_return_not_found" });
+      }
+      if (error instanceof Error) return reply.code(409).send({ error: "sale_return_post_rejected", message: error.message });
       throw error;
     }
   });

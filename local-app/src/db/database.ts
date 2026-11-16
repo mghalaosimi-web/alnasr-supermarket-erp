@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { applySchemaV1, applySchemaV2, applySchemaV3, applySchemaV4, applySchemaV5, SCHEMA_VERSION } from "./schema.js";
+import { applySchemaV1, applySchemaV2, applySchemaV3, applySchemaV4, applySchemaV5, applySchemaV6, SCHEMA_VERSION } from "./schema.js";
 
 export function resolveDatabasePath(): string {
   if (process.env.AL_NASR_DATABASE_PATH) return process.env.AL_NASR_DATABASE_PATH;
@@ -48,6 +48,10 @@ export function openDatabase(path = resolveDatabasePath()): Database.Database {
       if (current < 5) {
         applySchemaV5(db);
         db.pragma("user_version = 5");
+      }
+      if (current < 6) {
+        applySchemaV6(db);
+        db.pragma("user_version = 6");
       }
     });
     migrate();

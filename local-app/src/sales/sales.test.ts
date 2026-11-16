@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
-import { applySchemaV1, applySchemaV2, applySchemaV3 } from "../db/schema.js";
+import { applySchemaV1, applySchemaV2, applySchemaV3, applySchemaV4, applySchemaV5, applySchemaV6 } from "../db/schema.js";
 import { getStockBalance, postStockMovement } from "../inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales.js";
+import { createSaleReturn, postSaleReturn } from "./sales-returns.js";
 
 describe("POS sale lifecycle", () => {
   let db: Database.Database | undefined;
@@ -13,6 +14,9 @@ describe("POS sale lifecycle", () => {
     applySchemaV1(db);
     applySchemaV2(db);
     applySchemaV3(db);
+    applySchemaV4(db);
+    applySchemaV5(db);
+    applySchemaV6(db);
     db.prepare("INSERT INTO stores(id, name) VALUES ('store-1', 'Store')").run();
     db.prepare("INSERT INTO warehouses(id, store_id, code, name) VALUES ('wh-1', 'store-1', 'MAIN', 'Main')").run();
     db.prepare("INSERT INTO products(id, sku, name_ar, base_unit, cost_price_minor) VALUES ('prod-1', 'SKU-1', 'منتج', 'piece', 100)").run();
@@ -74,4 +78,55 @@ describe("POS sale lifecycle", () => {
     const database = setup();
     expect(() => createSale(database, saleInput({ discountMinor: 501 }))).toThrow(/Discount cannot exceed/);
   });
+  it("creates and posts a partial customer return, restoring stock once", () => {
+    const database = setup();
+    postStockMovement(database, {
+      productId: "prod-1", warehouseId: "wh-1", quantityDelta: 5, unitCostMinor: 100,
+      sourceType: "opening_balance", sourceId: "opening-return-1", idempotencyKey: "opening-return-1"
+    });
+    const sale = createSale(database, saleInput());
+    postSale(database, sale.saleId);
+    const saleLine = database.prepare("SELECT id FROM sale_lines WHERE sale_id = ?").get(sale.saleId) as { id: string };
+    const returned = createSaleReturn(database, {
+      documentNo: "RET-0001", saleId: sale.saleId, reason: "Damaged item",
+      lines: [{ saleLineId: saleLine.id, quantity: 1 }],
+      idempotencyKey: "return-create-0001"
+    });
+    expect(returned.totalMinor).toBe(250);
+    const posted = postSaleReturn(database, returned.returnId);
+    const retry = postSaleReturn(database, returned.returnId);
+    expect(posted.duplicate).toBe(false);
+    expect(retry.duplicate).toBe(true);
+    expect(getStockBalance(database, "prod-1", "wh-1")).toBe(4);
+  });
+
+  it("prevents returning more units than were sold across separate return drafts", () => {
+    const database = setup();
+    postStockMovement(database, {
+      productId: "prod-1", warehouseId: "wh-1", quantityDelta: 5, unitCostMinor: 100,
+      sourceType: "opening_balance", sourceId: "opening-return-2", idempotencyKey: "opening-return-2"
+    });
+    const sale = createSale(database, saleInput());
+    postSale(database, sale.saleId);
+    const saleLine = database.prepare("SELECT id FROM sale_lines WHERE sale_id = ?").get(sale.saleId) as { id: string };
+    createSaleReturn(database, {
+      documentNo: "RET-0002", saleId: sale.saleId, reason: "First partial return",
+      lines: [{ saleLineId: saleLine.id, quantity: 1 }], idempotencyKey: "return-create-0002"
+    });
+    expect(() => createSaleReturn(database, {
+      documentNo: "RET-0003", saleId: sale.saleId, reason: "Excess return",
+      lines: [{ saleLineId: saleLine.id, quantity: 2 }], idempotencyKey: "return-create-0003"
+    })).toThrow(/exceeds the unreturned quantity/i);
+  });
+
+  it("rejects returns for unposted sales and returns without original stock cost", () => {
+    const database = setup();
+    const sale = createSale(database, saleInput());
+    const saleLine = database.prepare("SELECT id FROM sale_lines WHERE sale_id = ?").get(sale.saleId) as { id: string };
+    expect(() => createSaleReturn(database, {
+      documentNo: "RET-0004", saleId: sale.saleId, reason: "Not posted",
+      lines: [{ saleLineId: saleLine.id, quantity: 1 }], idempotencyKey: "return-create-0004"
+    })).toThrow(/posted sale/i);
+  });
+
 });

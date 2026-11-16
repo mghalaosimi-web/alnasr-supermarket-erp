@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 const migrationV1 = `
 CREATE TABLE IF NOT EXISTS app_meta (
@@ -334,4 +334,49 @@ INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
 
 export function applySchemaV5(db: Database.Database): void {
   db.exec(migrationV5);
+}
+
+
+const migrationV6 = `
+CREATE TABLE IF NOT EXISTS sale_returns (
+  id TEXT PRIMARY KEY,
+  document_no TEXT NOT NULL UNIQUE,
+  sale_id TEXT NOT NULL REFERENCES sales(id) ON DELETE RESTRICT,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE RESTRICT,
+  warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
+  status TEXT NOT NULL CHECK (status IN ('draft', 'posted', 'voided')),
+  subtotal_minor INTEGER NOT NULL CHECK (subtotal_minor >= 0),
+  total_minor INTEGER NOT NULL CHECK (total_minor >= 0),
+  reason TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS sale_return_lines (
+  id TEXT PRIMARY KEY,
+  sale_return_id TEXT NOT NULL REFERENCES sale_returns(id) ON DELETE CASCADE,
+  sale_line_id TEXT NOT NULL REFERENCES sale_lines(id) ON DELETE RESTRICT,
+  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  unit_price_minor INTEGER NOT NULL CHECK (unit_price_minor >= 0),
+  line_total_minor INTEGER NOT NULL CHECK (line_total_minor >= 0),
+  UNIQUE(sale_return_id, sale_line_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sale_returns_sale_created
+  ON sale_returns(sale_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_sale_return_lines_sale_line
+  ON sale_return_lines(sale_line_id);
+
+INSERT OR IGNORE INTO permissions(code, description)
+VALUES ('sales:return', 'Create and post customer sales returns');
+
+INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
+  ('role-owner', 'sales:return'),
+  ('role-admin', 'sales:return'),
+  ('role-accountant', 'sales:return');
+`;
+
+export function applySchemaV6(db: Database.Database): void {
+  db.exec(migrationV6);
 }
