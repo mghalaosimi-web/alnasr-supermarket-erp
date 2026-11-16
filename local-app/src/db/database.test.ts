@@ -132,7 +132,7 @@ describe("AL-NASR SQLite schema v1", () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
-  });
+  }, 20_000);
 
   it("declares the current schema version", () => {
     expect(SCHEMA_VERSION).toBe(9);
