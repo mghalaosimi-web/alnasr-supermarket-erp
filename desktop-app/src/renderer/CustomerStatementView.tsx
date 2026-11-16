@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-type Customer = { id: string; code: string; name: string; phone: string | null; credit_limit_minor: number; is_active: number };
+type Customer = { id: string; code: string; name: string; phone: string | null; credit_limit_minor?: number; is_active: number };
 type StatementItem = {
   id: string;
   entryType: "sale" | "payment" | "return";
