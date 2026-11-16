@@ -140,7 +140,8 @@ export function postSaleReturn(
     `).all(returnId) as Array<{ id: string; sale_line_id: string; product_id: string; quantity: number; original_line_id: string }>;
     const sale = db.prepare("SELECT status FROM sales WHERE id = ?").get(record.sale_id) as { status: string } | undefined;
     if (!sale || sale.status !== "posted") throw new Error("Returns are only allowed for a posted sale.");
-    let returnedCostMinor = 0;\n    for (const line of lines) {
+    let returnedCostMinor = 0;
+    for (const line of lines) {
       const originalMovement = db.prepare(`
         SELECT unit_cost_minor FROM stock_ledger
         WHERE source_type = 'sale' AND source_id = ? AND idempotency_key = ?
