@@ -123,7 +123,10 @@ describe("purchase receiving lifecycle", () => {
       purchaseId: purchase.purchaseId, documentNo: "PR-STOCK", reason: "Not enough stock",
       lines: [{ purchaseLineId: line.id, quantity: 2 }], idempotencyKey: "purchase-return-stock-001"
     });
-    database.prepare("UPDATE stock_ledger SET quantity_delta = 0 WHERE source_type = 'purchase'").run();
+    database.prepare(`
+      INSERT INTO stock_ledger(id, product_id, warehouse_id, quantity_delta, unit_cost_minor, source_type, source_id, idempotency_key)
+      VALUES ('stock-depletion-test', 'prod-1', 'wh-1', -20, 0, 'adjustment', 'test-depletion', 'stock-depletion-test')
+    `).run();
     expect(() => postPurchaseReturn(database, draft.returnId)).toThrow(/Insufficient stock/);
   });
 
