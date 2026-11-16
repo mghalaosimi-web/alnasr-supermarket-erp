@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 const migrationV1 = `
 CREATE TABLE IF NOT EXISTS app_meta (
@@ -306,4 +306,32 @@ INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
 
 export function applySchemaV4(db: Database.Database): void {
   db.exec(migrationV4);
+}
+
+ 
+const migrationV5 = `
+CREATE TABLE IF NOT EXISTS purchase_payments (
+  id TEXT PRIMARY KEY,
+  purchase_id TEXT NOT NULL REFERENCES purchases(id) ON DELETE RESTRICT,
+  method TEXT NOT NULL CHECK (method IN ('cash', 'card', 'bank_transfer', 'mobile_wallet')),
+  amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+  reference TEXT,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchase_payments_purchase_created
+  ON purchase_payments(purchase_id, created_at);
+
+INSERT OR IGNORE INTO permissions(code, description)
+VALUES ('purchases:pay', 'Record and view supplier payment allocations');
+
+INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
+  ('role-owner', 'purchases:pay'),
+  ('role-admin', 'purchases:pay'),
+  ('role-accountant', 'purchases:pay');
+`;
+
+export function applySchemaV5(db: Database.Database): void {
+  db.exec(migrationV5);
 }

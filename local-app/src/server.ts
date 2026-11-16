@@ -12,6 +12,7 @@ import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js"
 import { createSale, postSale } from "./sales/sales.js";
 import { createPurchase, listPurchases, postPurchase } from "./purchases/purchases.js";
 import { listSalePayments, recordSalePayment } from "./payments/payments.js";
+import { listPurchasePayments, recordPurchasePayment } from "./payments/purchase-payments.js";
 import { createCustomer, createSupplier, deactivateCustomer, deactivateSupplier, listCustomers, listSuppliers, updateCustomer, updateSupplier } from "./partners/partners.js";
 
 const bootstrapSchema = z.object({
@@ -46,6 +47,13 @@ const saleSchema = z.object({
 });
 
 const paymentSchema = z.object({
+  method: z.enum(["cash", "card", "bank_transfer", "mobile_wallet"]),
+  amountMinor: z.number().int().positive().safe(),
+  reference: z.string().trim().max(120).nullable().optional(),
+  idempotencyKey: z.string().trim().min(8).max(160)
+}).strict();
+
+const purchasePaymentSchema = z.object({
   method: z.enum(["cash", "card", "bank_transfer", "mobile_wallet"]),
   amountMinor: z.number().int().positive().safe(),
   reference: z.string().trim().max(120).nullable().optional(),
@@ -513,6 +521,44 @@ export function buildServer() {
       throw error;
     }
   });
+
+  app.get("/api/v1/purchases/:purchaseId/payments", async (request, reply) => {
+    if (!authorize(request, reply, "purchases:read")) return;
+    const params = z.object({ purchaseId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return listPurchasePayments(db, params.data.purchaseId);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Purchase not found")) {
+        return reply.code(404).send({ error: "purchase_not_found" });
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/purchases/:purchaseId/payments", async (request, reply) => {
+    const user = authorize(request, reply, "purchases:pay");
+    if (!user) return;
+    const params = z.object({ purchaseId: z.string().uuid() }).safeParse(request.params);
+    const parsed = purchasePaymentSchema.safeParse(request.body);
+    if (!params.success || !parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      const payment = recordPurchasePayment(db, {
+        ...parsed.data, purchaseId: params.data.purchaseId, actorUserId: user.id
+      });
+      return reply.code(payment.duplicate ? 200 : 201).send({ payment });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Purchase not found")) {
+        return reply.code(404).send({ error: "purchase_not_found" });
+      }
+      if (error instanceof Error) {
+        return reply.code(409).send({ error: "purchase_payment_rejected", message: error.message });
+      }
+      throw error;
+    }
+  });
+
+
 
 
   app.post("/api/v1/backups", async (request, reply) => {

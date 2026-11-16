@@ -492,6 +492,51 @@ describe("local API integration", () => {
     expect(inventory.statusCode).toBe(200);
     expect(inventory.json().quantity).toBe(12);
 
+    const purchaseId = created.json().purchaseId as string;
+    const payment = await app.inject({
+      method: "POST",
+      url: `/api/v1/purchases/${purchaseId}/payments`,
+      headers: authorization,
+      payload: { method: "cash", amountMinor: 400, reference: "CASH-001", idempotencyKey: "purchase-pay-001" }
+    });
+    expect(payment.statusCode).toBe(201);
+    expect(payment.json().payment).toMatchObject({ amountMinor: 400, paidMinor: 400, outstandingMinor: 510, duplicate: false });
+
+    const duplicatePayment = await app.inject({
+      method: "POST",
+      url: `/api/v1/purchases/${purchaseId}/payments`,
+      headers: authorization,
+      payload: { method: "cash", amountMinor: 400, reference: "CASH-001", idempotencyKey: "purchase-pay-001" }
+    });
+    expect(duplicatePayment.statusCode).toBe(200);
+    expect(duplicatePayment.json().payment.paidMinor).toBe(400);
+
+    const overpayment = await app.inject({
+      method: "POST",
+      url: `/api/v1/purchases/${purchaseId}/payments`,
+      headers: authorization,
+      payload: { method: "bank_transfer", amountMinor: 511, idempotencyKey: "purchase-pay-002" }
+    });
+    expect(overpayment.statusCode).toBe(409);
+
+    const paymentHistory = await app.inject({
+      method: "GET",
+      url: `/api/v1/purchases/${purchaseId}/payments`,
+      headers: authorization
+    });
+    expect(paymentHistory.statusCode).toBe(200);
+    expect(paymentHistory.json()).toMatchObject({ totalMinor: 910, paidMinor: 400, outstandingMinor: 510 });
+    expect(paymentHistory.json().items).toHaveLength(1);
+
+    const purchaseHistoryWithBalance = await app.inject({
+      method: "GET",
+      url: "/api/v1/purchases?search=PUR-API-INV-001",
+      headers: authorization
+    });
+    expect(purchaseHistoryWithBalance.json().items[0]).toMatchObject({
+      paid_minor: 400, outstanding_minor: 510
+    });
+
     const invalidQuery = await app.inject({
       method: "GET",
       url: "/api/v1/purchases?limit=0",
