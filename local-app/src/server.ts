@@ -14,6 +14,7 @@ import { createSaleReturn, postSaleReturn, voidSaleReturn, listReturnableSales, 
 import { createPurchase, listPurchases, postPurchase } from "./purchases/purchases.js";
 import { listSalePayments, recordSalePayment } from "./payments/payments.js";
 import { getSupplierStatement } from "./reports/supplier-statement.js";
+import { getCustomerStatement } from "./reports/customer-statement.js";
 import { listPurchasePayments, recordPurchasePayment } from "./payments/purchase-payments.js";
 import { createCustomer, createSupplier, deactivateCustomer, deactivateSupplier, listCustomers, listSuppliers, updateCustomer, updateSupplier } from "./partners/partners.js";
 
@@ -353,6 +354,24 @@ export function buildServer() {
       return reply.code(204).send();
     } catch (error) {
       if (error instanceof Error && error.message.includes("not found")) return reply.code(404).send({ error: "customer_not_found" });
+      throw error;
+    }
+  });
+
+  app.get("/api/v1/customers/:customerId/statement", async (request, reply) => {
+    if (!authorize(request, reply, "customers:read")) return;
+    const params = z.object({ customerId: z.string().uuid() }).safeParse(request.params);
+    const query = z.object({
+      limit: z.coerce.number().int().min(1).max(200).default(100),
+      offset: z.coerce.number().int().min(0).default(0)
+    }).safeParse(request.query);
+    if (!params.success || !query.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return getCustomerStatement(db, params.data.customerId, query.data.limit, query.data.offset);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Customer not found")) {
+        return reply.code(404).send({ error: "customer_not_found" });
+      }
       throw error;
     }
   });

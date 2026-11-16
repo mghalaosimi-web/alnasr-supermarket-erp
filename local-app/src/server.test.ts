@@ -78,12 +78,19 @@ describe("local API integration", () => {
     expect(adjustment.statusCode).toBe(201);
     expect(adjustment.json().balance).toBe(5);
 
+    const customerResponse = await app.inject({
+      method: "POST", url: "/api/v1/customers", headers: authorization,
+      payload: { code: "CUST-API-001", name: "عميل اختبار", phone: null, creditLimitMinor: 5000 }
+    });
+    expect(customerResponse.statusCode).toBe(201);
+    const customerId = customerResponse.json().customer.id as string;
+
     const sale = await app.inject({
       method: "POST",
       url: "/api/v1/sales",
       headers: authorization,
       payload: {
-        documentNo: "API-INV-001", storeId: store.id, warehouseId: warehouse.id,
+        documentNo: "API-INV-001", storeId: store.id, warehouseId: warehouse.id, customerId,
         lines: [{ productId, quantity: 2, unitPriceMinor: 100 }],
         idempotencyKey: "api-sale-create-001"
       }
@@ -239,6 +246,17 @@ describe("local API integration", () => {
     expect(returnHistory.statusCode).toBe(200);
     expect(returnHistory.json().items).toHaveLength(1);
     expect(returnHistory.json().items[0].status).toBe("posted");
+
+    const customerStatement = await app.inject({
+      method: "GET", url: `/api/v1/customers/${customerId}/statement?limit=50&offset=0`, headers: authorization
+    });
+    expect(customerStatement.statusCode).toBe(200);
+    expect(customerStatement.json().summary).toMatchObject({
+      salesMinor: 200, paymentsMinor: 200, returnsMinor: 100, outstandingMinor: -100
+    });
+    expect(customerStatement.json().items).toHaveLength(4);
+    expect(customerStatement.json().items.map((item: { entryType: string }) => item.entryType).sort())
+      .toEqual(["payment", "payment", "return", "sale"]);
 
     const unauthenticatedBalances = await app.inject({
       method: "GET",
