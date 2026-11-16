@@ -10,7 +10,7 @@ import { authenticateSession, bootstrapOwner, hasPermission, login, logout } fro
 import { createProduct, deactivateProduct, listProducts, updateProduct } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales/sales.js";
-import { createSaleReturn, postSaleReturn } from "./sales/sales-returns.js";
+import { createSaleReturn, postSaleReturn, voidSaleReturn } from "./sales/sales-returns.js";
 import { createPurchase, listPurchases, postPurchase } from "./purchases/purchases.js";
 import { listSalePayments, recordSalePayment } from "./payments/payments.js";
 import { listPurchasePayments, recordPurchasePayment } from "./payments/purchase-payments.js";
@@ -477,6 +477,22 @@ export function buildServer() {
         return reply.code(404).send({ error: "sale_not_found" });
       }
       if (error instanceof Error) return reply.code(409).send({ error: "sale_return_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.post("/api/v1/sale-returns/:returnId/void", async (request, reply) => {
+    const user = authorize(request, reply, "sales:return");
+    if (!user) return;
+    const params = z.object({ returnId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return voidSaleReturn(db, params.data.returnId, user.id);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Sales return not found")) {
+        return reply.code(404).send({ error: "sale_return_not_found" });
+      }
+      if (error instanceof Error) return reply.code(409).send({ error: "sale_return_void_rejected", message: error.message });
       throw error;
     }
   });

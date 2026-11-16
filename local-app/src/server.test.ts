@@ -192,6 +192,36 @@ describe("local API integration", () => {
     expect(stockBalances.json().items).toHaveLength(1);
     expect(stockBalances.json().items[0].quantity).toBe(3);
 
+    const dbForReturn = openDatabase(databasePath);
+    const saleLine = dbForReturn.prepare("SELECT id FROM sale_lines WHERE sale_id = ?").get(saleId) as { id: string };
+    closeDatabase(dbForReturn);
+    const returnDraft = await app.inject({
+      method: "POST", url: `/api/v1/sales/${saleId}/returns`, headers: authorization,
+      payload: {
+        documentNo: "API-RET-001", reason: "Damaged product",
+        lines: [{ saleLineId: saleLine.id, quantity: 1 }],
+        idempotencyKey: "api-sale-return-001"
+      }
+    });
+    expect(returnDraft.statusCode).toBe(201);
+    expect(returnDraft.json().totalMinor).toBe(100);
+    const returnPost = await app.inject({
+      method: "POST", url: `/api/v1/sale-returns/${returnDraft.json().returnId}/post`, headers: authorization
+    });
+    expect(returnPost.statusCode).toBe(200);
+    expect(returnPost.json().status).toBe("posted");
+    const returnedBalance = await app.inject({
+      method: "GET", url: `/api/v1/inventory/balance?productId=${productId}&warehouseId=${warehouse.id}`,
+      headers: authorization
+    });
+    expect(returnedBalance.statusCode).toBe(200);
+    expect(returnedBalance.json().quantity).toBe(4);
+    const duplicateReturnPost = await app.inject({
+      method: "POST", url: `/api/v1/sale-returns/${returnDraft.json().returnId}/post`, headers: authorization
+    });
+    expect(duplicateReturnPost.statusCode).toBe(200);
+    expect(duplicateReturnPost.json().duplicate).toBe(true);
+
     const unauthenticatedBalances = await app.inject({
       method: "GET",
       url: "/api/v1/inventory/balances?warehouseId=" + warehouse.id

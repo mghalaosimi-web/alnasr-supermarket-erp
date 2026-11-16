@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import { applySchemaV1, applySchemaV2, applySchemaV3, applySchemaV4, applySchemaV5, applySchemaV6 } from "../db/schema.js";
 import { getStockBalance, postStockMovement } from "../inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales.js";
-import { createSaleReturn, postSaleReturn } from "./sales-returns.js";
+import { createSaleReturn, postSaleReturn, voidSaleReturn } from "./sales-returns.js";
 
 describe("POS sale lifecycle", () => {
   let db: Database.Database | undefined;
@@ -93,6 +93,13 @@ describe("POS sale lifecycle", () => {
       idempotencyKey: "return-create-0001"
     });
     expect(returned.totalMinor).toBe(250);
+    const retryReturn = createSaleReturn(database, {
+      documentNo: "RET-0001", saleId: sale.saleId, reason: "Damaged item",
+      lines: [{ saleLineId: saleLine.id, quantity: 1 }],
+      idempotencyKey: "return-create-0001"
+    });
+    expect(retryReturn.returnId).toBe(returned.returnId);
+    expect(retryReturn.duplicate).toBe(true);
     const posted = postSaleReturn(database, returned.returnId);
     const retry = postSaleReturn(database, returned.returnId);
     expect(posted.duplicate).toBe(false);
@@ -117,6 +124,27 @@ describe("POS sale lifecycle", () => {
       documentNo: "RET-0003", saleId: sale.saleId, reason: "Excess return",
       lines: [{ saleLineId: saleLine.id, quantity: 2 }], idempotencyKey: "return-create-0003"
     })).toThrow(/exceeds the unreturned quantity/i);
+  });
+
+  it("voids a draft return and releases its reserved return quantity", () => {
+    const database = setup();
+    postStockMovement(database, {
+      productId: "prod-1", warehouseId: "wh-1", quantityDelta: 5, unitCostMinor: 100,
+      sourceType: "opening_balance", sourceId: "opening-return-void", idempotencyKey: "opening-return-void"
+    });
+    const sale = createSale(database, saleInput());
+    postSale(database, sale.saleId);
+    const saleLine = database.prepare("SELECT id FROM sale_lines WHERE sale_id = ?").get(sale.saleId) as { id: string };
+    const draft = createSaleReturn(database, {
+      documentNo: "RET-VOID-1", saleId: sale.saleId, reason: "Wrong item",
+      lines: [{ saleLineId: saleLine.id, quantity: 2 }], idempotencyKey: "return-void-create-1"
+    });
+    expect(voidSaleReturn(database, draft.returnId).status).toBe("voided");
+    const replacement = createSaleReturn(database, {
+      documentNo: "RET-VOID-2", saleId: sale.saleId, reason: "Corrected return",
+      lines: [{ saleLineId: saleLine.id, quantity: 2 }], idempotencyKey: "return-void-create-2"
+    });
+    expect(replacement.duplicate).toBe(false);
   });
 
   it("rejects returns for unposted sales and returns without original stock cost", () => {

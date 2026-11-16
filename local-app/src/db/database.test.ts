@@ -94,7 +94,7 @@ describe("AL-NASR SQLite schema v1", () => {
 
       const migrated = openDatabase(file);
       try {
-        expect(migrated.pragma("user_version", { simple: true })).toBe(5);
+        expect(migrated.pragma("user_version", { simple: true })).toBe(6);
         expect(migrated.prepare(
           "SELECT code FROM permissions WHERE code = 'sales:pay'"
         ).get()).toEqual({ code: "sales:pay" });
@@ -117,6 +117,6 @@ describe("AL-NASR SQLite schema v1", () => {
   });
 
   it("declares the current schema version", () => {
-    expect(SCHEMA_VERSION).toBe(5);
+    expect(SCHEMA_VERSION).toBe(6);
   });
 });
