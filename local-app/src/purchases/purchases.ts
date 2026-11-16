@@ -205,7 +205,7 @@ export function listPurchases(
       p.id, p.document_no, p.status, p.supplier_id, s.name AS supplier_name,
       p.store_id, st.name AS store_name, p.warehouse_id, w.name AS warehouse_name,
       p.subtotal_minor, p.discount_minor, p.tax_minor, p.total_minor,
-      COUNT(DISTINCT pl.id) AS line_count, COALESCE(SUM(DISTINCT pl.quantity), 0) AS unit_count,
+      COALESCE(pl.line_count, 0) AS line_count, COALESCE(pl.unit_count, 0) AS unit_count,
       COALESCE(pp.paid_minor, 0) AS paid_minor,
       p.total_minor - COALESCE(pp.paid_minor, 0) AS outstanding_minor,
       p.created_at
@@ -213,13 +213,15 @@ export function listPurchases(
     JOIN suppliers s ON s.id = p.supplier_id
     JOIN stores st ON st.id = p.store_id
     JOIN warehouses w ON w.id = p.warehouse_id
-    LEFT JOIN purchase_lines pl ON pl.purchase_id = p.id
+    LEFT JOIN (
+      SELECT purchase_id, COUNT(*) AS line_count, SUM(quantity) AS unit_count
+      FROM purchase_lines GROUP BY purchase_id
+    ) pl ON pl.purchase_id = p.id
     LEFT JOIN (
       SELECT purchase_id, SUM(amount_minor) AS paid_minor
       FROM purchase_payments GROUP BY purchase_id
     ) pp ON pp.purchase_id = p.id
     WHERE p.document_no LIKE ? OR s.name LIKE ? OR s.code LIKE ?
-    GROUP BY p.id
     ORDER BY p.created_at DESC, p.document_no DESC
     LIMIT ? OFFSET ?
   `).all(term, term, term, limit, offset) as PurchaseListItem[];
