@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 
 export interface SupplierStatementItem {
   id: string;
-  entryType: "purchase" | "payment";
+  entryType: "purchase" | "payment" | "return";
   documentNo: string;
   reference: string | null;
   method: string | null;
@@ -41,10 +41,16 @@ export function getSupplierStatement(
         FROM purchase_payments pp
         JOIN purchases paid_purchase ON paid_purchase.id = pp.purchase_id
         WHERE paid_purchase.supplier_id = ? AND paid_purchase.status = 'posted'
-      ), 0) AS payments_minor
+      ), 0) AS payments_minor,
+      COALESCE((
+        SELECT SUM(pr.total_minor)
+        FROM purchase_returns pr
+        JOIN purchases returned_purchase ON returned_purchase.id = pr.purchase_id
+        WHERE returned_purchase.supplier_id = ? AND returned_purchase.status = 'posted' AND pr.status = 'posted'
+      ), 0) AS returns_minor
     FROM purchases p
     WHERE p.supplier_id = ? AND p.status = 'posted'
-  `).get(supplierId, supplierId) as { purchases_minor: number; payments_minor: number };
+  `).get(supplierId, supplierId, supplierId) as { purchases_minor: number; payments_minor: number; returns_minor: number };
 
   const items = db.prepare(`
     WITH entries AS (
@@ -62,6 +68,13 @@ export function getSupplierStatement(
       FROM purchase_payments pp
       JOIN purchases p ON p.id = pp.purchase_id
       WHERE p.supplier_id = ? AND p.status = 'posted'
+      UNION ALL
+      SELECT
+        pr.id AS id, 'return' AS entry_type, p.document_no AS document_no,
+        pr.reason AS reference, NULL AS method, pr.created_at AS created_at,
+        0 AS debit_minor, pr.total_minor AS credit_minor, 2 AS entry_order
+      FROM purchase_returns pr JOIN purchases p ON p.id = pr.purchase_id
+      WHERE p.supplier_id = ? AND p.status = 'posted' AND pr.status = 'posted'
     ), balanced AS (
       SELECT *,
         SUM(debit_minor - credit_minor) OVER (
@@ -77,10 +90,10 @@ export function getSupplierStatement(
     FROM balanced
     ORDER BY created_at ASC, entry_order ASC, id ASC
     LIMIT ? OFFSET ?
-  `).all(supplierId, supplierId, limit, offset) as SupplierStatementItem[];
+  `).all(supplierId, supplierId, supplierId, limit, offset) as SupplierStatementItem[];
 
   const purchasesMinor = Number(summary.purchases_minor);
-  const paymentsMinor = Number(summary.payments_minor);
+  const paymentsMinor = Number(summary.payments_minor);\n  const returnsMinor = Number(summary.returns_minor);
   return {
     supplier,
     summary: {

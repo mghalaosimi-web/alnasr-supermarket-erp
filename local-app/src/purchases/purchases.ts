@@ -230,6 +230,10 @@ export function listPurchases(
       SELECT purchase_id, SUM(amount_minor) AS paid_minor
       FROM purchase_payments GROUP BY purchase_id
     ) pp ON pp.purchase_id = p.id
+    LEFT JOIN (
+      SELECT purchase_id, SUM(total_minor) AS returned_minor
+      FROM purchase_returns WHERE status = 'posted' GROUP BY purchase_id
+    ) pr ON pr.purchase_id = p.id
     WHERE p.document_no LIKE ? OR s.name LIKE ? OR s.code LIKE ?
     ORDER BY p.created_at DESC, p.document_no DESC
     LIMIT ? OFFSET ?

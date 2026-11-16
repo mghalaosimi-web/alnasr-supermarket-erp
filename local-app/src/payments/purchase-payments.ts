@@ -42,12 +42,17 @@ function purchaseTotals(db: Database.Database, purchaseId: string) {
   const paid = db.prepare(
     "SELECT COALESCE(SUM(amount_minor), 0) AS paid_minor FROM purchase_payments WHERE purchase_id = ?"
   ).get(purchaseId) as { paid_minor: number };
+  const returned = db.prepare(
+    "SELECT COALESCE(SUM(total_minor), 0) AS returned_minor FROM purchase_returns WHERE purchase_id = ? AND status = 'posted'"
+  ).get(purchaseId) as { returned_minor: number };
 
   const paidMinor = Number(paid.paid_minor);
+  const returnedMinor = Number(returned.returned_minor);
   return {
     purchase,
     paidMinor,
-    outstandingMinor: purchase.total_minor - paidMinor
+    returnedMinor,
+    outstandingMinor: purchase.total_minor - paidMinor - returnedMinor
   };
 }
 
