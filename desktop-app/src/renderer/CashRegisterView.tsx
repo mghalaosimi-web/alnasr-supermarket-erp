@@ -4,11 +4,13 @@ type Store = { id: string; name: string; currency_code?: string };
 type Session = { id: string; opening_float_minor: number; opened_at: string; status: "open" | "closed" };
 type Movement = { id: string; direction: "in" | "out"; movement_type: string; amount_minor: number; description: string; created_at: string };
 type RegisterStatus = { store: Store; session: Session | null; totals: { openingFloatMinor: number; inflowMinor: number; outflowMinor: number; expectedCashMinor: number; movementCount: number } | null; items: Movement[] };
+type HistorySession = { id: string; status: "open" | "closed"; opening_float_minor: number; expected_cash_minor: number | null; counted_cash_minor: number | null; variance_minor: number | null; opened_at: string; closed_at: string | null; opened_by_name: string; closed_by_name: string | null; inflow_minor: number; outflow_minor: number; movement_count: number };
 type Props = { token: string; canManage: boolean };
 
 export default function CashRegisterView({ token, canManage }: Props) {
   const [store, setStore] = useState<Store | null>(null);
   const [status, setStatus] = useState<RegisterStatus | null>(null);
+  const [history, setHistory] = useState<HistorySession[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -20,9 +22,13 @@ export default function CashRegisterView({ token, canManage }: Props) {
   const [description, setDescription] = useState("");
 
   const refresh = useCallback(async (storeId: string) => {
-    const response = await window.alnasr.request<RegisterStatus>({ path: `/api/v1/cash/register?storeId=${encodeURIComponent(storeId)}`, token });
-    if (response.status !== 200) throw new Error("تعذر تحميل حالة الصندوق. تحقق من صلاحية عرض الصندوق.");
+    const [response, historyResponse] = await Promise.all([
+      window.alnasr.request<RegisterStatus>({ path: `/api/v1/cash/register?storeId=${encodeURIComponent(storeId)}`, token }),
+      window.alnasr.request<{ items: HistorySession[] }>({ path: `/api/v1/cash/register/sessions?storeId=${encodeURIComponent(storeId)}&limit=50`, token })
+    ]);
+    if (response.status !== 200 || historyResponse.status !== 200) throw new Error("تعذر تحميل حالة الصندوق وسجل الورديات. تحقق من صلاحية العرض.");
     setStatus(response.data);
+    setHistory(historyResponse.data.items);
     setStore(response.data.store);
     if (response.data.totals) setCounted(String(response.data.totals.expectedCashMinor));
   }, [token]);
@@ -84,6 +90,12 @@ export default function CashRegisterView({ token, canManage }: Props) {
       </>}
       <div className="section-heading"><h2>حركات الوردية</h2><p>يتم ترحيل التحصيلات النقدية من المبيعات والمدفوعات النقدية للموردين تلقائياً.</p></div>
       {!status.items.length ? <div className="empty-state">لا توجد حركات في الوردية الحالية.</div> : <div className="table-scroll"><table className="data-table"><thead><tr><th>التاريخ</th><th>نوع الحركة</th><th>البيان</th><th>داخل</th><th>خارج</th></tr></thead><tbody>{status.items.map(item => <tr key={item.id}><td dir="ltr">{new Date(item.created_at).toLocaleString("ar-YE")}</td><td>{item.movement_type === "sale_receipt" ? "تحصيل مبيعات" : item.movement_type === "purchase_payment" ? "سداد مورد" : item.movement_type === "manual_in" ? "إيداع" : "مصروف"}</td><td>{item.description}</td><td>{item.direction === "in" ? money(item.amount_minor) : "—"}</td><td>{item.direction === "out" ? money(item.amount_minor) : "—"}</td></tr>)}</tbody></table></div>}
+    </section>}
+    {store && status && <section className="data-panel">
+      <div className="section-heading"><h2>سجل الورديات السابقة</h2><p>آخر 50 وردية مع إجماليات الحركات ونتيجة الجرد والإقفال.</p></div>
+      {!history.length ? <div className="empty-state">لا توجد ورديات مسجلة بعد.</div> : <div className="table-scroll"><table className="data-table"><thead><tr><th>بداية الوردية</th><th>الإقفال</th><th>المستخدم</th><th>العهدة</th><th>المقبوضات</th><th>المدفوعات</th><th>المتوقع</th><th>المعدود</th><th>الفرق</th><th>الحالة</th></tr></thead><tbody>
+        {history.map(item => <tr key={item.id}><td dir="ltr">{new Date(item.opened_at).toLocaleString("ar-YE")}</td><td dir="ltr">{item.closed_at ? new Date(item.closed_at).toLocaleString("ar-YE") : "—"}</td><td>{item.opened_by_name}</td><td>{money(item.opening_float_minor)}</td><td>{money(item.inflow_minor)}</td><td>{money(item.outflow_minor)}</td><td>{item.expected_cash_minor == null ? "—" : money(item.expected_cash_minor)}</td><td>{item.counted_cash_minor == null ? "—" : money(item.counted_cash_minor)}</td><td>{item.variance_minor == null ? "—" : money(item.variance_minor)}</td><td>{item.status === "open" ? "مفتوحة" : "مغلقة"}</td></tr>)}
+      </tbody></table></div>}
     </section>}
   </>;
 }
