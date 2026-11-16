@@ -4,12 +4,13 @@ import SalesReturnsView from "./SalesReturnsView";
 import SupplierStatementView from "./SupplierStatementView";
 import CustomerStatementView from "./CustomerStatementView";
 import CashRegisterView from "./CashRegisterView";
+import AccountingView from "./AccountingView";
 
 type User = { id: string; username: string; displayName: string; roles: string[]; permissions: string[] };
 type LoginResult = { token: string; expiresAt: string; user: User };
 type Health = { status: string; product: string; database: string; schemaVersion: number };
 type Screen = "checking" | "setup" | "login" | "dashboard" | "error";
-type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory" | "purchases" | "returns" | "cash";
+type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory" | "purchases" | "returns" | "cash" | "accounting";
 type ProductRow = {
   id: string; sku: string; name_ar: string; name_en: string | null; base_unit: string;
   sale_price_minor: number; cost_price_minor: number; is_active: number;
@@ -27,6 +28,7 @@ const navigation: { key: View; label: string; description: string }[] = [
   { key: "dashboard", label: "نظرة عامة", description: "ملخص حالة النظام" },
   { key: "pos", label: "نقطة البيع", description: "إنشاء فاتورة وخصم المخزون" },
   { key: "cash", label: "الصندوق والورديات", description: "إدارة العهدة والحركات والإقفال" },
+  { key: "accounting", label: "المحاسبة", description: "دليل الحسابات والقيود وميزان المراجعة" },
   { key: "products", label: "المنتجات", description: "إدارة الأصناف والأسعار" },
   { key: "customers", label: "العملاء", description: "سجل العملاء وحدود الائتمان" },
   { key: "suppliers", label: "الموردون", description: "سجل الموردين وبياناتهم" },
@@ -34,9 +36,7 @@ const navigation: { key: View; label: string; description: string }[] = [
   { key: "purchases", label: "المشتريات", description: "فواتير الشراء واستلام الأصناف" },
   { key: "returns", label: "المرتجعات", description: "مرتجعات المبيعات وإعادة المخزون" }
 ];
-const futureModules = [
-  ["المحاسبة", "دليل الحسابات والقيود والتقارير"]
-] as const;
+const futureModules = [] as const;
 
 const emptyForm: FormValues = {
   sku: "", nameAr: "", nameEn: "", baseUnit: "piece", salePrice: "0", costPrice: "0", barcode: "",
@@ -205,7 +205,7 @@ export default function App() {
   }
 
   async function loadRows(view: View) {
-    if (view === "dashboard" || view === "purchases" || view === "returns" || view === "cash") return;
+    if (view === "dashboard" || view === "purchases" || view === "returns" || view === "cash" || view === "accounting") return;
     setLoadingRows(true);
     setError("");
     try {
@@ -390,7 +390,7 @@ export default function App() {
       <aside className="sidebar">
         <Brand compact />
         <div className="nav-caption">مساحة العمل</div>
-        {navigation.map(item => <button key={item.key} className={`nav-button ${activeView === item.key ? "active" : ""}`}
+        {navigation.filter(item => item.key !== "accounting" || user?.permissions.includes("accounting:read")).map(item => <button key={item.key} className={`nav-button ${activeView === item.key ? "active" : ""}`}
           onClick={() => openView(item.key)}>{item.label}</button>)}
         <div className="nav-caption future-caption">وحدات قيد التطوير</div>
         {futureModules.map(([label]) => <div className="nav disabled" key={label}>{label}</div>)}
@@ -410,7 +410,7 @@ export default function App() {
             <div className="welcome-mark">N</div></section>
           <div className="section-heading"><h2>الوحدات المتاحة حالياً</h2><p>يمكنك إدارة البيانات الأساسية الآن؛ بقية الوحدات ستظهر بعد اكتمال تنفيذها.</p></div>
           <div className="module-grid">
-            {navigation.filter(item => item.key !== "dashboard").map((item, index) => <button className="module-card module-action" key={item.key} onClick={() => openView(item.key)}>
+            {navigation.filter(item => item.key !== "dashboard" && (item.key !== "accounting" || user?.permissions.includes("accounting:read"))).map((item, index) => <button className="module-card module-action" key={item.key} onClick={() => openView(item.key)}>
               <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item.label}</h3><p>{item.description}</p><span className="module-state available-state">متاح</span>
             </button>)}
             {futureModules.map(([label, description], index) => <article className="module-card" key={label}>
@@ -426,7 +426,7 @@ export default function App() {
           </section>
           {backupMessage && <div className="success-note backup-result" role="status">{backupMessage}</div>}
           {error && <div className="error page-error" role="alert">{error}</div>}
-        </> : activeView === "cash" ? <CashRegisterView token={token} canManage={Boolean(user?.permissions.includes("cash:manage"))} /> : activeView === "pos" ? <>
+        </> : activeView === "accounting" ? <AccountingView token={token} canRead={Boolean(user?.permissions.includes("accounting:read"))} /> : activeView === "cash" ? <CashRegisterView token={token} canManage={Boolean(user?.permissions.includes("cash:manage"))} /> : activeView === "pos" ? <>
           <div className="list-toolbar"><div><h2>نقطة البيع</h2><p>إنشاء فاتورة وترحيلها وخصم الكميات من المستودع المحدد.</p></div></div>
           {error && <div className="error page-error" role="alert">{error}</div>}
           {posMessage && <div className="success-note" role="status">{posMessage}</div>}
