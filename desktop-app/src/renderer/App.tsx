@@ -434,6 +434,16 @@ export default function App() {
           <div className="list-toolbar"><div><h2>نقطة البيع</h2><p>إنشاء فاتورة وترحيلها وخصم الكميات من المستودع المحدد.</p></div></div>
           {error && <div className="error page-error" role="alert">{error}</div>}
           {posMessage && <div className="success-note" role="status">{posMessage}</div>}
+          {lastReceipt && <section className="data-panel receipt-print">
+            <div className="receipt-heading"><h2>النصر ERP</h2><p>{lastReceipt.sale.store_name}</p><strong>إيصال بيع</strong></div>
+            <div className="receipt-meta"><span>رقم الفاتورة: {lastReceipt.sale.document_no}</span><span>التاريخ: {new Date(lastReceipt.sale.created_at).toLocaleString("ar-YE")}</span><span>العميل: {lastReceipt.sale.customer_name ?? "عميل نقدي"}</span></div>
+            <div className="table-scroll"><table className="data-table"><thead><tr><th>الصنف</th><th>كمية</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>
+              {lastReceipt.lines.map((line, index) => <tr key={line.sku + index}><td>{line.name_ar}<small className="secondary-name">{line.sku}</small></td><td>{formatQuantity(line.quantity)}</td><td>{formatMinor(line.unit_price_minor)}</td><td>{formatMinor(line.line_total_minor)}</td></tr>)}
+            </tbody></table></div>
+            <div className="receipt-totals"><p>الإجمالي قبل الخصم: {formatMinor(lastReceipt.sale.subtotal_minor)}</p><p>الخصم: {formatMinor(lastReceipt.sale.discount_minor)}</p><p>الضريبة: {formatMinor(lastReceipt.sale.tax_minor)}</p><strong>الإجمالي المستحق: {formatMinor(lastReceipt.sale.total_minor)}</strong><p>المدفوع: {formatMinor(lastReceipt.payments.reduce((sum, payment) => sum + payment.amount_minor, 0))}</p></div>
+            <p className="receipt-thanks">شكراً لتعاملكم معنا</p>
+            <button className="primary action-button" onClick={() => window.print()}>طباعة الإيصال</button>
+          </section>}
           {!posCashSessionOpen && <div className="error" role="alert">لا توجد وردية نقدية مفتوحة. يجب فتح الوردية قبل تسجيل البيع والتحصيل. <button className="table-action" onClick={() => openView("cash")}>فتح وحدة الصندوق</button></div>}
           {user?.permissions.includes("customers:read") && <section className="data-panel">
             <div className="section-heading"><h2>بيانات العميل</h2><p>اختياري: اربط الفاتورة بحساب عميل لمتابعة الرصيد وكشف الحساب.</p></div>
