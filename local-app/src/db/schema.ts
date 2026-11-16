@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 const migrationV1 = `
 CREATE TABLE IF NOT EXISTS app_meta (
@@ -419,4 +419,52 @@ INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
 
 export function applySchemaV7(db: Database.Database): void {
   db.exec(migrationV7);
+}
+const migrationV8 = `
+CREATE TABLE IF NOT EXISTS accounts (
+  id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE, name_ar TEXT NOT NULL, name_en TEXT,
+  account_type TEXT NOT NULL CHECK (account_type IN ('asset', 'liability', 'equity', 'revenue', 'expense')),
+  normal_balance TEXT NOT NULL CHECK (normal_balance IN ('debit', 'credit')),
+  parent_id TEXT REFERENCES accounts(id) ON DELETE RESTRICT,
+  is_system INTEGER NOT NULL DEFAULT 1 CHECK (is_system IN (0, 1)),
+  is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE TABLE IF NOT EXISTS journal_entries (
+  id TEXT PRIMARY KEY, entry_no TEXT NOT NULL UNIQUE, source_type TEXT, source_id TEXT,
+  description TEXT NOT NULL, entry_date TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('draft', 'posted', 'voided')),
+  idempotency_key TEXT NOT NULL UNIQUE,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  posted_by TEXT REFERENCES users(id) ON DELETE SET NULL, posted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_source_unique ON journal_entries(source_type, source_id) WHERE source_type IS NOT NULL AND source_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_journal_entries_date_status ON journal_entries(entry_date, status, entry_no);
+CREATE TABLE IF NOT EXISTS journal_lines (
+  id TEXT PRIMARY KEY, journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT, line_no INTEGER NOT NULL CHECK (line_no > 0),
+  debit_minor INTEGER NOT NULL DEFAULT 0 CHECK (debit_minor >= 0),
+  credit_minor INTEGER NOT NULL DEFAULT 0 CHECK (credit_minor >= 0),
+  description TEXT,
+  CHECK ((debit_minor > 0 AND credit_minor = 0) OR (debit_minor = 0 AND credit_minor > 0)),
+  UNIQUE(journal_entry_id, line_no)
+);
+CREATE INDEX IF NOT EXISTS idx_journal_lines_account ON journal_lines(account_id, journal_entry_id);
+INSERT OR IGNORE INTO accounts(id, code, name_ar, name_en, account_type, normal_balance, is_system) VALUES
+ ('acct-cash', '1000', 'الصندوق', 'Cash on hand', 'asset', 'debit', 1),
+ ('acct-bank', '1010', 'البنوك', 'Bank accounts', 'asset', 'debit', 1),
+ ('acct-ar', '1100', 'العملاء / الذمم المدينة', 'Accounts receivable', 'asset', 'debit', 1),
+ ('acct-inventory', '1200', 'المخزون', 'Inventory', 'asset', 'debit', 1),
+ ('acct-ap', '2000', 'الموردون / الذمم الدائنة', 'Accounts payable', 'liability', 'credit', 1),
+ ('acct-equity', '3000', 'رأس المال', 'Owner equity', 'equity', 'credit', 1),
+ ('acct-opening', '3100', 'أرصدة افتتاحية', 'Opening balance equity', 'equity', 'credit', 1),
+ ('acct-sales', '4000', 'إيرادات المبيعات', 'Sales revenue', 'revenue', 'credit', 1),
+ ('acct-sales-returns', '4050', 'مرتجعات المبيعات', 'Sales returns', 'revenue', 'debit', 1),
+ ('acct-cogs', '5000', 'تكلفة البضاعة المباعة', 'Cost of goods sold', 'expense', 'debit', 1),
+ ('acct-expense', '6000', 'مصروفات تشغيلية', 'Operating expenses', 'expense', 'debit', 1);
+`;
+
+export function applySchemaV8(db: Database.Database): void {
+  db.exec(migrationV8);
 }
