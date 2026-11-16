@@ -723,7 +723,8 @@ describe("local API integration", () => {
       summary: { purchasesMinor: 910, paymentsMinor: 400, returnsMinor: 160, outstandingMinor: 350 },
       items: [
         { entryType: "purchase", debitMinor: 910, creditMinor: 0, balanceMinor: 910 },
-        { entryType: "payment", debitMinor: 0, creditMinor: 400, balanceMinor: 510 },\n        { entryType: "return", debitMinor: 0, creditMinor: 160, balanceMinor: 350 }
+        { entryType: "payment", debitMinor: 0, creditMinor: 400, balanceMinor: 510 },
+        { entryType: "return", debitMinor: 0, creditMinor: 160, balanceMinor: 350 }
       ]
     });
 
