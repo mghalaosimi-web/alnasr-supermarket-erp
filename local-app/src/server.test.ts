@@ -620,6 +620,13 @@ describe("local API integration", () => {
     expect(inventory.json().quantity).toBe(12);
 
     const purchaseId = created.json().purchaseId as string;
+    const returnablePurchases = await app.inject({ method: "GET", url: "/api/v1/purchases/returnable", headers: authorization });
+    expect(returnablePurchases.statusCode).toBe(200);
+    expect(returnablePurchases.json().items).toHaveLength(1);
+    const purchaseLineDb = openDatabase(databasePath);
+    const purchaseLine = purchaseLineDb.prepare("SELECT id FROM purchase_lines WHERE purchase_id = ?").get(purchaseId) as { id: string };
+    closeDatabase(purchaseLineDb);
+
     const openCash = await app.inject({
       method: "POST", url: "/api/v1/cash/register/open", headers: authorization,
       payload: { storeId: store.id, openingFloatMinor: 1000, note: "وردية مشتريات" }
@@ -677,6 +684,34 @@ describe("local API integration", () => {
     });
     expect(invalidQuery.statusCode).toBe(400);
 
+    const createdReturn = await app.inject({
+      method: "POST", url: `/api/v1/purchases/${purchaseId}/returns`, headers: authorization,
+      payload: {
+        documentNo: "PUR-RET-001", reason: "وحدات تالفة",
+        lines: [{ purchaseLineId: purchaseLine.id, quantity: 2 }],
+        idempotencyKey: "purchase-return-api-001"
+      }
+    });
+    expect(createdReturn.statusCode).toBe(201);
+    expect(createdReturn.json().totalMinor).toBe(160);
+    const postedReturn = await app.inject({
+      method: "POST", url: `/api/v1/purchase-returns/${createdReturn.json().returnId}/post`, headers: authorization
+    });
+    expect(postedReturn.statusCode).toBe(200);
+    expect(postedReturn.json().duplicate).toBe(false);
+    const returnedInventory = await app.inject({
+      method: "GET", url: `/api/v1/inventory/balance?productId=${productId}&warehouseId=${warehouse.id}`, headers: authorization
+    });
+    expect(returnedInventory.json().quantity).toBe(10);
+    const afterReturnPayments = await app.inject({
+      method: "GET", url: `/api/v1/purchases/${purchaseId}/payments`, headers: authorization
+    });
+    expect(afterReturnPayments.json()).toMatchObject({ totalMinor: 910, paidMinor: 400, outstandingMinor: 350 });
+    const afterReturnHistory = await app.inject({
+      method: "GET", url: "/api/v1/purchases?search=PUR-API-INV-001", headers: authorization
+    });
+    expect(afterReturnHistory.json().items[0]).toMatchObject({ paid_minor: 400, returned_minor: 160, outstanding_minor: 350 });
+
     const supplierStatement = await app.inject({
       method: "GET",
       url: `/api/v1/suppliers/${supplierId}/statement`,
@@ -685,10 +720,10 @@ describe("local API integration", () => {
     expect(supplierStatement.statusCode).toBe(200);
     expect(supplierStatement.json()).toMatchObject({
       supplier: { id: supplierId, code: "PUR-SUP-001", name: "مورد الاختبار" },
-      summary: { purchasesMinor: 910, paymentsMinor: 400, outstandingMinor: 510 },
+      summary: { purchasesMinor: 910, paymentsMinor: 400, returnsMinor: 160, outstandingMinor: 350 },
       items: [
         { entryType: "purchase", debitMinor: 910, creditMinor: 0, balanceMinor: 910 },
-        { entryType: "payment", debitMinor: 0, creditMinor: 400, balanceMinor: 510 }
+        { entryType: "payment", debitMinor: 0, creditMinor: 400, balanceMinor: 510 },\n        { entryType: "return", debitMinor: 0, creditMinor: 160, balanceMinor: 350 }
       ]
     });
 
