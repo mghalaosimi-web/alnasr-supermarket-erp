@@ -92,7 +92,7 @@ export function getFinancialStatements(db: Database.Database, from: string, to: 
     normal === "debit" ? Number(debit) - Number(credit) : Number(credit) - Number(debit);
   const periodRows = rows.filter(row => row.account_type === "revenue" || row.account_type === "expense").map(row => ({
     id: row.id, code: row.code, name: row.name_ar, accountType: row.account_type,
-    amountMinor: amount(row.period_debit, row.period_credit, row.normal_balance)
+    amountMinor: row.account_type === "revenue" ? Number(row.period_credit) - Number(row.period_debit) : Number(row.period_debit) - Number(row.period_credit)
   }));
   const revenue = periodRows.filter(row => row.accountType === "revenue");
   const expenses = periodRows.filter(row => row.accountType === "expense");
@@ -130,12 +130,8 @@ function netIncomeToDate(rows: Array<{
   debit_to_date: number; credit_to_date: number;
 }>): number {
   return rows.reduce((sum, row) => {
-    if (row.account_type === "revenue") return sum + (row.normal_balance === "debit"
-      ? Number(row.debit_to_date) - Number(row.credit_to_date)
-      : Number(row.credit_to_date) - Number(row.debit_to_date));
-    if (row.account_type === "expense") return sum - (row.normal_balance === "debit"
-      ? Number(row.debit_to_date) - Number(row.credit_to_date)
-      : Number(row.credit_to_date) - Number(row.debit_to_date));
+    if (row.account_type === "revenue") return sum + Number(row.credit_to_date) - Number(row.debit_to_date);
+    if (row.account_type === "expense") return sum - (Number(row.debit_to_date) - Number(row.credit_to_date));
     return sum;
   }, 0);
 }
