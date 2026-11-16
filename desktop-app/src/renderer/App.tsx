@@ -198,7 +198,7 @@ export default function App() {
   }
 
   async function loadRows(view: View) {
-    if (view === "dashboard" || view === "purchases") return;
+    if (view === "dashboard" || view === "purchases" || view === "returns") return;
     setLoadingRows(true);
     setError("");
     try {
@@ -410,7 +410,7 @@ export default function App() {
             </div>
             <div className="facts"><div><small>الخادم</small><b>Fastify · 127.0.0.1</b></div>
               <div><small>قاعدة البيانات</small><b>{health?.database?.toUpperCase() ?? "SQLITE"}</b></div>
-              <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 4}</b></div></div>
+              <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 6}</b></div></div>
           </section>
           {backupMessage && <div className="success-note backup-result" role="status">{backupMessage}</div>}
           {error && <div className="error page-error" role="alert">{error}</div>}

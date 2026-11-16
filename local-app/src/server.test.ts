@@ -222,6 +222,24 @@ describe("local API integration", () => {
     expect(duplicateReturnPost.statusCode).toBe(200);
     expect(duplicateReturnPost.json().duplicate).toBe(true);
 
+    const returnableSales = await app.inject({
+      method: "GET", url: "/api/v1/sales/returnable", headers: authorization
+    });
+    expect(returnableSales.statusCode).toBe(200);
+    expect(returnableSales.json().items).toHaveLength(1);
+    expect(returnableSales.json().items[0].id).toBe(saleId);
+    const returnableLines = await app.inject({
+      method: "GET", url: `/api/v1/sales/${saleId}/returnable-lines`, headers: authorization
+    });
+    expect(returnableLines.statusCode).toBe(200);
+    expect(returnableLines.json().items[0].remaining_quantity).toBe(1);
+    const returnHistory = await app.inject({
+      method: "GET", url: `/api/v1/sales/${saleId}/returns`, headers: authorization
+    });
+    expect(returnHistory.statusCode).toBe(200);
+    expect(returnHistory.json().items).toHaveLength(1);
+    expect(returnHistory.json().items[0].status).toBe("posted");
+
     const unauthenticatedBalances = await app.inject({
       method: "GET",
       url: "/api/v1/inventory/balances?warehouseId=" + warehouse.id
