@@ -591,6 +591,31 @@ describe("local API integration", () => {
       headers: authorization
     });
     expect(invalidQuery.statusCode).toBe(400);
+
+    const supplierStatement = await app.inject({
+      method: "GET",
+      url: `/api/v1/suppliers/${supplierId}/statement`,
+      headers: authorization
+    });
+    expect(supplierStatement.statusCode).toBe(200);
+    expect(supplierStatement.json()).toMatchObject({
+      supplier: { id: supplierId, code: "PUR-SUP-001", name: "مورد الاختبار" },
+      summary: { purchasesMinor: 910, paymentsMinor: 400, outstandingMinor: 510 },
+      items: [
+        { entryType: "purchase", debitMinor: 910, creditMinor: 0, balanceMinor: 910 },
+        { entryType: "payment", debitMinor: 0, creditMinor: 400, balanceMinor: 510 }
+      ]
+    });
+
+    const unauthenticatedStatement = await app.inject({
+      method: "GET", url: `/api/v1/suppliers/${supplierId}/statement`
+    });
+    expect(unauthenticatedStatement.statusCode).toBe(401);
+
+    const invalidStatementQuery = await app.inject({
+      method: "GET", url: `/api/v1/suppliers/${supplierId}/statement?limit=0`, headers: authorization
+    });
+    expect(invalidStatementQuery.statusCode).toBe(400);
   });
 
 });
