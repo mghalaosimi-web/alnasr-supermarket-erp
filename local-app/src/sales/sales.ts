@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
+import { postSystemJournalEntry } from "../accounting/journal.js";
 import { postStockMovement } from "../inventory/stock-ledger.js";
 
 export interface SaleLineInput {
@@ -129,8 +130,8 @@ export function postSale(
 ): { saleId: string; status: "posted"; duplicate: boolean } {
   const post = db.transaction(() => {
     const sale = db.prepare(`
-      SELECT id, warehouse_id, status FROM sales WHERE id = ?
-    `).get(saleId) as { id: string; warehouse_id: string | null; status: string } | undefined;
+      SELECT id, document_no, warehouse_id, status, total_minor FROM sales WHERE id = ?
+    `).get(saleId) as { id: string; document_no: string; warehouse_id: string | null; status: string; total_minor: number } | undefined;
     if (!sale) throw new Error("Sale not found.");
     if (sale.status === "posted") return { saleId, status: "posted" as const, duplicate: true };
     if (sale.status !== "draft" || !sale.warehouse_id) throw new Error("Only a draft sale with a warehouse can be posted.");
@@ -155,6 +156,20 @@ export function postSale(
     }
 
     db.prepare("UPDATE sales SET status = 'posted' WHERE id = ? AND status = 'draft'").run(saleId);
+    const costOfGoodsMinor = lines.reduce((sum, line) => sum + line.quantity * line.cost_price_minor, 0);
+    const journalLines = [];
+    if (sale.total_minor > 0) {
+      journalLines.push({ accountCode: "1100", debitMinor: sale.total_minor, description: "ذمم العميل" });
+      journalLines.push({ accountCode: "4000", creditMinor: sale.total_minor, description: "إيراد المبيعات" });
+    }
+    if (costOfGoodsMinor > 0) {
+      journalLines.push({ accountCode: "5000", debitMinor: costOfGoodsMinor, description: "تكلفة البضاعة المباعة" });
+      journalLines.push({ accountCode: "1200", creditMinor: costOfGoodsMinor, description: "تخفيض المخزون" });
+    }
+    if (journalLines.length) postSystemJournalEntry(db, {
+      sourceType: "sale", sourceId: saleId, idempotencyKey: `journal:sale:${saleId}`,
+      description: `ترحيل فاتورة البيع ${sale.document_no}`, actorUserId, lines: journalLines
+    });
     db.prepare(`
       INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json)
       VALUES (?, ?, 'sale.posted', 'sale', ?, '{}')

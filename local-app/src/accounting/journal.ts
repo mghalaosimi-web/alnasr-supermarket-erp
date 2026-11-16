@@ -38,7 +38,7 @@ export function listAccounts(db: Database.Database) {
 }
 
 export function getTrialBalance(db: Database.Database, asOf: string) {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asOf) || Number.isNaN(Date.parse(`${asOf}T00:00:00.000Z`))) throw new Error("Invalid trial balance date.");
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asOf) || new Date(`${asOf}T00:00:00.000Z`).toISOString().slice(0, 10) !== asOf) throw new Error("Invalid trial balance date.");
   const rows = db.prepare(`
     SELECT a.id, a.code, a.name_ar, a.name_en, a.account_type, a.normal_balance,
       COALESCE(SUM(jl.debit_minor), 0) AS debit_minor,

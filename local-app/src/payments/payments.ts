@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import { addLinkedCashMovement } from "../cash-register/cash-register.js";
+import { postSystemJournalEntry } from "../accounting/journal.js";
 
 export type SalePaymentMethod = "cash" | "card" | "bank_transfer" | "mobile_wallet";
 
@@ -121,6 +122,14 @@ export function recordSalePayment(
       });
     }
 
+    postSystemJournalEntry(db, {
+      sourceType: "sale_payment", sourceId: paymentId, idempotencyKey: `journal:sale-payment:${paymentId}`,
+      description: "تحصيل دفعة من العميل", actorUserId: input.actorUserId,
+      lines: [
+        { accountCode: input.method === "cash" ? "1000" : "1010", debitMinor: input.amountMinor, description: "استلام التحصيل" },
+        { accountCode: "1100", creditMinor: input.amountMinor, description: "تخفيض ذمم العميل" }
+      ]
+    });
     const paidMinor = totals.paidMinor + input.amountMinor;
     const outstandingMinor = totals.sale.total_minor - paidMinor;
     db.prepare(`

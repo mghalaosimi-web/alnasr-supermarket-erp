@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
+import { postSystemJournalEntry } from "../accounting/journal.js";
 import { postStockMovement } from "../inventory/stock-ledger.js";
 
 export interface PurchaseLineInput {
@@ -130,8 +131,8 @@ export function postPurchase(
   actorUserId?: string | null
 ): { purchaseId: string; status: "posted"; duplicate: boolean } {
   const post = db.transaction(() => {
-    const purchase = db.prepare("SELECT id, warehouse_id, status FROM purchases WHERE id = ?")
-      .get(purchaseId) as { id: string; warehouse_id: string; status: string } | undefined;
+    const purchase = db.prepare("SELECT id, document_no, warehouse_id, status, total_minor FROM purchases WHERE id = ?")
+      .get(purchaseId) as { id: string; document_no: string; warehouse_id: string; status: string; total_minor: number } | undefined;
     if (!purchase) throw new Error("Purchase not found.");
     if (purchase.status === "posted") return { purchaseId, status: "posted" as const, duplicate: true };
     if (purchase.status !== "draft") throw new Error("Only a draft purchase can be posted.");
@@ -155,6 +156,14 @@ export function postPurchase(
     }
 
     db.prepare("UPDATE purchases SET status = 'posted' WHERE id = ? AND status = 'draft'").run(purchaseId);
+    if (purchase.total_minor > 0) postSystemJournalEntry(db, {
+      sourceType: "purchase", sourceId: purchaseId, idempotencyKey: `journal:purchase:${purchaseId}`,
+      description: `ترحيل فاتورة الشراء ${purchase.document_no}`, actorUserId,
+      lines: [
+        { accountCode: "1200", debitMinor: purchase.total_minor, description: "إضافة المخزون" },
+        { accountCode: "2000", creditMinor: purchase.total_minor, description: "ذمم المورد" }
+      ]
+    });
     db.prepare(`
       INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json)
       VALUES (?, ?, 'purchase.posted', 'purchase', ?, '{}')

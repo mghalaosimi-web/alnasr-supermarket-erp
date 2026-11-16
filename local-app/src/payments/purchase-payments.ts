@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import { addLinkedCashMovement } from "../cash-register/cash-register.js";
+import { postSystemJournalEntry } from "../accounting/journal.js";
 
 export type PurchasePaymentMethod = "cash" | "card" | "bank_transfer" | "mobile_wallet";
 
@@ -112,6 +113,14 @@ export function recordPurchasePayment(
       });
     }
 
+    postSystemJournalEntry(db, {
+      sourceType: "purchase_payment", sourceId: paymentId, idempotencyKey: `journal:purchase-payment:${paymentId}`,
+      description: "سداد دفعة للمورد", actorUserId: input.actorUserId,
+      lines: [
+        { accountCode: "2000", debitMinor: input.amountMinor, description: "تخفيض ذمم المورد" },
+        { accountCode: input.method === "cash" ? "1000" : "1010", creditMinor: input.amountMinor, description: "صرف الدفعة" }
+      ]
+    });
     const paidMinor = totals.paidMinor + input.amountMinor;
     const outstandingMinor = totals.purchase.total_minor - paidMinor;
     db.prepare(`
