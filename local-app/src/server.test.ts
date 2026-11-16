@@ -307,7 +307,8 @@ describe("local API integration", () => {
     expect(journals.json().items.length).toBeGreaterThanOrEqual(4);
     const trialBalance = await app.inject({ method: "GET", url: "/api/v1/accounting/trial-balance", headers: authorization });
     expect(trialBalance.statusCode).toBe(200);
-    expect(trialBalance.json().totals.debitMovementsMinor).toBeGreaterThan(0);\n    expect(trialBalance.json().totals.debitMovementsMinor).toBe(trialBalance.json().totals.creditMovementsMinor);
+    expect(trialBalance.json().totals.debitMovementsMinor).toBeGreaterThan(0);
+    expect(trialBalance.json().totals.debitMovementsMinor).toBe(trialBalance.json().totals.creditMovementsMinor);
     const invalidTrialBalance = await app.inject({
       method: "GET", url: "/api/v1/accounting/trial-balance?asOf=2026-02-30", headers: authorization
     });
