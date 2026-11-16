@@ -426,7 +426,7 @@ export default function App() {
             </div>
             <div className="facts"><div><small>الخادم</small><b>Fastify · 127.0.0.1</b></div>
               <div><small>قاعدة البيانات</small><b>{health?.database?.toUpperCase() ?? "SQLITE"}</b></div>
-              <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 8}</b></div></div>
+              <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 9}</b></div></div>
           </section>
           {backupMessage && <div className="success-note backup-result" role="status">{backupMessage}</div>}
           {error && <div className="error page-error" role="alert">{error}</div>}

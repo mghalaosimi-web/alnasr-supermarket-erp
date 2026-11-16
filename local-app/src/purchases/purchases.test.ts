@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import { applySchemaV1, applySchemaV2, applySchemaV3, applySchemaV4, applySchemaV5, applySchemaV6, applySchemaV7, applySchemaV8, applySchemaV9 } from "../db/schema.js";
 import { getStockBalance, postStockMovement } from "../inventory/stock-ledger.js";
 import { createPurchase, listPurchases, postPurchase } from "./purchases.js";
-import { createPurchaseReturn, listPurchaseReturnableLines, postPurchaseReturn, voidPurchaseReturn } from "./purchase-returns.js";
+import { createPurchaseReturn, listPurchaseReturnableLines, postPurchaseReturn } from "./purchase-returns.js";
 
 describe("purchase receiving lifecycle", () => {
   let db: Database.Database | undefined;
