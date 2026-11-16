@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This delivery note describes the earlier ERPNext/Frappe + MariaDB + Redis + Docker/WSL2 deployment proposal. The accepted target is now [ADR-0002 — SQLite local-first, no Docker](ADR-0002-sqlite-local-first-no-docker.md). Do not follow the old MariaDB, Redis, Docker, WSL2, Frappe, or X POS server assumptions when implementing the current product. Its general Windows/Android acceptance gates may be reused only after translating them to the accepted SQLite/Fastify architecture.
+
 # AL-NASR client delivery architecture — one Windows PC + one Android phone
 
 **Decision scope:** one store, one Windows computer, one Android phone. No multi-terminal cluster, no cloud dependency, and no additional client devices are included in this delivery target.

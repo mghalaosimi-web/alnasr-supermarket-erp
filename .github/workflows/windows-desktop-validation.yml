@@ -1,0 +1,141 @@
+name: AL-NASR Windows Desktop Validation
+
+on:
+  pull_request:
+    branches:
+      - foundation/alnasr-commerce-acceptance
+    paths:
+      - "desktop-app/**"
+      - "local-app/**"
+      - ".github/workflows/windows-desktop-validation.yml"
+  push:
+    branches:
+      - architecture/sqlite-offline-no-docker
+    paths:
+      - "desktop-app/**"
+      - "local-app/**"
+      - ".github/workflows/windows-desktop-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alnasr-windows-desktop-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-build:
+    name: Electron React x64 build and NSIS packaging
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24 x64
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          architecture: x64
+          cache: npm
+          cache-dependency-path: |
+            local-app/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix local-app --no-audit --no-fund
+
+      - name: Install desktop dependencies and generate lockfile
+        working-directory: desktop-app
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck Electron and React
+        working-directory: desktop-app
+        run: npm run typecheck
+
+      - name: Build SQLite backend, React renderer, and Electron host
+        working-directory: desktop-app
+        run: npm run build
+
+      - name: Package Windows x64 NSIS installer
+        working-directory: desktop-app
+        run: npx electron-builder --win nsis --x64
+
+      - name: Launch packaged app and verify local SQLite API
+        shell: pwsh
+        working-directory: desktop-app
+        run: |
+          $app = Resolve-Path "release/win-unpacked/AL-NASR ERP.exe"
+          $process = Start-Process -FilePath $app.Path -ArgumentList "--disable-gpu" -PassThru
+          try {
+            $health = $null
+            $deadline = (Get-Date).AddSeconds(45)
+            while ((Get-Date) -lt $deadline) {
+              if ($process.HasExited) { throw "Packaged AL-NASR process exited with code $($process.ExitCode)." }
+              try {
+                $health = Invoke-RestMethod -Uri "http://127.0.0.1:4317/api/v1/health" -TimeoutSec 2
+                break
+              } catch { Start-Sleep -Seconds 1 }
+            }
+            if ($null -eq $health) { throw "Packaged local API did not become ready within 45 seconds." }
+            if ($health.status -ne "ok" -or $health.database -ne "sqlite" -or $health.schemaVersion -ne 9) {
+              throw "Unexpected packaged API health response: $($health | ConvertTo-Json -Compress)"
+            }
+            $dbPath = Join-Path $env:ProgramData "AL-NASR/data/alnasr.sqlite"
+            if (-not (Test-Path $dbPath)) { throw "Expected ProgramData SQLite database was not created: $dbPath" }
+            Write-Host "Packaged app smoke test passed: SQLite schema $($health.schemaVersion), database $dbPath"
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+
+      - name: Install NSIS EXE, launch installed app, and verify uninstall preserves data
+        shell: pwsh
+        working-directory: desktop-app
+        run: |
+          $installer = (Get-ChildItem "release" -Filter "*.exe" | Select-Object -First 1).FullName
+          if (-not $installer) { throw "NSIS installer EXE was not produced." }
+          $installDir = "C:\AL-NASR-ERP-Install-Test"
+          if (Test-Path $installDir) { Remove-Item $installDir -Recurse -Force }
+          $install = Start-Process -FilePath $installer -ArgumentList @("/S", "/D=$installDir") -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit code $($install.ExitCode)." }
+          $installedApp = Join-Path $installDir "AL-NASR ERP.exe"
+          if (-not (Test-Path $installedApp)) { throw "Installed desktop executable not found: $installedApp" }
+          $process = Start-Process -FilePath $installedApp -ArgumentList "--disable-gpu" -PassThru
+          try {
+            $health = $null
+            $deadline = (Get-Date).AddSeconds(45)
+            while ((Get-Date) -lt $deadline) {
+              if ($process.HasExited) { throw "Installed AL-NASR process exited with code $($process.ExitCode)." }
+              try { $health = Invoke-RestMethod -Uri "http://127.0.0.1:4317/api/v1/health" -TimeoutSec 2; break }
+              catch { Start-Sleep -Seconds 1 }
+            }
+            if ($null -eq $health -or $health.status -ne "ok" -or $health.database -ne "sqlite" -or $health.schemaVersion -ne 9) {
+              throw "Installed app health check failed: $($health | ConvertTo-Json -Compress)"
+            }
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+          $dbPath = Join-Path $env:ProgramData "AL-NASR/data/alnasr.sqlite"
+          if (-not (Test-Path $dbPath)) { throw "Installed app did not preserve/create its ProgramData database." }
+          $uninstaller = Get-ChildItem $installDir -Filter "Uninstall*.exe" | Select-Object -First 1
+          if (-not $uninstaller) { throw "NSIS uninstaller was not found in the install directory." }
+          $remove = Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($remove.ExitCode -ne 0) { throw "NSIS silent uninstall failed with exit code $($remove.ExitCode)." }
+          if (-not (Test-Path $dbPath)) { throw "Application uninstall removed the persistent SQLite database." }
+          Write-Host "NSIS install, installed-app API health, and uninstall data-persistence smoke tests passed."
+
+      - name: Upload Windows installer preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: AL-NASR-Windows-Installer-Preview
+          path: desktop-app/release/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload generated npm lockfile for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: AL-NASR-Desktop-Package-Lock
+          path: desktop-app/package-lock.json
+          if-no-files-found: error
+          retention-days: 7

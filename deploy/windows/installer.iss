@@ -24,6 +24,13 @@ Uninstallable=yes
 UninstallDisplayName={#AppName}
 CloseApplications=yes
 
+[Code]
+function InitializeSetup(): Boolean;
+begin
+  MsgBox('This installer belongs to the retired Docker/ERPNext deployment and is not compatible with the SQLite Windows edition. Installation has been blocked to prevent deploying the wrong product.', mbCriticalError, MB_OK);
+  Result := False;
+end;
+
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 

@@ -1,83 +1,85 @@
+## Windows-first delivery priority
+
+The active Phase 1 client target is now **Windows desktop first**. Android implementation is frozen until Windows installation, offline operation, core ERP workflows, backup/restore, upgrade, and clean-machine acceptance are complete. The existing Android preview source is preserved; its CI is manual-only during this freeze.
+
+See [Windows-first Phase 1 execution plan](docs/implementation/WINDOWS-FIRST-EXECUTION-PLAN.md). The old `deploy/windows/installer.iss` is intentionally blocked because it installs the superseded Docker/ERPNext stack; it is not the SQLite Windows installer.
+
 # النصر | AL-NASR
 
 **نظام متكامل لإدارة السوبرماركت وتجارة التجزئة والجملة**
 
 **AL-NASR — Integrated Supermarket, Retail & Wholesale Management System**
 
-AL-NASR is an independently branded supermarket and retail-management product for **نصر عثمان عبدالله العصيمي**. Its Arabic-first experience is designed for supermarket operations from small-item retail to wholesale workflows.
+AL-NASR is an independently branded supermarket and retail-management product. The accepted implementation target is an Arabic-first local Windows ERP with SQLite as its authoritative database and an Android companion connected only through a secured LAN API.
 
 ## Product identity
 
 - **Arabic name:** النصر
 - **English name:** AL-NASR
-- **Owner:** نصر عثمان عبدالله العصيمي
-- **Product description:** نظام متكامل لإدارة السوبرماركت وتجارة التجزئة والجملة.
 - **Languages:** Arabic RTL first, with English LTR support.
 - **Brand assets and usage:** [Brand guidelines](docs/brand/BRAND-GUIDELINES.md).
 - **Branding coverage and remaining work:** [Brand implementation matrix](docs/brand/BRAND-IMPLEMENTATION-MATRIX.md).
-- **Upstream integration compatibility decisions:** [Compatibility overrides](docs/architecture/COMPATIBILITY-OVERRIDES.md).
 
 ## Product scope
 
-- Point of Sale (POS), cashier shifts, receipts, barcode scanning, returns, and promotions
-- Product catalog with hierarchical item groups, variants, units of measure, and multiple barcodes
-- Inventory, stock ledger, warehouses, batches, serial numbers, and stock transfers
-- Purchasing, suppliers, purchase orders, goods receipt, and supplier invoices
-- Sales, customers, credit limits, customer balances, and loyalty
-- Accounting, cash management, payment reconciliation, and financial reports
-- Multi-warehouse and multi-branch operations with role-based access control
-- Arabic RTL and English LTR interfaces
-- Local-network operation with a controlled offline workflow and later synchronization
-- Desktop, tablet, and phone access
+The intended product scope includes POS, sales, returns, purchase receiving, inventory and stock transfers, customer and supplier accounts, cash registers and shifts, double-entry accounting, reports, audit, backups, device management, Arabic RTL/English LTR interfaces, Windows desktop installation, and a secured Kotlin Android companion. This is the acceptance scope, not a claim that all those modules are currently implemented.
 
-## Intended technical foundation
+## Accepted target architecture
 
-- **ERPNext / Frappe v16** for ERP, inventory, purchasing, accounting, users, permissions, and APIs.
-- **X POS v16** as the selected POS candidate for evaluation.
-- **AL-NASR custom Frappe app** for supermarket-specific workflows, configuration, integrations, Arabic product experience, and original branding.
+**SQLite local-first — no Docker.** The accepted architecture is [ADR-0002](docs/architecture/ADR-0002-sqlite-local-first-no-docker.md).
 
-The upstream source revisions are pinned in [UPSTREAM-LOCK.md](docs/architecture/UPSTREAM-LOCK.md). This is an engineering baseline under verification, not a declaration that every feature is already implemented or production-ready.
+- **Windows desktop:** React + TypeScript packaged with Electron.
+- **Local API:** TypeScript + Fastify managed by the Windows desktop runtime.
+- **Database:** one authoritative local SQLite database using `better-sqlite3`, versioned migrations, transactions, and integrity checks.
+- **Android:** native Kotlin client connecting to the Windows PC over authenticated HTTPS on the private LAN.
+- **Ordinary local operation:** no Docker, WSL2, MariaDB, MySQL, Redis, mandatory cloud services, or separately installed Node.js/Python.
+- **Data:** persistent store data and backups remain outside the application installation directory.
 
-### Get the pinned source tree
+The former ERPNext/Frappe + MariaDB + Redis + Docker design is superseded by ADR-0002. Its source, submodules, and CI records remain historical research and are not evidence that the SQLite replacement implements equivalent functionality.
 
-Clone with submodules enabled so Frappe, ERPNext, and X POS are checked out at the exact commits recorded by this repository:
+## Verified implementation snapshot — 2026-11-15
 
-```bash
-git clone --recurse-submodules https://github.com/mghalaosimi-web/alnasr-supermarket-erp.git
-cd alnasr-supermarket-erp
-bash scripts/bootstrap-upstream.sh
-```
+**Status: Windows desktop technical preview builds, installs, starts, and preserves its SQLite data through uninstall in GitHub-hosted Windows CI. Phase 1 is still not complete or release-approved.**
 
-If the repository was cloned without submodules, the bootstrap script initializes them and verifies all three immutable revisions. The upstream projects remain separate Git repositories; AL-NASR-specific code stays in `apps/alnasr`.
+The current `local-app/` is a TypeScript/Fastify backend foundation. It includes SQLite schema migrations v1–v4; database durability/integrity settings; one-time owner setup; scrypt password hashing; hashed bearer sessions, expiration/revocation and seeded RBAC; product create/list; customer and supplier master-data CRUD; stock balance and adjustment ledger; sale draft/post; partial sale-payment allocation with idempotency and audit; purchase draft/receipt; and verified online database backup creation.
 
-## Architecture principles
+The latest Windows-first backend validation [run 43751986121](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43751986121) passed on Windows x64, including native SQLite, TypeScript checks, 9 test files / 35 tests, build, and ProgramData database smoke. The local-runtime workflow also passed on the desktop UI commit [run 43752144002](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43752144002). These are component-level validations, not complete ERP acceptance.
 
-1. Keep ERPNext core unmodified; implement AL-NASR-specific behavior in custom Frappe apps and supported extension points.
-2. Keep upstream components identifiable and their original license/copyright notices intact.
-3. Separate the AL-NASR commercial identity from upstream project names, logos, and trademarks.
-4. Do not treat browser offline caching as equivalent to multi-terminal LAN synchronization.
-5. Never silently discard queued offline sales; use idempotent synchronization, conflict review, and audit trails.
-6. No production secrets, customer data, credentials, or database dumps belong in this repository.
-7. Do not claim complete rebranding until every owned surface in the brand implementation matrix has passed visual and functional review.
+The Android Gradle validation workflow [run #48](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43747506964) passed on the same PR head and uploaded the debug-preview artifact `AL-NASR-Android-Debug-Preview` for controlled device testing. This is not a production release or device-acceptance result.
 
-## Repository status
+Windows Electron/React and NSIS x64 packaging are now implemented. The Windows desktop workflow [run 43752169158](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43752169158) passed TypeScript checks, application build, NSIS packaging, packaged-app API/SQLite health, silent NSIS installation, installed-app startup, silent uninstall, and confirmation that `%ProgramData%\\AL-NASR\\data\\alnasr.sqlite` remains after uninstall. The current React desktop UI provides product/customer/supplier list and create screens, customer/supplier deactivation, warehouse stock-balance display, and stock-adjustment entry through the authenticated local API. Inventory context and aggregate balance endpoints are covered by backend integration tests. This remains a technical preview: no physical Windows 10/11 clean-machine acceptance, code signing, ACL hardening, upgrade-in-place, or complete ERP workflow acceptance has been completed.
 
-**Status: Foundation and initial brand assets / not production-ready.**
+An Android Kotlin/Gradle WebView preview project exists, but it is not yet a secure Fastify API companion: it lacks the required pairing protocol, certificate/public-key pinning, device registration/revocation, API session integration, and synchronization workflows. Android implementation remains frozen until Windows release acceptance is complete. The old `deploy/windows` Inno Setup/PowerShell scaffold still packages the superseded Docker/ERPNext stack; it is blocked and must not be used.
 
-- Repository initialized and custom Frappe app scaffold created.
-- Frappe, ERPNext, and X POS are pinned as recursive Git submodules; GitHub Actions verified their exact upstream commit SHAs.
-- A clean disposable Bench integration passed on 2026-11-14: all three apps installed, migrations completed on temporary MariaDB, application contracts and HTTP health passed. See [runtime integration run #43604127743](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/actions/runs/43604127743).
-- Initial AL-NASR brand wordmark, mark, favicon, and brand documentation added.
-- Custom app metadata is branded; full ERPNext/X POS screen, receipt, email, login, and desktop-client branding remains to be integrated and tested.
-- Installation, offline recovery, LAN multi-terminal synchronization, mobile behavior, barcode hardware, thermal printing, and accounting flows require integration tests before release.
+## Major Phase 1 work still outstanding
 
-## Upstream references
+- Full domain schema and workflows for customers, suppliers, payments/allocations, returns/refunds, cash registers, shifts, and accounting journals.
+- Double-entry posting, receivable/payable reconciliation, inventory valuation, and data-backed operational/financial reports.
+- Restore, scheduled backups, retention and disaster-recovery validation.
+- Complete React desktop frontend and workflows: product update/deactivation, customer/supplier edit, inventory, POS, purchases, returns, shifts, accounting, reports, administration, and backup/restore UI; English localization and screen-level tests.
+- Windows release hardening: ProgramData ACL policy, code signing, upgrade-in-place acceptance, clean physical Windows 10/11 testing, diagnostics, and peripherals.
+- Secure Kotlin Android REST client, TLS fingerprint verification, pairing, device revocation, authorization-scoped workflows and tested sync behavior.
+- CI coverage for the entire application, Windows packaging, Android build and external acceptance.
+- Clean Windows installation/upgrade/uninstall testing, physical Android/LAN testing and peripheral acceptance.
+
+## Project status and execution record
+
+- **Implementation PR:** [#7](https://github.com/mghalaosimi-web/alnasr-supermarket-erp/pull/7) — open, Draft, not merged.
+- **Authorized branch:** `architecture/sqlite-offline-no-docker`.
+- **Detailed evidence and remaining work:** [Phase 1 execution status](docs/implementation/PHASE-1-EXECUTION-STATUS.md).
+- **Architecture source of truth:** [ADR-0002](docs/architecture/ADR-0002-sqlite-local-first-no-docker.md).
+
+Do not treat the historical ERPNext/X POS test totals, upstream Electron packaging, or an Android WebView preview as proof that a SQLite-based AL-NASR installer and companion app are ready.
+
+## Historical upstream references
+
+These projects informed the former ERPNext-based prototype and are not runtime dependencies of the accepted SQLite target:
 
 - [ERPNext](https://github.com/frappe/erpnext) — GNU GPL v3.0
 - [Frappe Framework](https://github.com/frappe/frappe) — MIT License
-- [X POS](https://github.com/kodlyft/xpos) — MIT License; selected candidate branch: version-16
-- [Original POS Awesome](https://github.com/ucraft-com/POS-Awesome) — GNU GPL v3.0; not the default v16 choice.
+- [X POS](https://github.com/kodlyft/xpos) — MIT License
+- [Original POS Awesome](https://github.com/ucraft-com/POS-Awesome) — GNU GPL v3.0
 
 ## License and attribution
 
-This repository may contain components under different licenses. Preserve all upstream LICENSE files, copyright notices, and attribution requirements. Do not assume that the entire repository is covered by one license until the component and distribution model has been reviewed.
+This repository contains historical components under different licenses. Preserve upstream LICENSE files, copyright notices, and attribution requirements for retained source. Review the license of each component before reuse or distribution. Audit and publish the license inventory of the SQLite application's dependencies before release.
