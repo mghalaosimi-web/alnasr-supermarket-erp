@@ -24,6 +24,7 @@ type InventoryRow = { product_id: string; sku: string; name_ar: string; base_uni
 type Warehouse = { id: string; store_id: string; code: string; name: string };
 type ApiError = { error?: string; message?: string };
 type FormValues = Record<string, string>;
+type SaleReceipt = { sale: { document_no: string; status: string; subtotal_minor: number; discount_minor: number; tax_minor: number; total_minor: number; created_at: string; store_name: string; customer_name: string | null; customer_code: string | null }; lines: Array<{ sku: string; name_ar: string; quantity: number; unit_price_minor: number; line_total_minor: number }>; payments: Array<{ method: string; amount_minor: number; reference: string | null; created_at: string }> };
 
 const navigation: { key: View; label: string; description: string }[] = [
   { key: "dashboard", label: "نظرة عامة", description: "ملخص حالة النظام" },
@@ -73,6 +74,7 @@ export default function App() {
   const [posCashSessionOpen, setPosCashSessionOpen] = useState(false);
   const [posBusy, setPosBusy] = useState(false);
   const [posMessage, setPosMessage] = useState("");
+  const [lastReceipt, setLastReceipt] = useState<SaleReceipt | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<PartnerRow | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<PartnerRow | null>(null);
 
@@ -176,7 +178,7 @@ export default function App() {
     }).filter((line): line is { productId: string; quantity: number; unitPriceMinor: number } => line !== null);
     if (!posCashSessionOpen) { setError("يجب فتح وردية نقدية قبل إتمام البيع. افتح وحدة الصندوق أولاً."); return; }
     if (!lines.length || !posStoreId || !posWarehouseId) { setError("أضف صنفاً واحداً على الأقل إلى الفاتورة."); return; }
-    setPosBusy(true); setError(""); setPosMessage("");
+    setPosBusy(true); setError(""); setPosMessage(""); setLastReceipt(null);
     try {
       const created = await window.alnasr.request<{ saleId: string; totalMinor: number }>({
         path: "/api/v1/sales", method: "POST", token,
@@ -188,6 +190,10 @@ export default function App() {
       if (posted.status !== 200) throw new Error("تم إنشاء الفاتورة كمسودة، لكن تعذر ترحيلها وخصم المخزون.");
       const paid = await window.alnasr.request({ path: `/api/v1/sales/${created.data.saleId}/payments`, method: "POST", token,
         body: { method: "cash", amountMinor: created.data.totalMinor, idempotencyKey: crypto.randomUUID() } });
+      if (user?.permissions.includes("sales:read")) {
+        const receipt = await window.alnasr.request<SaleReceipt>({ path: "/api/v1/sales/" + created.data.saleId + "/receipt", token });
+        if (receipt.status === 200) setLastReceipt(receipt.data);
+      }
       if (paid.status !== 201 && paid.status !== 200) {
         setPosCart({}); setPosCustomerId(""); setPosMessage(`تم ترحيل الفاتورة ${created.data.saleId} وخصم المخزون، لكن تعذر تسجيل التحصيل النقدي. راجع المدفوعات.`);
       } else {
