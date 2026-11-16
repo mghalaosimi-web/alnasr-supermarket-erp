@@ -188,6 +188,11 @@ describe("local API integration", () => {
       payload: { storeId: store.id, direction: "out", amountMinor: 25, description: "مصروف تشغيلي", idempotencyKey: "cash-manual-out-001" }
     });
     expect(cashOut.statusCode).toBe(201);
+    const overdraw = await app.inject({
+      method: "POST", url: "/api/v1/cash/register/movements", headers: authorization,
+      payload: { storeId: store.id, direction: "out", amountMinor: 126, description: "سحب يتجاوز الرصيد", idempotencyKey: "cash-overdraw-001" }
+    });
+    expect(overdraw.statusCode).toBe(409);
     const cashStatus = await app.inject({
       method: "GET", url: `/api/v1/cash/register?storeId=${store.id}`, headers: authorization
     });
@@ -199,6 +204,11 @@ describe("local API integration", () => {
     });
     expect(closedShift.statusCode).toBe(200);
     expect(closedShift.json()).toMatchObject({ expectedCashMinor: 125, countedCashMinor: 120, varianceMinor: -5 });
+    const closedStatus = await app.inject({
+      method: "GET", url: `/api/v1/cash/register?storeId=${store.id}`, headers: authorization
+    });
+    expect(closedStatus.statusCode).toBe(200);
+    expect(closedStatus.json().session).toBeNull();
 
     const paymentSummary = await app.inject({
       method: "GET",
