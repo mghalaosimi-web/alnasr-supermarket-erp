@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { closeDatabase, openDatabase, resolveDatabasePath } from "./db/database.js";
 import { createDatabaseBackup } from "./backup/backup.js";
-import { closeCashSession, getCashRegisterStatus, openCashSession, recordCashMovement } from "./cash-register/cash-register.js";
+import { closeCashSession, getCashRegisterStatus, listCashSessions, openCashSession, recordCashMovement } from "./cash-register/cash-register.js";
 import { authenticateSession, bootstrapOwner, hasPermission, login, logout } from "./auth/auth.js";
 import { createProduct, deactivateProduct, listProducts, updateProduct } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
@@ -816,6 +816,12 @@ export function buildServer() {
     catch (error) { if (error instanceof Error && error.message.includes("Active store not found")) return reply.code(404).send({ error: "store_not_found" }); throw error; }
   });
 
+  app.get("/api/v1/cash/register/sessions", async (request, reply) => {
+    if (!authorize(request, reply, "cash:read")) return;
+    const query = z.object({ storeId: z.string().uuid(), limit: z.coerce.number().int().min(1).max(200).default(50) }).safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: "invalid_query" });
+    return { items: listCashSessions(db, query.data.storeId, query.data.limit) };
+  });
   app.post("/api/v1/cash/register/open", async (request, reply) => {
     const user = authorize(request, reply, "cash:manage");
     if (!user) return;

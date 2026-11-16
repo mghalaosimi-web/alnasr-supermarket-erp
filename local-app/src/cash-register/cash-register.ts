@@ -18,6 +18,25 @@ export function getCashRegisterStatus(db: Database.Database, storeId: string) {
   return { store, session, items, totals: { openingFloatMinor: session.opening_float_minor, inflowMinor: Number(totals.inflow_minor), outflowMinor: Number(totals.outflow_minor), expectedCashMinor: session.opening_float_minor + Number(totals.inflow_minor) - Number(totals.outflow_minor), movementCount: Number(totals.movement_count) } };
 }
 
+export function listCashSessions(db: Database.Database, storeId: string, limit = 50) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new Error("Invalid cash session limit.");
+  return db.prepare(`
+    SELECT s.id, s.status, s.opening_float_minor, s.expected_cash_minor, s.counted_cash_minor,
+      s.variance_minor, s.opened_at, s.closed_at, opener.display_name AS opened_by_name,
+      closer.display_name AS closed_by_name,
+      COALESCE(SUM(CASE WHEN m.direction = "in" THEN m.amount_minor ELSE 0 END), 0) AS inflow_minor,
+      COALESCE(SUM(CASE WHEN m.direction = "out" THEN m.amount_minor ELSE 0 END), 0) AS outflow_minor,
+      COUNT(m.id) AS movement_count
+    FROM cash_register_sessions s
+    JOIN users opener ON opener.id = s.opened_by
+    LEFT JOIN users closer ON closer.id = s.closed_by
+    LEFT JOIN cash_register_movements m ON m.session_id = s.id
+    WHERE s.store_id = ?
+    GROUP BY s.id
+    ORDER BY s.opened_at DESC, s.id DESC
+    LIMIT ?
+  `).all(storeId, limit);
+}
 export function openCashSession(db: Database.Database, input: { storeId: string; actorUserId: string; openingFloatMinor: number; note?: string | null }) {
   if (!Number.isSafeInteger(input.openingFloatMinor) || input.openingFloatMinor < 0) throw new Error("Opening float must be a non-negative safe integer.");
   if (!db.prepare("SELECT id FROM stores WHERE id = ? AND is_active = 1").get(input.storeId)) throw new Error("Active store not found.");

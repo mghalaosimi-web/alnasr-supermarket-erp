@@ -204,6 +204,11 @@ describe("local API integration", () => {
     });
     expect(closedShift.statusCode).toBe(200);
     expect(closedShift.json()).toMatchObject({ expectedCashMinor: 125, countedCashMinor: 120, varianceMinor: -5 });
+    const cashHistory = await app.inject({
+      method: "GET", url: `/api/v1/cash/register/sessions?storeId=${store.id}`, headers: authorization
+    });
+    expect(cashHistory.statusCode).toBe(200);
+    expect(cashHistory.json().items[0]).toMatchObject({ status: "closed", expected_cash_minor: 125, counted_cash_minor: 120, variance_minor: -5 });
     const closedStatus = await app.inject({
       method: "GET", url: `/api/v1/cash/register?storeId=${store.id}`, headers: authorization
     });
