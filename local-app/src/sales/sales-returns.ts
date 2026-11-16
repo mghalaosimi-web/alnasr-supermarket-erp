@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
+import { postSystemJournalEntry } from "../accounting/journal.js";
 import { postStockMovement } from "../inventory/stock-ledger.js";
 
 export interface SaleReturnLineInput {
@@ -127,8 +128,8 @@ export function postSaleReturn(
 ): { returnId: string; status: "posted"; duplicate: boolean } {
   const post = db.transaction(() => {
     const record = db.prepare(`
-      SELECT id, sale_id, warehouse_id, status FROM sale_returns WHERE id = ?
-    `).get(returnId) as { id: string; sale_id: string; warehouse_id: string; status: string } | undefined;
+      SELECT id, document_no, sale_id, warehouse_id, status, total_minor FROM sale_returns WHERE id = ?
+    `).get(returnId) as { id: string; document_no: string; sale_id: string; warehouse_id: string; status: string; total_minor: number } | undefined;
     if (!record) throw new Error("Sales return not found.");
     if (record.status === "posted") return { returnId, status: "posted" as const, duplicate: true };
     if (record.status !== "draft") throw new Error("Only a draft sales return can be posted.");
@@ -139,7 +140,7 @@ export function postSaleReturn(
     `).all(returnId) as Array<{ id: string; sale_line_id: string; product_id: string; quantity: number; original_line_id: string }>;
     const sale = db.prepare("SELECT status FROM sales WHERE id = ?").get(record.sale_id) as { status: string } | undefined;
     if (!sale || sale.status !== "posted") throw new Error("Returns are only allowed for a posted sale.");
-    for (const line of lines) {
+    let returnedCostMinor = 0;\n    for (const line of lines) {
       const originalMovement = db.prepare(`
         SELECT unit_cost_minor FROM stock_ledger
         WHERE source_type = 'sale' AND source_id = ? AND idempotency_key = ?
@@ -153,6 +154,19 @@ export function postSaleReturn(
       });
     }
     db.prepare("UPDATE sale_returns SET status = 'posted' WHERE id = ? AND status = 'draft'").run(returnId);
+    const journalLines = [];
+    if (record.total_minor > 0) {
+      journalLines.push({ accountCode: "4050", debitMinor: record.total_minor, description: "مرتجعات المبيعات" });
+      journalLines.push({ accountCode: "1100", creditMinor: record.total_minor, description: "تخفيض ذمم العميل" });
+    }
+    if (returnedCostMinor > 0) {
+      journalLines.push({ accountCode: "1200", debitMinor: returnedCostMinor, description: "إعادة البضاعة للمخزون" });
+      journalLines.push({ accountCode: "5000", creditMinor: returnedCostMinor, description: "عكس تكلفة البضاعة المباعة" });
+    }
+    if (journalLines.length) postSystemJournalEntry(db, {
+      sourceType: "sale_return", sourceId: returnId, idempotencyKey: `journal:sale-return:${returnId}`,
+      description: `ترحيل مرتجع المبيعات ${record.document_no}`, actorUserId, lines: journalLines
+    });
     db.prepare(`
       INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json)
       VALUES (?, ?, 'sale.return.posted', 'sale_return', ?, '{}')
