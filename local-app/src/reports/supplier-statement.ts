@@ -75,7 +75,7 @@ export function getSupplierStatement(
       reference, method, created_at AS createdAt,
       debit_minor AS debitMinor, credit_minor AS creditMinor, balance_minor AS balanceMinor
     FROM balanced
-    ORDER BY created_at DESC, entry_order DESC, id DESC
+    ORDER BY created_at ASC, entry_order ASC, id ASC
     LIMIT ? OFFSET ?
   `).all(supplierId, supplierId, limit, offset) as SupplierStatementItem[];
 
