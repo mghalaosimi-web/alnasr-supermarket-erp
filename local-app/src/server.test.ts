@@ -106,6 +106,13 @@ describe("local API integration", () => {
     expect(posting.json().status).toBe("posted");
 
     const saleId = sale.json().saleId as string;
+    const receipt = await app.inject({
+      method: "GET", url: `/api/v1/sales/${saleId}/receipt`, headers: authorization
+    });
+    expect(receipt.statusCode).toBe(200);
+    expect(receipt.json().sale).toMatchObject({ id: saleId, document_no: "SALE-API-001", status: "posted" });
+    expect(receipt.json().lines).toHaveLength(1);
+    expect(receipt.json().lines[0]).toMatchObject({ sku: "SKU-API-001", quantity: 2 });
     const cashWithoutShift = await app.inject({
       method: "POST", url: `/api/v1/sales/${saleId}/payments`, headers: authorization,
       payload: { method: "cash", amountMinor: 100, idempotencyKey: "cash-without-shift-001" }

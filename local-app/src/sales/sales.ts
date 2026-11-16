@@ -179,3 +179,24 @@ export function postSale(
   });
   return post();
 }
+
+export function getSaleReceipt(db: Database.Database, saleId: string) {
+  const sale = db.prepare(`
+    SELECT s.id, s.document_no, s.status, s.subtotal_minor, s.discount_minor, s.tax_minor,
+      s.total_minor, s.created_at, st.name AS store_name, c.name AS customer_name, c.code AS customer_code
+    FROM sales s JOIN stores st ON st.id = s.store_id
+    LEFT JOIN customers c ON c.id = s.customer_id WHERE s.id = ?
+  `).get(saleId) as {
+    id: string; document_no: string; status: string; subtotal_minor: number; discount_minor: number;
+    tax_minor: number; total_minor: number; created_at: string; store_name: string;
+    customer_name: string | null; customer_code: string | null;
+  } | undefined;
+  if (!sale) throw new Error("Sale not found.");
+  const lines = db.prepare(`
+    SELECT p.sku, p.name_ar, sl.quantity, sl.unit_price_minor, sl.line_total_minor
+    FROM sale_lines sl JOIN products p ON p.id = sl.product_id
+    WHERE sl.sale_id = ? ORDER BY sl.rowid
+  `).all(saleId);
+  const payments = db.prepare("SELECT method, amount_minor, reference, created_at FROM payments WHERE sale_id = ? ORDER BY created_at, id").all(saleId);
+  return { sale, lines, payments };
+}

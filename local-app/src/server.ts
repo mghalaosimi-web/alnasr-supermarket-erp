@@ -10,7 +10,7 @@ import { closeCashSession, getCashRegisterStatus, listCashSessions, openCashSess
 import { authenticateSession, bootstrapOwner, hasPermission, login, logout } from "./auth/auth.js";
 import { createProduct, deactivateProduct, listProducts, updateProduct } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
-import { createSale, postSale } from "./sales/sales.js";
+import { createSale, getSaleReceipt, postSale } from "./sales/sales.js";
 import { createSaleReturn, postSaleReturn, voidSaleReturn, listReturnableSales, listSaleReturnableLines, listSaleReturns } from "./sales/sales-returns.js";
 import { createPurchase, listPurchases, postPurchase } from "./purchases/purchases.js";
 import { createPurchaseReturn, listPurchaseReturnableLines, listPurchaseReturns, listReturnablePurchases, postPurchaseReturn, voidPurchaseReturn } from "./purchases/purchase-returns.js";
@@ -500,6 +500,13 @@ export function buildServer() {
     }
   });
 
+  app.get("/api/v1/sales/:saleId/receipt", async (request, reply) => {
+    if (!authorize(request, reply, "sales:read")) return;
+    const params = z.object({ saleId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_sale_id" });
+    try { return getSaleReceipt(db, params.data.saleId); }
+    catch (error) { if (error instanceof Error && error.message === "Sale not found.") return reply.code(404).send({ error: "sale_not_found" }); throw error; }
+  });
   app.post("/api/v1/sales/:saleId/post", async (request, reply) => {
     const user = authorize(request, reply, "sales:post");
     if (!user) return;
