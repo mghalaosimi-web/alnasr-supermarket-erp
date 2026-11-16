@@ -24,8 +24,8 @@ export function listCashSessions(db: Database.Database, storeId: string, limit =
     SELECT s.id, s.status, s.opening_float_minor, s.expected_cash_minor, s.counted_cash_minor,
       s.variance_minor, s.opened_at, s.closed_at, opener.display_name AS opened_by_name,
       closer.display_name AS closed_by_name,
-      COALESCE(SUM(CASE WHEN m.direction = "in" THEN m.amount_minor ELSE 0 END), 0) AS inflow_minor,
-      COALESCE(SUM(CASE WHEN m.direction = "out" THEN m.amount_minor ELSE 0 END), 0) AS outflow_minor,
+      COALESCE(SUM(CASE WHEN m.direction = 'in' THEN m.amount_minor ELSE 0 END), 0) AS inflow_minor,
+      COALESCE(SUM(CASE WHEN m.direction = 'out' THEN m.amount_minor ELSE 0 END), 0) AS outflow_minor,
       COUNT(m.id) AS movement_count
     FROM cash_register_sessions s
     JOIN users opener ON opener.id = s.opened_by
