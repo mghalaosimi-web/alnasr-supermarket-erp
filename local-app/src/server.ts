@@ -10,7 +10,7 @@ import { authenticateSession, bootstrapOwner, hasPermission, login, logout } fro
 import { createProduct, deactivateProduct, listProducts, updateProduct } from "./catalog/products.js";
 import { getStockBalance, postStockMovement } from "./inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales/sales.js";
-import { createSaleReturn, postSaleReturn, voidSaleReturn } from "./sales/sales-returns.js";
+import { createSaleReturn, postSaleReturn, voidSaleReturn, listReturnableSales, listSaleReturnableLines, listSaleReturns } from "./sales/sales-returns.js";
 import { createPurchase, listPurchases, postPurchase } from "./purchases/purchases.js";
 import { listSalePayments, recordSalePayment } from "./payments/payments.js";
 import { listPurchasePayments, recordPurchasePayment } from "./payments/purchase-payments.js";
@@ -458,6 +458,36 @@ export function buildServer() {
       return postSale(db, params.data.saleId, user.id);
     } catch (error) {
       if (error instanceof Error) return reply.code(409).send({ error: "sale_post_rejected", message: error.message });
+      throw error;
+    }
+  });
+
+  app.get("/api/v1/sales/returnable", async (request, reply) => {
+    if (!authorize(request, reply, "sales:read")) return;
+    return { items: listReturnableSales(db) };
+  });
+
+  app.get("/api/v1/sales/:saleId/returnable-lines", async (request, reply) => {
+    if (!authorize(request, reply, "sales:read")) return;
+    const params = z.object({ saleId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return { items: listSaleReturnableLines(db, params.data.saleId) };
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Sale not found")) return reply.code(404).send({ error: "sale_not_found" });
+      if (error instanceof Error) return reply.code(409).send({ error: "sale_not_returnable", message: error.message });
+      throw error;
+    }
+  });
+
+  app.get("/api/v1/sales/:saleId/returns", async (request, reply) => {
+    if (!authorize(request, reply, "sales:read")) return;
+    const params = z.object({ saleId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "invalid_request" });
+    try {
+      return { items: listSaleReturns(db, params.data.saleId) };
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Sale not found")) return reply.code(404).send({ error: "sale_not_found" });
       throw error;
     }
   });

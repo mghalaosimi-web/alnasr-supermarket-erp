@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import PurchasesView from "./PurchasesView";
+import SalesReturnsView from "./SalesReturnsView";
 
 type User = { id: string; username: string; displayName: string; roles: string[]; permissions: string[] };
 type LoginResult = { token: string; expiresAt: string; user: User };
 type Health = { status: string; product: string; database: string; schemaVersion: number };
 type Screen = "checking" | "setup" | "login" | "dashboard" | "error";
-type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory" | "purchases";
+type View = "dashboard" | "pos" | "products" | "customers" | "suppliers" | "inventory" | "purchases" | "returns";
 type ProductRow = {
   id: string; sku: string; name_ar: string; name_en: string | null; base_unit: string;
   sale_price_minor: number; cost_price_minor: number; is_active: number;
@@ -26,10 +27,10 @@ const navigation: { key: View; label: string; description: string }[] = [
   { key: "customers", label: "العملاء", description: "سجل العملاء وحدود الائتمان" },
   { key: "suppliers", label: "الموردون", description: "سجل الموردين وبياناتهم" },
   { key: "inventory", label: "المخزون", description: "أرصدة الأصناف وتسويات المخزون" },
-  { key: "purchases", label: "المشتريات", description: "فواتير الشراء واستلام الأصناف" }
+  { key: "purchases", label: "المشتريات", description: "فواتير الشراء واستلام الأصناف" },
+  { key: "returns", label: "المرتجعات", description: "مرتجعات المبيعات وإعادة المخزون" }
 ];
 const futureModules = [
-  ["المرتجعات", "مرتجعات المبيعات والمشتريات"],
   ["الصندوق والورديات", "فتح وإغلاق الورديات وحركة النقد"],
   ["المحاسبة", "دليل الحسابات والقيود والتقارير"]
 ] as const;
@@ -431,7 +432,8 @@ export default function App() {
               <button className="primary action-button" disabled={posBusy || Object.keys(posCart).length === 0 || !user?.permissions.includes("sales:create") || !user?.permissions.includes("sales:post") || !user?.permissions.includes("sales:pay")} onClick={() => void completePosSale()}>{posBusy ? "جارٍ إكمال البيع..." : "إتمام البيع والتحصيل نقداً"}</button></div>
             {!user?.permissions.includes("sales:pay") && <p className="muted">حسابك لا يملك صلاحية تسجيل التحصيل النقدي.</p>}
           </section>
-        </> : activeView === "purchases" ? <PurchasesView token={token} canWrite={Boolean(user?.permissions.includes("purchases:write"))} canPay={Boolean(user?.permissions.includes("purchases:pay"))} /> : <>
+        </> : activeView === "purchases" ? <PurchasesView token={token} canWrite={Boolean(user?.permissions.includes("purchases:write"))} canPay={Boolean(user?.permissions.includes("purchases:pay"))} />
+        : activeView === "returns" ? <SalesReturnsView token={token} canReturn={Boolean(user?.permissions.includes("sales:return"))} /> : <>
           <div className="list-toolbar"><div><h2>{title}</h2><p>بيانات محفوظة في قاعدة SQLite المحلية{activeView === "inventory" && warehouses[0] ? " · " + (warehouses.find(item => item.id === selectedWarehouseId)?.name ?? warehouses[0].name) : ""}.</p></div>
             {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm({ ...emptyForm, productId: productOptions[0]?.id ?? "" }); setError(""); }}>
               {formOpen ? "إغلاق النموذج" : "إضافة سجل جديد"}

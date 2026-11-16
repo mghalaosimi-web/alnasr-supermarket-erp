@@ -180,3 +180,61 @@ export function voidSaleReturn(
   });
   return voidReturn();
 }
+
+export interface ReturnableSaleRow {
+  id: string; document_no: string; customer_name: string | null;
+  total_minor: number; created_at: string; returnable_line_count: number;
+}
+export interface ReturnableSaleLineRow {
+  sale_line_id: string; product_id: string; sku: string; product_name: string;
+  sold_quantity: number; reserved_quantity: number; remaining_quantity: number;
+  unit_price_minor: number;
+}
+export interface SaleReturnRow {
+  id: string; document_no: string; status: "draft" | "posted" | "voided";
+  reason: string; total_minor: number; created_at: string;
+}
+export function listReturnableSales(db: Database.Database): ReturnableSaleRow[] {
+  return db.prepare(`
+    SELECT s.id, s.document_no, c.name AS customer_name, s.total_minor, s.created_at,
+      COUNT(sl.id) AS returnable_line_count
+    FROM sales s
+    LEFT JOIN customers c ON c.id = s.customer_id
+    JOIN sale_lines sl ON sl.sale_id = s.id
+    WHERE s.status = 'posted'
+      AND sl.quantity > COALESCE((
+        SELECT SUM(srl.quantity) FROM sale_return_lines srl
+        JOIN sale_returns sr ON sr.id = srl.sale_return_id
+        WHERE srl.sale_line_id = sl.id AND sr.status <> 'voided'
+      ), 0)
+    GROUP BY s.id
+    ORDER BY s.created_at DESC, s.document_no DESC
+    LIMIT 200
+  `).all() as ReturnableSaleRow[];
+}
+export function listSaleReturnableLines(db: Database.Database, saleId: string): ReturnableSaleLineRow[] {
+  const sale = db.prepare("SELECT id, status FROM sales WHERE id = ?").get(saleId) as { id: string; status: string } | undefined;
+  if (!sale) throw new Error("Sale not found.");
+  if (sale.status !== "posted") throw new Error("Returns are only allowed for a posted sale.");
+  return db.prepare(`
+    SELECT sl.id AS sale_line_id, sl.product_id, p.sku, p.name_ar AS product_name,
+      sl.quantity AS sold_quantity,
+      COALESCE((SELECT SUM(srl.quantity) FROM sale_return_lines srl
+        JOIN sale_returns sr ON sr.id = srl.sale_return_id
+        WHERE srl.sale_line_id = sl.id AND sr.status <> 'voided'), 0) AS reserved_quantity,
+      sl.quantity - COALESCE((SELECT SUM(srl.quantity) FROM sale_return_lines srl
+        JOIN sale_returns sr ON sr.id = srl.sale_return_id
+        WHERE srl.sale_line_id = sl.id AND sr.status <> 'voided'), 0) AS remaining_quantity,
+      sl.unit_price_minor
+    FROM sale_lines sl JOIN products p ON p.id = sl.product_id
+    WHERE sl.sale_id = ? ORDER BY sl.rowid
+  `).all(saleId) as ReturnableSaleLineRow[];
+}
+export function listSaleReturns(db: Database.Database, saleId: string): SaleReturnRow[] {
+  const sale = db.prepare("SELECT id FROM sales WHERE id = ?").get(saleId);
+  if (!sale) throw new Error("Sale not found.");
+  return db.prepare(`
+    SELECT id, document_no, status, reason, total_minor, created_at
+    FROM sale_returns WHERE sale_id = ? ORDER BY created_at DESC, document_no DESC
+  `).all(saleId) as SaleReturnRow[];
+}
