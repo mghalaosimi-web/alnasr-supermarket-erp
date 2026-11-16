@@ -113,7 +113,7 @@ export function postStockMovement(
       })
     );
 
-    if ((input.sourceType === "opening_balance" || input.sourceType === "adjustment") && input.unitCostMinor > 0) {
+    if ((input.sourceType === "opening_balance" || input.sourceType === "adjustment" || input.sourceType === "manual_adjustment") && input.unitCostMinor > 0) {
       const accountingReady = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'accounts'").get();
       if (accountingReady) {
         const adjustmentValue = Math.abs(input.quantityDelta) * input.unitCostMinor;

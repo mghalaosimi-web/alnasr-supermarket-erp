@@ -304,11 +304,11 @@ describe("local API integration", () => {
     expect(accountList.json().items).toHaveLength(11);
     const journals = await app.inject({ method: "GET", url: "/api/v1/accounting/journals?limit=50", headers: authorization });
     expect(journals.statusCode).toBe(200);
-    expect(journals.json().items.length).toBeGreaterThanOrEqual(4);
+    expect(journals.json().items).toHaveLength(7);
     const trialBalance = await app.inject({ method: "GET", url: "/api/v1/accounting/trial-balance", headers: authorization });
     expect(trialBalance.statusCode).toBe(200);
-    expect(trialBalance.json().totals.debitMovementsMinor).toBeGreaterThan(0);
-    expect(trialBalance.json().totals.debitMovementsMinor).toBe(trialBalance.json().totals.creditMovementsMinor);
+    expect(trialBalance.json().totals.debitMovementsMinor).toBe(975);
+    expect(trialBalance.json().totals.creditMovementsMinor).toBe(975);
     const invalidTrialBalance = await app.inject({
       method: "GET", url: "/api/v1/accounting/trial-balance?asOf=2026-02-30", headers: authorization
     });
