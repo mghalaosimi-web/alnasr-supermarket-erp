@@ -82,6 +82,10 @@ describe("purchase receiving lifecycle", () => {
     expect(retry.duplicate).toBe(true);
     expect(getStockBalance(database, "prod-1", "wh-1")).toBe(20);
     expect(database.prepare("SELECT status FROM purchases WHERE id = ?").get(purchase.purchaseId)).toEqual({ status: "posted" });
+    const journal = database.prepare("SELECT COUNT(*) AS count FROM journal_entries WHERE source_type = 'purchase' AND source_id = ?").get(purchase.purchaseId);
+    expect(journal).toEqual({ count: 1 });
+    const trial = database.prepare("SELECT SUM(jl.debit_minor) AS debit, SUM(jl.credit_minor) AS credit FROM journal_lines jl JOIN journal_entries je ON je.id = jl.journal_entry_id WHERE je.source_type = 'purchase' AND je.source_id = ?").get(purchase.purchaseId);
+    expect(trial).toEqual({ debit: 1950, credit: 1950 });
   });
 
   it("rejects posting a purchase that does not exist", () => {

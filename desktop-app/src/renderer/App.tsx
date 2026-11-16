@@ -36,8 +36,6 @@ const navigation: { key: View; label: string; description: string }[] = [
   { key: "purchases", label: "المشتريات", description: "فواتير الشراء واستلام الأصناف" },
   { key: "returns", label: "المرتجعات", description: "مرتجعات المبيعات وإعادة المخزون" }
 ];
-const futureModules = [] as const;
-
 const emptyForm: FormValues = {
   sku: "", nameAr: "", nameEn: "", baseUnit: "piece", salePrice: "0", costPrice: "0", barcode: "",
   code: "", name: "", phone: "", creditLimit: "0", productId: "", quantityDelta: "1", unitCost: "0", reason: ""
@@ -70,6 +68,7 @@ export default function App() {
   const [posCart, setPosCart] = useState<Record<string, number>>({});
   const [posStoreId, setPosStoreId] = useState("");
   const [posWarehouseId, setPosWarehouseId] = useState("");
+  const [posCashSessionOpen, setPosCashSessionOpen] = useState(false);
   const [posBusy, setPosBusy] = useState(false);
   const [posMessage, setPosMessage] = useState("");
   const [selectedSupplier, setSelectedSupplier] = useState<PartnerRow | null>(null);
@@ -173,6 +172,7 @@ export default function App() {
       const product = posProducts.find(item => item.id === productId);
       return product ? { productId, quantity, unitPriceMinor: product.sale_price_minor } : null;
     }).filter((line): line is { productId: string; quantity: number; unitPriceMinor: number } => line !== null);
+    if (!posCashSessionOpen) { setError("يجب فتح وردية نقدية قبل إتمام البيع. افتح وحدة الصندوق أولاً."); return; }
     if (!lines.length || !posStoreId || !posWarehouseId) { setError("أضف صنفاً واحداً على الأقل إلى الفاتورة."); return; }
     setPosBusy(true); setError(""); setPosMessage("");
     try {
@@ -221,8 +221,15 @@ export default function App() {
         const store = locations.data.stores[0];
         const warehouse = locations.data.warehouses.find(item => item.store_id === store?.id);
         if (!store || !warehouse) throw new Error("يجب إعداد متجر ومستودع نشط قبل البيع.");
+        const cashStatus = await window.alnasr.request<{ session: { id: string } | null }>({
+          path: `/api/v1/cash/register?storeId=${encodeURIComponent(store.id)}`, token
+        });
+        if (cashStatus.status !== 200) throw new Error("تعذر التحقق من الوردية النقدية. تحقق من صلاحية الصندوق.");
+        const hasOpenSession = Boolean(cashStatus.data.session);
+        setPosCashSessionOpen(hasOpenSession);
         setPosStoreId(store.id); setPosWarehouseId(warehouse.id); setWarehouses(locations.data.warehouses);
-        setPosProducts(products.data.items); setPosCustomers(customers.data.items); setPosCustomerId(""); setPosCart({}); setPosMessage("");
+        setPosProducts(products.data.items); setPosCustomers(customers.data.items); setPosCustomerId(""); setPosCart({});
+        setPosMessage(hasOpenSession ? "" : "افتح وردية نقدية من وحدة الصندوق قبل إتمام البيع.");
       } else if (view === "inventory") {
         const locations = await window.alnasr.request<{ warehouses: Warehouse[] }>({ path: "/api/v1/locations", token });
         if (locations.status !== 200) throw new Error("تعذر تحميل المستودعات أو لا تملك صلاحية عرض المخزون.");
@@ -392,8 +399,6 @@ export default function App() {
         <div className="nav-caption">مساحة العمل</div>
         {navigation.filter(item => item.key !== "accounting" || user?.permissions.includes("accounting:read")).map(item => <button key={item.key} className={`nav-button ${activeView === item.key ? "active" : ""}`}
           onClick={() => openView(item.key)}>{item.label}</button>)}
-        <div className="nav-caption future-caption">وحدات قيد التطوير</div>
-        {futureModules.map(([label]) => <div className="nav disabled" key={label}>{label}</div>)}
         <div className="sidebar-bottom">
           <div className="user"><span className="avatar">{user?.displayName.slice(0, 1) ?? "م"}</span>
             <div><b>{user?.displayName}</b><small>{user?.roles.join("، ")}</small></div></div>
@@ -413,16 +418,13 @@ export default function App() {
             {navigation.filter(item => item.key !== "dashboard" && (item.key !== "accounting" || user?.permissions.includes("accounting:read"))).map((item, index) => <button className="module-card module-action" key={item.key} onClick={() => openView(item.key)}>
               <span className="module-number">{String(index + 1).padStart(2, "0")}</span><h3>{item.label}</h3><p>{item.description}</p><span className="module-state available-state">متاح</span>
             </button>)}
-            {futureModules.map(([label, description], index) => <article className="module-card" key={label}>
-              <span className="module-number">{String(index + 4).padStart(2, "0")}</span><h3>{label}</h3><p>{description}</p><span className="module-state">قيد التنفيذ</span>
-            </article>)}
           </div>
           <section className="system-panel"><div><h3>حالة النظام المحلي</h3><p>الخادم وقاعدة البيانات يعملان على هذا الجهاز.</p>
               {user?.permissions.includes("settings:write") && <button className="secondary-button backup-button" onClick={() => void createBackup()} disabled={backupBusy}>{backupBusy ? "جارٍ إنشاء النسخة..." : "إنشاء نسخة احتياطية الآن"}</button>}
             </div>
             <div className="facts"><div><small>الخادم</small><b>Fastify · 127.0.0.1</b></div>
               <div><small>قاعدة البيانات</small><b>{health?.database?.toUpperCase() ?? "SQLITE"}</b></div>
-              <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 7}</b></div></div>
+              <div><small>إصدار المخطط</small><b>{health?.schemaVersion ?? 8}</b></div></div>
           </section>
           {backupMessage && <div className="success-note backup-result" role="status">{backupMessage}</div>}
           {error && <div className="error page-error" role="alert">{error}</div>}
@@ -430,6 +432,7 @@ export default function App() {
           <div className="list-toolbar"><div><h2>نقطة البيع</h2><p>إنشاء فاتورة وترحيلها وخصم الكميات من المستودع المحدد.</p></div></div>
           {error && <div className="error page-error" role="alert">{error}</div>}
           {posMessage && <div className="success-note" role="status">{posMessage}</div>}
+          {!posCashSessionOpen && <div className="error" role="alert">لا توجد وردية نقدية مفتوحة. يجب فتح الوردية قبل تسجيل البيع والتحصيل. <button className="table-action" onClick={() => openView("cash")}>فتح وحدة الصندوق</button></div>}
           {user?.permissions.includes("customers:read") && <section className="data-panel">
             <div className="section-heading"><h2>بيانات العميل</h2><p>اختياري: اربط الفاتورة بحساب عميل لمتابعة الرصيد وكشف الحساب.</p></div>
             <label>العميل
@@ -450,7 +453,7 @@ export default function App() {
               {Object.entries(posCart).map(([id, quantity]) => { const product = posProducts.find(item => item.id === id); if (!product) return null; return <tr key={id}><td>{product.name_ar}</td><td>{formatQuantity(quantity)}</td><td>{formatMinor(product.sale_price_minor)}</td><td>{formatMinor(quantity * product.sale_price_minor)}</td><td><button className="table-action" onClick={() => changeCart(id, -1)}>−</button> <button className="table-action" onClick={() => changeCart(id, 1)}>+</button></td></tr>; })}
             </tbody></table></div>}
             <div className="form-actions"><strong>الإجمالي: {formatMinor(Object.entries(posCart).reduce((sum, [id, quantity]) => sum + quantity * (posProducts.find(item => item.id === id)?.sale_price_minor ?? 0), 0))}</strong>
-              <button className="primary action-button" disabled={posBusy || Object.keys(posCart).length === 0 || !user?.permissions.includes("sales:create") || !user?.permissions.includes("sales:post") || !user?.permissions.includes("sales:pay")} onClick={() => void completePosSale()}>{posBusy ? "جارٍ إكمال البيع..." : "إتمام البيع والتحصيل نقداً"}</button></div>
+              <button className="primary action-button" disabled={posBusy || !posCashSessionOpen || Object.keys(posCart).length === 0 || !user?.permissions.includes("sales:create") || !user?.permissions.includes("sales:post") || !user?.permissions.includes("sales:pay")} onClick={() => void completePosSale()}>{posBusy ? "جارٍ إكمال البيع..." : "إتمام البيع والتحصيل نقداً"}</button></div>
             {!user?.permissions.includes("sales:pay") && <p className="muted">حسابك لا يملك صلاحية تسجيل التحصيل النقدي.</p>}
           </section>
         </> : activeView === "purchases" ? <PurchasesView token={token} canWrite={Boolean(user?.permissions.includes("purchases:write"))} canPay={Boolean(user?.permissions.includes("purchases:pay"))} />
