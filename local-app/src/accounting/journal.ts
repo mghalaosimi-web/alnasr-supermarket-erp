@@ -63,3 +63,79 @@ export function listJournalEntries(db: Database.Database, limit = 100, offset = 
   const lines = db.prepare("SELECT jl.id, jl.journal_entry_id, a.code AS account_code, a.name_ar AS account_name, jl.debit_minor, jl.credit_minor, jl.description FROM journal_lines jl JOIN accounts a ON a.id = jl.account_id WHERE jl.journal_entry_id = ? ORDER BY jl.line_no");
   return entries.map(entry => ({ ...entry, lines: lines.all(entry.id) }));
 }
+
+export function getFinancialStatements(db: Database.Database, from: string, to: string) {
+  const validDate = (value: string) => /^\\d{4}-\\d{2}-\\d{2}$/.test(value)
+    && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
+    && new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10) === value;
+  if (!validDate(from) || !validDate(to) || from > to) throw new Error("Invalid financial statement date range.");
+
+  const rows = db.prepare(`
+    SELECT a.id, a.code, a.name_ar, a.name_en, a.account_type, a.normal_balance,
+      COALESCE(SUM(CASE WHEN je.entry_date <= ? THEN jl.debit_minor ELSE 0 END), 0) AS debit_to_date,
+      COALESCE(SUM(CASE WHEN je.entry_date <= ? THEN jl.credit_minor ELSE 0 END), 0) AS credit_to_date,
+      COALESCE(SUM(CASE WHEN je.entry_date BETWEEN ? AND ? THEN jl.debit_minor ELSE 0 END), 0) AS period_debit,
+      COALESCE(SUM(CASE WHEN je.entry_date BETWEEN ? AND ? THEN jl.credit_minor ELSE 0 END), 0) AS period_credit
+    FROM accounts a
+    LEFT JOIN journal_lines jl ON jl.account_id = a.id
+    LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id AND je.status = 'posted'
+    WHERE a.is_active = 1
+    GROUP BY a.id
+    ORDER BY a.code
+  `).all(to, to, from, to, from, to) as Array<{
+    id: string; code: string; name_ar: string; name_en: string | null;
+    account_type: AccountType; normal_balance: "debit" | "credit";
+    debit_to_date: number; credit_to_date: number; period_debit: number; period_credit: number;
+  }>;
+
+  const amount = (debit: number, credit: number, normal: "debit" | "credit") =>
+    normal === "debit" ? Number(debit) - Number(credit) : Number(credit) - Number(debit);
+  const periodRows = rows.filter(row => row.account_type === "revenue" || row.account_type === "expense").map(row => ({
+    id: row.id, code: row.code, name: row.name_ar, accountType: row.account_type,
+    amountMinor: amount(row.period_debit, row.period_credit, row.normal_balance)
+  }));
+  const revenue = periodRows.filter(row => row.accountType === "revenue");
+  const expenses = periodRows.filter(row => row.accountType === "expense");
+  const revenueMinor = revenue.reduce((sum, row) => sum + row.amountMinor, 0);
+  const expensesMinor = expenses.reduce((sum, row) => sum + row.amountMinor, 0);
+  const netIncomeMinor = revenueMinor - expensesMinor;
+
+  const balanceRows = rows.filter(row => row.account_type === "asset" || row.account_type === "liability" || row.account_type === "equity").map(row => ({
+    id: row.id, code: row.code, name: row.name_ar, accountType: row.account_type,
+    amountMinor: amount(row.debit_to_date, row.credit_to_date, row.normal_balance)
+  }));
+  const assets = balanceRows.filter(row => row.accountType === "asset");
+  const liabilities = balanceRows.filter(row => row.accountType === "liability");
+  const equity = balanceRows.filter(row => row.accountType === "equity");
+  const assetsMinor = assets.reduce((sum, row) => sum + row.amountMinor, 0);
+  const liabilitiesMinor = liabilities.reduce((sum, row) => sum + row.amountMinor, 0);
+  const equityMinor = equity.reduce((sum, row) => sum + row.amountMinor, 0);
+  const liabilitiesAndEquityMinor = liabilitiesMinor + equityMinor + netIncomeToDate(rows);
+  return {
+    period: { from, to },
+    profitAndLoss: { revenue, expenses, revenueMinor, expensesMinor, netIncomeMinor },
+    balanceSheet: {
+      asOf: to, assets, liabilities, equity,
+      currentEarningsMinor: netIncomeToDate(rows),
+      assetsMinor, liabilitiesMinor, equityMinor,
+      liabilitiesAndEquityMinor,
+      differenceMinor: assetsMinor - liabilitiesAndEquityMinor,
+      balanced: assetsMinor === liabilitiesAndEquityMinor
+    }
+  };
+}
+
+function netIncomeToDate(rows: Array<{
+  account_type: AccountType; normal_balance: "debit" | "credit";
+  debit_to_date: number; credit_to_date: number;
+}>): number {
+  return rows.reduce((sum, row) => {
+    if (row.account_type === "revenue") return sum + (row.normal_balance === "debit"
+      ? Number(row.debit_to_date) - Number(row.credit_to_date)
+      : Number(row.credit_to_date) - Number(row.debit_to_date));
+    if (row.account_type === "expense") return sum - (row.normal_balance === "debit"
+      ? Number(row.debit_to_date) - Number(row.credit_to_date)
+      : Number(row.credit_to_date) - Number(row.debit_to_date));
+    return sum;
+  }, 0);
+}

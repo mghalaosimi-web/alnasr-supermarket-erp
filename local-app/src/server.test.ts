@@ -308,6 +308,17 @@ describe("local API integration", () => {
     });
     expect(invalidTrialBalance.statusCode).toBe(400);
 
+    const statements = await app.inject({
+      method: "GET", url: "/api/v1/accounting/financial-statements?from=2026-01-01&to=2026-12-31", headers: authorization
+    });
+    expect(statements.statusCode).toBe(200);
+    expect(statements.json().profitAndLoss).toMatchObject({ revenueMinor: 200, expensesMinor: 50, netIncomeMinor: 150 });
+    expect(statements.json().balanceSheet.balanced).toBe(true);
+    const invalidStatements = await app.inject({
+      method: "GET", url: "/api/v1/accounting/financial-statements?from=2026-12-31&to=2026-01-01", headers: authorization
+    });
+    expect(invalidStatements.statusCode).toBe(400);
+
     const customerStatement = await app.inject({
       method: "GET", url: `/api/v1/customers/${customerId}/statement?limit=50&offset=0`, headers: authorization
     });
