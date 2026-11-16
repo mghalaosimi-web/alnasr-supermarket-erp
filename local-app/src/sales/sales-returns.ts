@@ -146,6 +146,7 @@ export function postSaleReturn(
         WHERE source_type = 'sale' AND source_id = ? AND idempotency_key = ?
       `).get(record.sale_id, `sale:${record.sale_id}:line:${line.original_line_id}:post`) as { unit_cost_minor: number } | undefined;
       if (!originalMovement) throw new Error("Original sale stock cost is unavailable; return was not posted.");
+      returnedCostMinor += line.quantity * originalMovement.unit_cost_minor;
       postStockMovement(db, {
         productId: line.product_id, warehouseId: record.warehouse_id,
         quantityDelta: line.quantity, unitCostMinor: originalMovement.unit_cost_minor,
