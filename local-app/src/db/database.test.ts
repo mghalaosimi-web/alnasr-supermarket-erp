@@ -94,7 +94,7 @@ describe("AL-NASR SQLite schema v1", () => {
 
       const migrated = openDatabase(file);
       try {
-        expect(migrated.pragma("user_version", { simple: true })).toBe(7);
+        expect(migrated.pragma("user_version", { simple: true })).toBe(8);
         expect(migrated.prepare(
           "SELECT code FROM permissions WHERE code = 'sales:pay'"
         ).get()).toEqual({ code: "sales:pay" });
@@ -110,6 +110,13 @@ describe("AL-NASR SQLite schema v1", () => {
         expect(migrated.prepare(
           "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'cash_register_movements'"
         ).get()).toEqual({ name: "cash_register_movements" });
+        expect(migrated.prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'accounts'"
+        ).get()).toEqual({ name: "accounts" });
+        expect(migrated.prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journal_entries'"
+        ).get()).toEqual({ name: "journal_entries" });
+        expect(migrated.prepare("SELECT COUNT(*) AS count FROM accounts").get()).toEqual({ count: 11 });
         const grantedRoles = migrated.prepare(
           "SELECT r.code FROM role_permissions rp JOIN roles r ON r.id = rp.role_id WHERE rp.permission_code = 'sales:pay' ORDER BY r.code"
         ).all().map((row) => (row as { code: string }).code);
@@ -123,6 +130,6 @@ describe("AL-NASR SQLite schema v1", () => {
   });
 
   it("declares the current schema version", () => {
-    expect(SCHEMA_VERSION).toBe(7);
+    expect(SCHEMA_VERSION).toBe(8);
   });
 });

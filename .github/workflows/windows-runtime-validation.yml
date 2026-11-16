@@ -76,8 +76,8 @@ jobs:
           try {
             const result = db.pragma("quick_check", { simple: true });
             if (result !== "ok") throw new Error(`SQLite quick_check failed: ${result}`);
-            if (Number(db.pragma("user_version", { simple: true })) !== 7) {
-              throw new Error("Expected schema version 7.");
+            if (Number(db.pragma("user_version", { simple: true })) !== 8) {
+              throw new Error("Expected schema version 8.");
             }
           } finally {
             closeDatabase(db);

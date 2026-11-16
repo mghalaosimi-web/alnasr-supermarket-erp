@@ -78,7 +78,7 @@ jobs:
               } catch { Start-Sleep -Seconds 1 }
             }
             if ($null -eq $health) { throw "Packaged local API did not become ready within 45 seconds." }
-            if ($health.status -ne "ok" -or $health.database -ne "sqlite" -or $health.schemaVersion -ne 7) {
+            if ($health.status -ne "ok" -or $health.database -ne "sqlite" -or $health.schemaVersion -ne 8) {
               throw "Unexpected packaged API health response: $($health | ConvertTo-Json -Compress)"
             }
             $dbPath = Join-Path $env:ProgramData "AL-NASR/data/alnasr.sqlite"
@@ -109,7 +109,7 @@ jobs:
               try { $health = Invoke-RestMethod -Uri "http://127.0.0.1:4317/api/v1/health" -TimeoutSec 2; break }
               catch { Start-Sleep -Seconds 1 }
             }
-            if ($null -eq $health -or $health.status -ne "ok" -or $health.database -ne "sqlite" -or $health.schemaVersion -ne 7) {
+            if ($null -eq $health -or $health.status -ne "ok" -or $health.database -ne "sqlite" -or $health.schemaVersion -ne 8) {
               throw "Installed app health check failed: $($health | ConvertTo-Json -Compress)"
             }
           } finally {

@@ -16,6 +16,7 @@ import { createPurchase, listPurchases, postPurchase } from "./purchases/purchas
 import { listSalePayments, recordSalePayment } from "./payments/payments.js";
 import { getSupplierStatement } from "./reports/supplier-statement.js";
 import { getCustomerStatement } from "./reports/customer-statement.js";
+import { getTrialBalance, listAccounts, listJournalEntries } from "./accounting/journal.js";
 import { listPurchasePayments, recordPurchasePayment } from "./payments/purchase-payments.js";
 import { createCustomer, createSupplier, deactivateCustomer, deactivateSupplier, listCustomers, listSuppliers, updateCustomer, updateSupplier } from "./partners/partners.js";
 
@@ -691,6 +692,30 @@ export function buildServer() {
 
 
 
+
+  app.get("/api/v1/accounting/accounts", async (request, reply) => {
+    if (!authorize(request, reply, "accounting:read")) return;
+    return { items: listAccounts(db) };
+  });
+
+  app.get("/api/v1/accounting/trial-balance", async (request, reply) => {
+    if (!authorize(request, reply, "accounting:read")) return;
+    const query = z.object({ asOf: z.string().optional() }).safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: "invalid_query" });
+    const asOf = query.data.asOf ?? new Date().toISOString().slice(0, 10);
+    try { return getTrialBalance(db, asOf); }
+    catch (error) { if (error instanceof Error && error.message.includes("date")) return reply.code(400).send({ error: "invalid_date" }); throw error; }
+  });
+
+  app.get("/api/v1/accounting/journals", async (request, reply) => {
+    if (!authorize(request, reply, "accounting:read")) return;
+    const query = z.object({
+      limit: z.coerce.number().int().min(1).max(200).default(100),
+      offset: z.coerce.number().int().min(0).default(0)
+    }).safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: "invalid_query" });
+    return { items: listJournalEntries(db, query.data.limit, query.data.offset) };
+  });
 
   app.get("/api/v1/cash/register", async (request, reply) => {
     if (!authorize(request, reply, "cash:read")) return;
