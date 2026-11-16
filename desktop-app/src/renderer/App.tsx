@@ -431,7 +431,7 @@ export default function App() {
               <button className="primary action-button" disabled={posBusy || Object.keys(posCart).length === 0 || !user?.permissions.includes("sales:create") || !user?.permissions.includes("sales:post") || !user?.permissions.includes("sales:pay")} onClick={() => void completePosSale()}>{posBusy ? "جارٍ إكمال البيع..." : "إتمام البيع والتحصيل نقداً"}</button></div>
             {!user?.permissions.includes("sales:pay") && <p className="muted">حسابك لا يملك صلاحية تسجيل التحصيل النقدي.</p>}
           </section>
-        </> : activeView === "purchases" ? <PurchasesView token={token} canWrite={Boolean(user?.permissions.includes("purchases:write"))} /> : <>
+        </> : activeView === "purchases" ? <PurchasesView token={token} canWrite={Boolean(user?.permissions.includes("purchases:write"))} canPay={Boolean(user?.permissions.includes("purchases:pay"))} /> : <>
           <div className="list-toolbar"><div><h2>{title}</h2><p>بيانات محفوظة في قاعدة SQLite المحلية{activeView === "inventory" && warehouses[0] ? " · " + (warehouses.find(item => item.id === selectedWarehouseId)?.name ?? warehouses[0].name) : ""}.</p></div>
             {canWrite && <button className="primary action-button" onClick={() => { setFormOpen(value => !value); setForm({ ...emptyForm, productId: productOptions[0]?.id ?? "" }); setError(""); }}>
               {formOpen ? "إغلاق النموذج" : "إضافة سجل جديد"}

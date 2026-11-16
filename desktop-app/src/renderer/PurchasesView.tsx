@@ -7,11 +7,18 @@ type Store = { id: string; name: string };
 type PurchaseRecord = {
   id: string; document_no: string; status: "draft" | "posted" | "voided";
   supplier_name: string; warehouse_name: string; total_minor: number;
-  line_count: number; unit_count: number; created_at: string;
+  line_count: number; unit_count: number; paid_minor: number; outstanding_minor: number; created_at: string;
+};
+type PurchasePayment = {
+  id: string; purchase_id: string; method: "cash" | "card" | "bank_transfer" | "mobile_wallet";
+  amount_minor: number; reference: string | null; created_at: string;
+};
+type PurchasePaymentSummary = {
+  items: PurchasePayment[]; totalMinor: number; paidMinor: number; outstandingMinor: number; status: string;
 };
 type CartLine = { quantity: number; unitCostMinor: number };
 
-export default function PurchasesView({ token, canWrite }: { token: string; canWrite: boolean }) {
+export default function PurchasesView({ token, canWrite, canPay }: { token: string; canWrite: boolean; canPay: boolean }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseRecord[]>([]);
@@ -23,6 +30,12 @@ export default function PurchasesView({ token, canWrite }: { token: string; canW
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [selectedPurchaseId, setSelectedPurchaseId] = useState("");
+  const [paymentSummary, setPaymentSummary] = useState<PurchasePaymentSummary | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PurchasePayment["method"]>("cash");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentBusy, setPaymentBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -117,6 +130,69 @@ export default function PurchasesView({ token, canWrite }: { token: string; canW
     } finally { setBusy(false); }
   }
 
+  async function openPurchasePayments(purchase: PurchaseRecord) {
+    setSelectedPurchaseId(purchase.id);
+    setPaymentSummary(null);
+    setPaymentAmount(String(purchase.outstanding_minor));
+    setPaymentReference("");
+    setError("");
+    const response = await window.alnasr.request<PurchasePaymentSummary>({
+      path: `/api/v1/purchases/${purchase.id}/payments`, token
+    });
+    if (response.status !== 200) {
+      setError("تعذر تحميل سجل دفعات فاتورة الشراء.");
+      return;
+    }
+    setPaymentSummary(response.data);
+    setPaymentAmount(String(response.data.outstandingMinor));
+  }
+
+  async function recordSupplierPayment() {
+    if (!canPay || !selectedPurchaseId) {
+      setError("حسابك لا يملك صلاحية سداد الموردين.");
+      return;
+    }
+    const amountMinor = Number(paymentAmount);
+    if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0) {
+      setError("أدخل مبلغ سداد صحيحاً أكبر من صفر.");
+      return;
+    }
+    setPaymentBusy(true); setError(""); setNotice("");
+    try {
+      const response = await window.alnasr.request<{ payment: {
+        amountMinor: number; paidMinor: number; outstandingMinor: number; duplicate: boolean
+      } }>({
+        path: `/api/v1/purchases/${selectedPurchaseId}/payments`,
+        method: "POST", token,
+        body: {
+          method: paymentMethod, amountMinor,
+          reference: paymentReference.trim() || null,
+          idempotencyKey: crypto.randomUUID()
+        }
+      });
+      if (response.status !== 201 && response.status !== 200) {
+        const body = response.data as { message?: string };
+        throw new Error(body.message ?? "تعذر تسجيل دفعة المورد.");
+      }
+      const payment = response.data.payment;
+      setNotice(`تم تسجيل السداد. المدفوع: ${new Intl.NumberFormat("ar-YE").format(payment.paidMinor)}، المتبقي: ${new Intl.NumberFormat("ar-YE").format(payment.outstandingMinor)}`);
+      const [history, summary] = await Promise.all([
+        window.alnasr.request<{ items: PurchaseRecord[] }>({ path: "/api/v1/purchases?limit=20", token }),
+        window.alnasr.request<PurchasePaymentSummary>({ path: `/api/v1/purchases/${selectedPurchaseId}/payments`, token })
+      ]);
+      if (history.status === 200) setPurchaseHistory(history.data.items);
+      if (summary.status === 200) {
+        setPaymentSummary(summary.data);
+        setPaymentAmount(String(summary.data.outstandingMinor));
+      }
+      setPaymentReference("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "تعذر تسجيل دفعة المورد.");
+    } finally {
+      setPaymentBusy(false);
+    }
+  }
+
   if (loading) return <section className="data-panel"><div className="empty-state">جارٍ تحميل بيانات المشتريات...</div></section>;
 
   return <>
@@ -126,15 +202,38 @@ export default function PurchasesView({ token, canWrite }: { token: string; canW
     <section className="data-panel">
       <div className="section-heading"><h2>سجل فواتير الشراء</h2><p>آخر 20 فاتورة مسجلة في قاعدة البيانات المحلية.</p></div>
       {purchaseHistory.length === 0 ? <div className="empty-state">لا توجد فواتير شراء مسجلة حتى الآن.</div> :
-        <div className="table-scroll"><table className="data-table"><thead><tr><th>رقم الفاتورة</th><th>المورد</th><th>المستودع</th><th>الأصناف</th><th>الوحدات</th><th>الإجمالي</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>
+        <div className="table-scroll"><table className="data-table"><thead><tr><th>رقم الفاتورة</th><th>المورد</th><th>المستودع</th><th>الأصناف</th><th>الوحدات</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>التاريخ</th><th>الحساب</th></tr></thead><tbody>
           {purchaseHistory.map(item => <tr key={item.id}>
             <td dir="ltr">{item.document_no}</td><td>{item.supplier_name}</td><td>{item.warehouse_name}</td>
             <td>{item.line_count}</td><td>{item.unit_count}</td>
             <td>{new Intl.NumberFormat("ar-YE").format(item.total_minor)}</td>
+            <td>{new Intl.NumberFormat("ar-YE").format(item.paid_minor)}</td>
+            <td>{new Intl.NumberFormat("ar-YE").format(item.outstanding_minor)}</td>
             <td>{item.status === "posted" ? "مرحّلة" : item.status === "draft" ? "مسودة" : "ملغاة"}</td>
             <td dir="ltr">{new Date(item.created_at).toLocaleString("ar-YE")}</td>
+            <td><button className="table-action" onClick={() => void openPurchasePayments(item)}>الدفعات</button></td>
           </tr>)}
         </tbody></table></div>}
+      {selectedPurchaseId && <div className="record-form" style={{ marginTop: "1rem" }}>
+        <div>
+          <h3>حساب المورد للفاتورة المحددة</h3>
+          {paymentSummary ? <p>إجمالي الفاتورة: {new Intl.NumberFormat("ar-YE").format(paymentSummary.totalMinor)} · المدفوع: {new Intl.NumberFormat("ar-YE").format(paymentSummary.paidMinor)} · المتبقي: {new Intl.NumberFormat("ar-YE").format(paymentSummary.outstandingMinor)}</p> : <p>جارٍ تحميل كشف الدفعات...</p>}
+        </div>
+        {paymentSummary && <div className="table-scroll"><table className="data-table"><thead><tr><th>التاريخ</th><th>الطريقة</th><th>المبلغ</th><th>المرجع</th></tr></thead><tbody>
+          {paymentSummary.items.map(item => <tr key={item.id}><td dir="ltr">{new Date(item.created_at).toLocaleString("ar-YE")}</td><td>{item.method}</td><td>{new Intl.NumberFormat("ar-YE").format(item.amount_minor)}</td><td>{item.reference || "—"}</td></tr>)}
+          {paymentSummary.items.length === 0 && <tr><td colSpan={4}>لا توجد دفعات مسجلة لهذه الفاتورة.</td></tr>}
+        </tbody></table></div>}
+        {paymentSummary && paymentSummary.status === "posted" && paymentSummary.outstandingMinor > 0 && <div className="record-form">
+          <label>مبلغ السداد<input type="number" min="1" max={paymentSummary.outstandingMinor} step="1" value={paymentAmount} disabled={!canPay || paymentBusy} onChange={event => setPaymentAmount(event.target.value)} /></label>
+          <label>طريقة الدفع<select value={paymentMethod} disabled={!canPay || paymentBusy} onChange={event => setPaymentMethod(event.target.value as PurchasePayment["method"])}>
+            <option value="cash">نقداً</option><option value="bank_transfer">تحويل بنكي</option><option value="card">بطاقة</option><option value="mobile_wallet">محفظة إلكترونية</option>
+          </select></label>
+          <label>مرجع العملية (اختياري)<input value={paymentReference} maxLength={120} disabled={!canPay || paymentBusy} onChange={event => setPaymentReference(event.target.value)} /></label>
+          <button className="primary action-button" disabled={!canPay || paymentBusy || !paymentAmount} onClick={() => void recordSupplierPayment()}>{paymentBusy ? "جارٍ تسجيل السداد..." : "تسجيل دفعة المورد"}</button>
+        </div>}
+        {!canPay && <p className="muted">يمكنك عرض كشف الحساب، لكن حسابك لا يملك صلاحية تسجيل دفعات الموردين.</p>}
+        {paymentSummary && paymentSummary.outstandingMinor === 0 && <p className="success-note">تم سداد الفاتورة بالكامل.</p>}
+      </div>}
     </section>
     <section className="data-panel">
       <div className="section-heading"><h2>بيانات الفاتورة</h2><p>يتم ترحيل الفاتورة كاملة في معاملة مخزون واحدة.</p></div>
