@@ -65,8 +65,8 @@ export function createSaleReturn(
   if (input.reason.length > 240 || input.idempotencyKey.length > 160) throw new Error("Return reason or idempotency key is too long.");
   const create = db.transaction((): CreateSaleReturnResult => {
     const existing = db.prepare(`
-      SELECT id, sale_id, subtotal_minor FROM sale_returns WHERE idempotency_key = ?
-    `).get(input.idempotencyKey) as { id: string; sale_id: string; subtotal_minor: number } | undefined;
+      SELECT id, document_no, sale_id, subtotal_minor, reason FROM sale_returns WHERE idempotency_key = ?
+    `).get(input.idempotencyKey) as { id: string; document_no: string; sale_id: string; subtotal_minor: number; reason: string } | undefined;
     if (existing) {
       const oldLines = db.prepare(
         "SELECT sale_line_id, quantity FROM sale_return_lines WHERE sale_return_id = ? ORDER BY rowid"
@@ -74,9 +74,15 @@ export function createSaleReturn(
       const sameLines = oldLines.length === input.lines.length && oldLines.every((line, i) =>
         line.sale_line_id === input.lines[i]!.saleLineId && line.quantity === input.lines[i]!.quantity
       );
-      const { originals } = assertReturnAvailability(db, input.saleId, input.lines);
-      const subtotal = originals.reduce((sum, original, i) => sum + original.unit_price_minor * input.lines[i]!.quantity, 0);
-      if (existing.sale_id !== input.saleId || existing.subtotal_minor !== subtotal || !sameLines) {
+      const sale = db.prepare("SELECT status FROM sales WHERE id = ?").get(input.saleId) as { status: string } | undefined;
+      if (!sale || sale.status !== "posted") throw new Error("Returns are only allowed for a posted sale.");
+      const originals = input.lines.map(line => db.prepare(
+        "SELECT id, product_id, quantity, unit_price_minor FROM sale_lines WHERE id = ? AND sale_id = ?"
+      ).get(line.saleLineId, input.saleId) as OriginalLine | undefined);
+      if (originals.some(line => !line)) throw new Error("Return line does not belong to the selected sale.");
+      const subtotal = originals.reduce((sum, original, i) => sum + original!.unit_price_minor * input.lines[i]!.quantity, 0);
+      if (existing.sale_id !== input.saleId || existing.document_no !== input.documentNo ||
+          existing.reason !== input.reason.trim() || existing.subtotal_minor !== subtotal || !sameLines) {
         throw new Error("Sales return idempotency key conflict.");
       }
       return { returnId: existing.id, saleId: input.saleId, subtotalMinor: subtotal, totalMinor: subtotal, duplicate: true };
@@ -131,7 +137,8 @@ export function postSaleReturn(
       FROM sale_return_lines srl JOIN sale_lines sl ON sl.id = srl.sale_line_id
       WHERE srl.sale_return_id = ? ORDER BY srl.rowid
     `).all(returnId) as Array<{ id: string; sale_line_id: string; product_id: string; quantity: number; original_line_id: string }>;
-    assertReturnAvailability(db, record.sale_id, lines.map(line => ({ saleLineId: line.sale_line_id, quantity: line.quantity })));
+    const sale = db.prepare("SELECT status FROM sales WHERE id = ?").get(record.sale_id) as { status: string } | undefined;
+    if (!sale || sale.status !== "posted") throw new Error("Returns are only allowed for a posted sale.");
     for (const line of lines) {
       const originalMovement = db.prepare(`
         SELECT unit_cost_minor FROM stock_ledger
@@ -153,4 +160,23 @@ export function postSaleReturn(
     return { returnId, status: "posted" as const, duplicate: false };
   });
   return post();
+}
+
+export function voidSaleReturn(
+  db: Database.Database, returnId: string, actorUserId?: string | null
+): { returnId: string; status: "voided"; duplicate: boolean } {
+  const voidReturn = db.transaction(() => {
+    const record = db.prepare("SELECT id, status FROM sale_returns WHERE id = ?")
+      .get(returnId) as { id: string; status: string } | undefined;
+    if (!record) throw new Error("Sales return not found.");
+    if (record.status === "voided") return { returnId, status: "voided" as const, duplicate: true };
+    if (record.status !== "draft") throw new Error("Only a draft sales return can be voided.");
+    db.prepare("UPDATE sale_returns SET status = 'voided' WHERE id = ? AND status = 'draft'").run(returnId);
+    db.prepare(`
+      INSERT INTO audit_events(id, actor_user_id, action, entity_type, entity_id, payload_json)
+      VALUES (?, ?, 'sale.return.voided', 'sale_return', ?, '{}')
+    `).run(randomUUID(), actorUserId ?? null, returnId);
+    return { returnId, status: "voided" as const, duplicate: false };
+  });
+  return voidReturn();
 }
