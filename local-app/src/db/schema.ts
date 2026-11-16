@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 const migrationV1 = `
 CREATE TABLE IF NOT EXISTS app_meta (
@@ -379,4 +379,44 @@ INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
 
 export function applySchemaV6(db: Database.Database): void {
   db.exec(migrationV6);
+}
+
+const migrationV7 = `
+CREATE TABLE IF NOT EXISTS cash_register_sessions (
+  id TEXT PRIMARY KEY,
+  store_id TEXT NOT NULL REFERENCES stores(id) ON DELETE RESTRICT,
+  opened_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  closed_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
+  opening_float_minor INTEGER NOT NULL CHECK (opening_float_minor >= 0),
+  counted_cash_minor INTEGER CHECK (counted_cash_minor IS NULL OR counted_cash_minor >= 0),
+  expected_cash_minor INTEGER, variance_minor INTEGER,
+  status TEXT NOT NULL CHECK (status IN ('open', 'closed')),
+  opening_note TEXT, closing_note TEXT,
+  opened_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  closed_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cash_sessions_one_open_per_store ON cash_register_sessions(store_id) WHERE status = 'open';
+CREATE INDEX IF NOT EXISTS idx_cash_sessions_store_opened ON cash_register_sessions(store_id, opened_at DESC);
+CREATE TABLE IF NOT EXISTS cash_register_movements (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES cash_register_sessions(id) ON DELETE RESTRICT,
+  direction TEXT NOT NULL CHECK (direction IN ('in', 'out')),
+  movement_type TEXT NOT NULL CHECK (movement_type IN ('sale_receipt', 'purchase_payment', 'manual_in', 'manual_out')),
+  amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+  description TEXT NOT NULL, source_id TEXT,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  actor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_cash_movements_session_created ON cash_register_movements(session_id, created_at, id);
+INSERT OR IGNORE INTO permissions(code, description) VALUES ('cash:read', 'View cash register sessions and movements'), ('cash:manage', 'Open, move, and close cash register sessions');
+INSERT OR IGNORE INTO role_permissions(role_id, permission_code) VALUES
+ ('role-owner', 'cash:read'), ('role-owner', 'cash:manage'),
+ ('role-admin', 'cash:read'), ('role-admin', 'cash:manage'),
+ ('role-cashier', 'cash:read'), ('role-cashier', 'cash:manage'),
+ ('role-accountant', 'cash:read');
+`;
+
+export function applySchemaV7(db: Database.Database): void {
+  db.exec(migrationV7);
 }
