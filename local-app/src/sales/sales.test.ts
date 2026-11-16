@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
-import { applySchemaV1, applySchemaV2, applySchemaV3, applySchemaV4, applySchemaV5, applySchemaV6 } from "../db/schema.js";
+import { applySchemaV1, applySchemaV2, applySchemaV3, applySchemaV4, applySchemaV5, applySchemaV6, applySchemaV7, applySchemaV8 } from "../db/schema.js";
 import { getStockBalance, postStockMovement } from "../inventory/stock-ledger.js";
 import { createSale, postSale } from "./sales.js";
 import { createSaleReturn, postSaleReturn, voidSaleReturn } from "./sales-returns.js";
@@ -17,6 +17,8 @@ describe("POS sale lifecycle", () => {
     applySchemaV4(db);
     applySchemaV5(db);
     applySchemaV6(db);
+    applySchemaV7(db);
+    applySchemaV8(db);
     db.prepare("INSERT INTO stores(id, name) VALUES ('store-1', 'Store')").run();
     db.prepare("INSERT INTO warehouses(id, store_id, code, name) VALUES ('wh-1', 'store-1', 'MAIN', 'Main')").run();
     db.prepare("INSERT INTO products(id, sku, name_ar, base_unit, cost_price_minor) VALUES ('prod-1', 'SKU-1', 'منتج', 'piece', 100)").run();
